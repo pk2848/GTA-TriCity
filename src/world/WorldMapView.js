@@ -205,6 +205,13 @@ export class WorldMapView {
       const route = data.routes[0];
       const coordinates = route.geometry?.coordinates || [];
       if (coordinates.length < 2) throw new Error('The routing service returned an empty route.');
+      // Route engines snap pins to the nearest routable road. Use that snapped coordinate
+      // for navigation progress and the 3D arrival beacon so a pin in a lake/building
+      // does not create an unreachable arrival target.
+      const snapped = data.waypoints?.[1]?.location;
+      const navigationDestination = snapped
+        ? { lat: snapped[1], lon: snapped[0] }
+        : destination;
       const latLngs = coordinates.map(([lon, lat]) => [lat, lon]);
       if (this.routeLayer) this.map.removeLayer(this.routeLayer);
       this.routeLayer = L.polyline(latLngs, {
@@ -212,10 +219,14 @@ export class WorldMapView {
       }).addTo(this.map);
       this.routeLayer.bringToFront();
       this.playerMarker.bringToFront();
-      this.destinationMarker.setPopupContent('<strong>Destination pinned</strong><br>Driving route ready.');
+      this.destinationMarker.setLatLng([navigationDestination.lat, navigationDestination.lon]);
+      this.destinationMarker.setPopupContent(snapped
+        ? '<strong>Destination pinned</strong><br>Route endpoint snapped to the nearest drivable road.'
+        : '<strong>Destination pinned</strong><br>Driving route ready.');
       const steps = route.legs?.flatMap(leg => leg.steps || []) || [];
       this.route = {
-        destination,
+        destination: navigationDestination,
+        selectedDestination: destination,
         coordinates,
         worldPoints: coordinates.map(([lon, lat]) => geoToWorld(lat, lon)),
         steps,
@@ -228,10 +239,11 @@ export class WorldMapView {
         duration: route.duration || 0,
         isArrived: false
       };
-      const destinationWorld = geoToWorld(destination.lat, destination.lon);
+      const destinationWorld = geoToWorld(navigationDestination.lat, navigationDestination.lon);
       this.onRouteChange({
         active: true,
-        destination,
+        destination: navigationDestination,
+        selectedDestination: destination,
         destinationWorld,
         worldPoints: this.route.worldPoints,
         distance: this.route.distance,
