@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#101a1d" />
+  <meta name="description" content="Tricity Drive — a browser-based open-world driving prototype for Chandigarh and Mohali." />
+  <title>Tricity Drive — Chandigarh × Mohali</title>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="hud">
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH × MOHALI · BUILD 0.2</small></div></div>
+    <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
+    <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">SECTOR 17</b></span></div>
+    <div class="map-panel">
+      <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
+      <div id="map-counts">0 chunks · 0 roads · 0 buildings</div>
+      <button id="retry-map" type="button">RETRY CURRENT AREA ↻</button>
+    </div>
+    <div class="help">WASD / ARROWS <i>DRIVE</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; SHIFT <i>BOOST</i> &nbsp; R <i>RESET</i> &nbsp; MOUSE DRAG <i>LOOK</i></div>
+  </div>
+  <div id="crosshair">+</div>
+  <div id="toast">The real map loads as you explore. Connect to the internet to fetch OpenStreetMap data.</div>
+  <div id="minimap-wrap"><canvas id="minimap" width="180" height="180"></canvas><span>N</span></div>
+  <div id="osm-credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · ODbL</div>
+  <div id="start-screen">
+    <div class="start-card">
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.2</div>
+      <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
+      <p>Drive through a live, progressively loaded 3D map. Real OpenStreetMap roads and building footprints are converted into the game world around you.</p>
+      <div class="start-meta"><span>SECTOR 17 START</span><span>REAL MAP STREAMING</span></div>
+      <button id="start" type="button">ENTER THE CITY <span>→</span></button>
+      <small>Desktop recommended · Internet connection required for live map data. This is a prototype blockout, not a finished GTA-quality city.</small>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
