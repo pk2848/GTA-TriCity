@@ -113,7 +113,7 @@ export class VehiclePhysics {
     this.raycastVehicle.setSteeringValue(this.steering, 0);
     this.raycastVehicle.setSteeringValue(this.steering, 1);
 
-    const baseEngineForce = 5200 * condition;
+    const baseEngineForce = 5200 * condition * (controls.boost ? 1.16 : 1);
     const engineForce = throttle * baseEngineForce * (nitro && throttle > 0 ? 1.85 : 1);
     this.raycastVehicle.applyEngineForce(-engineForce, 2);
     this.raycastVehicle.applyEngineForce(-engineForce, 3);
