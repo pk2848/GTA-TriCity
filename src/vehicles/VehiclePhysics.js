@@ -67,10 +67,10 @@ export class VehiclePhysics {
 
     // Front wheels steer. Rear wheels receive engine force.
     const wheelConnections = [
-      [-0.88, -0.06, -1.38],
-      [0.88, -0.06, -1.38],
-      [-0.88, -0.06, 1.36],
-      [0.88, -0.06, 1.36]
+      [-0.88, -0.16, -1.38],
+      [0.88, -0.16, -1.38],
+      [-0.88, -0.16, 1.36],
+      [0.88, -0.16, 1.36]
     ];
     wheelConnections.forEach(([x, y, z], index) => {
       wheelOptions.chassisConnectionPointLocal.set(x, y, z);
@@ -84,6 +84,8 @@ export class VehiclePhysics {
     this.heading = 0;
     this.nitroMultiplier = 1;
     this.accumulator = 0;
+    this.obstacleIds = new Set();
+    this.obstacleBodies = [];
     this.reset();
   }
 
@@ -171,6 +173,27 @@ export class VehiclePhysics {
     }
   }
 
+  addBuildingObstacles(obstacles = [], tileKey = '') {
+    let added = 0;
+    for (const obstacle of obstacles) {
+      const id = String(obstacle.id || `${tileKey}:${obstacle.x}:${obstacle.z}`);
+      if (this.obstacleIds.has(id)) continue;
+      const width = Number(obstacle.width), depth = Number(obstacle.depth), height = Number(obstacle.height);
+      if (![obstacle.x, obstacle.z, width, depth, height].every(Number.isFinite)) continue;
+      if (width < 2.2 || depth < 2.2 || width > 120 || depth > 120 || height < 2.5) continue;
+      const body = new CANNON.Body({ mass: 0, material: this.groundMaterial });
+      body.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)));
+      body.position.set(obstacle.x, (Number(obstacle.minHeight) || 0) + height / 2, obstacle.z);
+      body.quaternion.setFromEuler(0, Number(obstacle.yaw) || 0, 0);
+      body.userData = { kind: 'building', osmId: id };
+      this.world.addBody(body);
+      this.obstacleIds.add(id);
+      this.obstacleBodies.push(body);
+      added++;
+    }
+    return added;
+  }
+
   applyImpact(intensity = 0.5, direction = 1) {
     const amount = clamp(intensity, 0, 1);
     this.chassisBody.velocity.scale(1 - amount * 0.74, this.chassisBody.velocity);
@@ -189,5 +212,8 @@ export class VehiclePhysics {
 
   dispose() {
     this.raycastVehicle.removeFromWorld(this.world);
+    for (const body of this.obstacleBodies) this.world.removeBody(body);
+    this.obstacleBodies.length = 0;
+    this.obstacleIds.clear();
   }
 }
