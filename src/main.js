@@ -46,7 +46,10 @@ const vehicle = new THREE.Group();
 vehicle.name = 'player-vehicle';
 scene.add(vehicle);
 const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1b5360, metalness: 0.48, roughness: 0.3 });
-const glassMat = new THREE.MeshStandardMaterial({ color: 0x283b40, metalness: 0.25, roughness: 0.24 });
+const roofMat = new THREE.MeshStandardMaterial({ color: 0x194958, metalness: 0.38, roughness: 0.34 });
+const glassMat = new THREE.MeshStandardMaterial({ color: 0x172c35, metalness: 0.32, roughness: 0.2 });
+const trimMat = new THREE.MeshStandardMaterial({ color: 0x20282b, roughness: 0.65 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: 0x9ba8aa, metalness: 0.78, roughness: 0.24 });
 const tireMat = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness: 0.82 });
 const rimMat = new THREE.MeshStandardMaterial({ color: 0x9ca6a4, metalness: 0.7, roughness: 0.28 });
 function addBox(parent, w, h, d, material, x, y, z) {
@@ -57,9 +60,27 @@ function addBox(parent, w, h, d, material, x, y, z) {
   parent.add(mesh);
   return mesh;
 }
+// Compact Chandigarh street SUV body with separate bonnet, cabin, glass and trim.
 addBox(vehicle, 2.05, 0.66, 4.25, bodyMat, 0, 0.98, 0);
+addBox(vehicle, 1.94, 0.28, 1.15, roofMat, 0, 1.34, -1.42);
+addBox(vehicle, 1.92, 0.3, 0.92, roofMat, 0, 1.3, 1.52);
 addBox(vehicle, 1.72, 0.78, 2.05, glassMat, 0, 1.63, -0.12);
-addBox(vehicle, 1.78, 0.1, 1.45, new THREE.MeshStandardMaterial({ color: 0xa8c2c3, roughness: 0.2, metalness: 0.18 }), 0, 2.02, -0.12);
+addBox(vehicle, 1.78, 0.14, 1.52, roofMat, 0, 2.02, -0.12);
+addBox(vehicle, 1.76, 0.1, 0.08, trimMat, 0, 1.66, -1.18);
+addBox(vehicle, 1.76, 0.1, 0.08, trimMat, 0, 1.62, 0.92);
+for (const side of [-1, 1]) {
+  addBox(vehicle, 0.075, 0.58, 1.42, trimMat, side * 0.89, 1.61, -0.08);
+  addBox(vehicle, 0.08, 0.14, 0.62, chromeMat, side * 1.03, 0.92, 0.05);
+  addBox(vehicle, 0.16, 0.12, 0.28, trimMat, side * 1.1, 1.47, -0.62);
+}
+addBox(vehicle, 1.12, 0.22, 0.075, trimMat, 0, 0.9, -2.18);
+addBox(vehicle, 1.45, 0.14, 0.1, chromeMat, 0, 0.63, -2.17);
+addBox(vehicle, 1.7, 0.16, 0.11, trimMat, 0, 0.63, 2.16);
+addBox(vehicle, 1.55, 0.1, 0.07, chromeMat, 0, 1.0, 2.14);
+for (const side of [-0.78, 0.78]) {
+  addBox(vehicle, 0.42, 0.19, 0.075, new THREE.MeshBasicMaterial({ color: 0xfff0c4 }), side, 1.08, -2.18);
+  addBox(vehicle, 0.36, 0.2, 0.075, new THREE.MeshBasicMaterial({ color: 0xd9342c }), side, 1.0, 2.18);
+}
 const wheels = [];
 const frontWheels = [];
 for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
@@ -75,6 +96,7 @@ for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
 for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshBasicMaterial({ color: 0xffe9ba }), x, 1.04, -2.16);
 
 const vehiclePhysics = new VehiclePhysics();
+vehiclePhysics.syncVisuals(vehicle, wheels);
 
 // Twin exhaust flames illuminate only while N-key nitro is engaged.
 const nitroFlames = new THREE.Group();
@@ -355,7 +377,7 @@ function animate() {
     const steer = (left ? 1 : 0) - (right ? 1 : 0);
 
     // Cannon RaycastVehicle now owns engine force, braking, grip and suspension.
-    nitroActive = Boolean(keys.KeyN && nitroFuel > 0);
+    nitroActive = Boolean(keys.KeyN && nitroFuel > 0 && forward);
     if (nitroActive) nitroFuel = Math.max(0, nitroFuel - 30 * dt);
     else nitroFuel = Math.min(100, nitroFuel + 8 * dt);
 
@@ -364,6 +386,7 @@ function animate() {
       steer,
       brake: Boolean(keys.Space),
       nitro: nitroActive,
+      boost: Boolean(keys.ShiftLeft || keys.ShiftRight),
       condition: vehicleCondition
     });
     vehiclePhysics.syncVisuals(vehicle, wheels);
