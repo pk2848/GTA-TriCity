@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { OSMStreamer, CITY_ORIGIN } from './world/OSMStreamer.js';
+import { WorldMapView } from './world/WorldMapView.js';
+import 'leaflet/dist/leaflet.css';
 import './style.css';
 
 const root = document.querySelector('#game');
@@ -87,9 +89,10 @@ const streamer = new OSMStreamer(scene,
     toast.textContent = status;
   },
   counts => {
-    mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings`;
+    mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
   }
 );
+const mapView = new WorldMapView();
 
 let speed = 0;
 let heading = 0;
@@ -99,6 +102,9 @@ let cameraYaw = 0;
 let cameraPitch = 0.12;
 const keys = Object.create(null);
 addEventListener('keydown', event => {
+  if (event.code === 'KeyM' && !event.repeat) { mapView.toggle(); event.preventDefault(); return; }
+  if (event.code === 'Escape' && mapView.isOpen) { mapView.close(); return; }
+  if (mapView.isOpen) return;
   keys[event.code] = true;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
   if (event.code === 'KeyR') resetVehicle();
@@ -111,18 +117,26 @@ function resetVehicle() {
 }
 
 let dragging = false, lastX = 0, lastY = 0;
+renderer.domElement.style.cursor = 'grab';
+renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
 renderer.domElement.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
   dragging = true; lastX = event.clientX; lastY = event.clientY;
+  renderer.domElement.style.cursor = 'grabbing';
   renderer.domElement.setPointerCapture(event.pointerId);
 });
-renderer.domElement.addEventListener('pointerup', () => { dragging = false; });
-renderer.domElement.addEventListener('pointercancel', () => { dragging = false; });
+renderer.domElement.addEventListener('pointerup', () => { dragging = false; renderer.domElement.style.cursor = 'grab'; });
+renderer.domElement.addEventListener('pointercancel', () => { dragging = false; renderer.domElement.style.cursor = 'grab'; });
 renderer.domElement.addEventListener('pointermove', event => {
-  if (!dragging) return;
-  cameraYaw -= (event.clientX - lastX) * 0.004;
-  cameraPitch = THREE.MathUtils.clamp(cameraPitch + (event.clientY - lastY) * 0.002, -0.05, 0.55);
+  if (!dragging || mapView.isOpen) return;
+  cameraYaw -= (event.clientX - lastX) * 0.005;
+  cameraPitch = THREE.MathUtils.clamp(cameraPitch + (event.clientY - lastY) * 0.003, -0.12, 0.68);
   lastX = event.clientX; lastY = event.clientY;
 });
+let cameraDistance = 14;
+renderer.domElement.addEventListener('wheel', event => {
+  cameraDistance = THREE.MathUtils.clamp(cameraDistance + event.deltaY * 0.012, 7.5, 32);
+}, { passive: true });
 
 document.querySelector('#start').addEventListener('click', () => {
   started = true;
@@ -162,6 +176,7 @@ function drawMinimap() {
 
 const clock = new THREE.Clock();
 let mapCheckElapsed = 0;
+let mapUiElapsed = 0;
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
@@ -196,9 +211,14 @@ function animate() {
     document.querySelector('#speed').textContent = String(Math.round(Math.abs(speed) * 3.6)).padStart(3, '0');
     document.querySelector('#area').textContent = areaName();
   }
+  mapUiElapsed += dt;
+  if (mapUiElapsed > 0.12) {
+    mapView.update(vehicle.position.x, vehicle.position.z, heading);
+    mapUiElapsed = 0;
+  }
   const target = new THREE.Vector3(vehicle.position.x, 2.1, vehicle.position.z);
-  const distance = 13.5;
-  const behind = new THREE.Vector3(Math.sin(heading + cameraYaw) * distance, 5.3 + cameraPitch * 10, Math.cos(heading + cameraYaw) * distance);
+  const distance = cameraDistance;
+  const behind = new THREE.Vector3(Math.sin(heading + cameraYaw) * distance, 4.7 + cameraPitch * 12, Math.cos(heading + cameraYaw) * distance);
   const desired = target.clone().add(behind);
   camera.position.lerp(desired, 0.085);
   camera.lookAt(target.clone().add(new THREE.Vector3(0, 1.0, 0)));
