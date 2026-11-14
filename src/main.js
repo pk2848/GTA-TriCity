@@ -345,18 +345,58 @@ function animate() {
     const reverse = keys.KeyS || keys.ArrowDown;
     const left = keys.KeyA || keys.ArrowLeft;
     const right = keys.KeyD || keys.ArrowRight;
+    const steer = (left ? 1 : 0) - (right ? 1 : 0);
+
+    // Up/W always accelerates along the car's current nose direction (-local Z).
     if (forward) speed += 22 * dt;
     else if (reverse) speed -= 16 * dt;
     else speed *= Math.pow(0.982, dt * 60);
     if (keys.Space) speed *= Math.pow(0.87, dt * 60);
-    if (keys.ShiftLeft || keys.ShiftRight) speed += Math.sign(speed || 1) * 7 * dt;
-    speed = THREE.MathUtils.clamp(speed, -12, 38);
-    const steer = (left ? 1 : 0) - (right ? 1 : 0);
-    if (Math.abs(speed) > 0.2) heading += steer * dt * (1.5 + Math.min(Math.abs(speed) / 24, 1.1)) * Math.sign(speed);
+
+    // N is a finite nitro charge. It works from a standstill and boosts in the
+    // current travel direction; releasing N lets the tank recharge slowly.
+    nitroActive = Boolean(keys.KeyN && nitroFuel > 0);
+    if (nitroActive) {
+      const travelDirection = speed < -0.5 ? -1 : 1;
+      speed += travelDirection * 42 * dt;
+      nitroFuel = Math.max(0, nitroFuel - 34 * dt);
+    } else {
+      nitroFuel = Math.min(100, nitroFuel + 10 * dt);
+    }
+    if (keys.ShiftLeft || keys.ShiftRight) speed += Math.sign(speed || 1) * 5 * dt;
+    const conditionFactor = 0.62 + 0.38 * (vehicleCondition / 100);
+    speed = THREE.MathUtils.clamp(speed, -12, (nitroActive ? 72 : 42) * conditionFactor);
+
+    if (Math.abs(speed) > 0.2) heading += steer * dt * (1.5 + Math.min(Math.abs(speed) / 24, 1.5)) * Math.sign(speed);
     vehicle.rotation.y = heading;
     vehicle.position.x -= Math.sin(heading) * speed * dt;
     vehicle.position.z -= Math.cos(heading) * speed * dt;
+    frontWheels.forEach(wheel => { wheel.rotation.y = steer * 0.38; });
     wheels.forEach(wheel => { wheel.rotation.x -= speed * dt * 1.8; });
+    nitroFlames.visible = nitroActive;
+    nitroGlow.intensity = nitroActive ? 24 : 0;
+
+    // Ambient vehicles and pedestrians follow the actual OSM road centerlines.
+    const impacts = trafficSystem.update(dt, {
+      x: vehicle.position.x, z: vehicle.position.z, heading, speed
+    });
+    collisionCooldown = Math.max(0, collisionCooldown - dt);
+    if (impacts.length && collisionCooldown <= 0) {
+      const impact = impacts[0];
+      collisionCooldown = 1.05;
+      if (impact.type === 'vehicle') {
+        speed *= 0.16;
+        heading += (Math.random() - 0.5) * 0.18;
+        vehicleCondition = Math.max(0, vehicleCondition - (9 + impact.impact * 11));
+        showImpact('TRAFFIC COLLISION', 'Vehicle impact · speed reduced · repair at a garage later', true);
+      } else {
+        speed *= 0.42;
+        heading += (Math.random() - 0.5) * 0.08;
+        vehicleCondition = Math.max(0, vehicleCondition - (3 + impact.impact * 5));
+        showImpact('PEDESTRIAN IMPACT', 'Pedestrian stumbled and is recovering · drive carefully', true);
+      }
+    }
+
     mapCheckElapsed += dt;
     if (mapCheckElapsed > 1.5) {
       streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
@@ -370,7 +410,22 @@ function animate() {
     }
     document.querySelector('#speed').textContent = String(Math.round(Math.abs(speed) * 3.6)).padStart(3, '0');
     document.querySelector('#area').textContent = areaName();
+    nitroFill.style.width = `${nitroFuel.toFixed(1)}%`;
+    nitroValue.textContent = `${Math.round(nitroFuel)}%`;
+    conditionValue.textContent = `${Math.round(vehicleCondition)}%`;
+    conditionValue.style.color = vehicleCondition < 35 ? '#e98269' : '#dce5d8';
+  } else {
+    nitroActive = false;
+    nitroFlames.visible = false;
+    nitroGlow.intensity = 0;
   }
+  collisionCooldown = Math.max(0, collisionCooldown - dt);
+  if (!impactFeedback.hidden) {
+    impactTimer -= dt;
+    if (impactTimer <= 0) impactFeedback.hidden = true;
+  }
+  if (cameraShake > 0) cameraShake = Math.max(0, cameraShake - dt * 2.8);
+
   mapUiElapsed += dt;
   if (mapUiElapsed > 0.12) {
     mapView.update(vehicle.position.x, vehicle.position.z, heading);
@@ -380,6 +435,11 @@ function animate() {
   const distance = cameraDistance;
   const behind = new THREE.Vector3(Math.sin(heading + cameraYaw) * distance, 4.7 + cameraPitch * 12, Math.cos(heading + cameraYaw) * distance);
   const desired = target.clone().add(behind);
+  if (cameraShake > 0) {
+    const shakeTime = performance.now() * 0.035;
+    desired.x += Math.sin(shakeTime * 1.7) * cameraShake * 0.7;
+    desired.y += Math.cos(shakeTime * 2.1) * cameraShake * 0.45;
+  }
   camera.position.lerp(desired, 0.085);
   camera.lookAt(target.clone().add(new THREE.Vector3(0, 1.0, 0)));
   ring.rotation.z += dt * 0.7;
