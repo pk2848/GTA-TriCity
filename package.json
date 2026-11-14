@@ -1,7 +1,7 @@
 {
   "name": "tricity-drive",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "three": "^0.180.0"
   },
   "devDependencies": {
