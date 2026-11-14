@@ -132,9 +132,6 @@ const trafficCount = document.querySelector('#traffic-count');
 const toast = document.querySelector('#toast');
 const trafficSystem = new TrafficSystem(scene, counts => {
   trafficCount.textContent = `AI traffic · ${counts.cars} cars · ${counts.pedestrians} pedestrians · ${counts.signals || 0} signals · ${counts.crossings || 0} crossings`;
-}, event => {
-  // Collision events are also surfaced to gameplay and telemetry hooks.
-  if (event.type === 'vehicle') showImpact('TRAFFIC CONTACT', 'AI vehicle collision detected', true);
 });
 const streamer = new OSMStreamer(scene,
   status => {
