@@ -258,6 +258,10 @@ export class OSMStreamer {
       node["amenity"~"^(school|university|hospital|marketplace|place_of_worship|parking)$"]["name"](${bbox});
       node["tourism"]["name"](${bbox});
       node["shop"="mall"]["name"](${bbox});
+      node["highway"="traffic_signals"](${bbox});
+      node["highway"="crossing"](${bbox});
+      node["crossing"](${bbox});
+      way["highway"="crossing"](${bbox});
       way["tourism"]["name"](${bbox});
     );out geom;`;
   }
@@ -298,10 +302,10 @@ export class OSMStreamer {
     try {
       const data = await this.fetchData(this.buildQuery(bounds));
       const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
-      if (result.trafficRoads.length) this.onRoads(result.trafficRoads, tile.key);
+      if (result.trafficRoads.length || result.trafficFeatures.length) this.onRoads(result.trafficRoads, tile.key, result.trafficFeatures);
       const group = new THREE.Group();
       group.name = `osm-tile-${tile.key}`;
-      [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.labels].forEach(mesh => group.add(mesh));
+      [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.detailMeshes, ...result.labels].forEach(mesh => group.add(mesh));
       this.scene.add(group);
       this.tiles.set(tile.key, { group, bounds, roads: result.roadCount, buildings: result.buildingCount });
       this.loaded.add(tile.key);
@@ -326,6 +330,8 @@ export class OSMStreamer {
     const roads = new Map(), sidewalks = { positions: [], indices: [] }, curbs = { positions: [], indices: [] };
     const land = new Map(), buildings = new Map(), labels = [];
     const trafficRoads = [];
+    const trafficFeatures = [];
+    const windowMatrices = [];
     const junctionNodes = new Map();
     let roadCount = 0, buildingCount = 0, sidewalkCount = 0, parkCount = 0;
     let labelCount = 0;
@@ -341,11 +347,19 @@ export class OSMStreamer {
       const idKey = `${element.type || 'way'}/${element.id}`;
       if (this.seen.has(idKey)) continue;
 
-      // Named POI nodes are rendered as floating map labels; the 2D map remains the detailed navigator.
-      if (element.type === 'node' && Number.isFinite(element.lat) && Number.isFinite(element.lon) && tags.name) {
+      // OSM point features feed traffic controls and pedestrian crossings as well as POI labels.
+      if (element.type === 'node' && Number.isFinite(element.lat) && Number.isFinite(element.lon)) {
+        const p = geoToWorld(element.lat, element.lon);
+        if (tags.highway === 'traffic_signals') {
+          trafficFeatures.push({ id: element.id, type: 'signal', x: p.x, z: p.z, direction: tags.direction || '' });
+          this.seen.add(idKey);
+        }
+        if (tags.highway === 'crossing' || tags.crossing) {
+          trafficFeatures.push({ id: element.id, type: 'crossing', x: p.x, z: p.z, crossing: tags.crossing || 'unmarked' });
+          this.seen.add(idKey);
+        }
         const important = tags.amenity || tags.tourism || tags.shop || tags.historic;
-        if (important) {
-          const p = geoToWorld(element.lat, element.lon);
+        if (tags.name && important) {
           addLabel(tags.name, p.x, p.z, 'poi');
           this.seen.add(idKey);
         }
@@ -359,6 +373,13 @@ export class OSMStreamer {
         rings = [element.geometry];
       }
       if (!rings.length) continue;
+
+      if (tags.highway === 'crossing') {
+        const p = polygonCentroid(rings[0]);
+        trafficFeatures.push({ id: element.id, type: 'crossing', x: p.x, z: p.z, crossing: tags.crossing || 'marked' });
+        this.seen.add(idKey);
+        continue;
+      }
 
       if (tags.highway) {
         const type = tags.highway;
@@ -510,7 +531,9 @@ export class OSMStreamer {
         buildingMeshes.push(mesh);
       }
     }
-    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, trafficRoads, roadCount, buildingCount, sidewalkCount, parkCount };
+    const windowMesh = this.createWindowInstances(windowMatrices);
+    const detailMeshes = windowMesh ? [windowMesh] : [];
+    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, trafficRoads, trafficFeatures, detailMeshes, roadCount, buildingCount, sidewalkCount, parkCount };
   }
 
   emitCounts() {
