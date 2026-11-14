@@ -161,7 +161,7 @@ export class TrafficSystem {
             object, basePoints: points, lane, direction, points: lanePoints,
             length: laneLength, progress, speed: 4.8 + Math.random() * 4.4,
             targetSpeed: 5.5 + Math.random() * 4.8, pause: Math.random() * 2,
-            collisionCooldown: 0, roadType: type
+            collisionCooldown: 0, roadType: type, oneway: Boolean(road.oneway)
           };
           const p = samplePath(agent.points, agent.progress);
           object.position.set(p.x, 0, p.z);
@@ -209,12 +209,17 @@ export class TrafficSystem {
       } else car.speed *= Math.max(0, 1 - dt * 3);
       car.progress += car.speed * dt;
       if (car.progress >= car.length) {
-        // Reverse at the end of an OSM way and use the opposite lane on two-way roads.
-        car.direction *= -1;
-        const base = car.direction === 1 ? car.basePoints : [...car.basePoints].reverse();
-        car.points = offsetPath(base, car.lane);
-        car.length = pathLength(car.points);
-        car.progress = 0;
+        if (car.oneway) {
+          // One-way vehicles loop at the end rather than driving against the mapped direction.
+          car.progress = 0;
+        } else {
+          // Two-way vehicles turn around at the end of the OSM way.
+          car.direction *= -1;
+          const base = car.direction === 1 ? car.basePoints : [...car.basePoints].reverse();
+          car.points = offsetPath(base, car.lane);
+          car.length = pathLength(car.points);
+          car.progress = 0;
+        }
       }
       const p = samplePath(car.points, car.progress);
       car.object.position.set(p.x, 0, p.z);
