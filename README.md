@@ -1,11 +1,11 @@
-# Tricity Drive — Chandigarh × Mohali (Build 0.3)
+# GTA-TriCity — Chandigarh × Mohali
 
-A browser-based Three.js open-world driving prototype for the Chandigarh–Mohali region. Build 0.3 adds mouse orbit/zoom controls, an expandable interactive 2D OpenStreetMap navigator with a live player marker, and richer OSM-derived 3D geometry.
+GTA-TriCity is an actively developed browser-based open-world driving game built with Three.js. The game world is anchored to real Chandigarh–Mohali geography using OpenStreetMap (OSM) data. Build 0.4 adds click-to-pin destination selection, road-based driving routes, turn-by-turn instructions and an in-world navigation beacon.
 
 ## Run locally
 
 1. Install Node.js 20 or newer.
-2. Clone the repository and open the project folder.
+2. Clone this repository and open the project folder.
 3. Run:
 
 ```bash
@@ -14,9 +14,9 @@ npm run dev
 ```
 
 4. Open the Vite URL (normally http://localhost:5173).
-5. Press **ENTER THE CITY**. An internet connection is required for live map data and map tiles.
+5. Press **ENTER THE CITY**. An internet connection is required for map data, map tiles and route calculation.
 
-## Controls
+## Driving controls
 
 - W / Arrow Up: accelerate
 - S / Arrow Down: reverse
@@ -24,78 +24,96 @@ npm run dev
 - Space: brake
 - Shift: boost
 - R: reset vehicle to the Sector 17 origin
-- Hold and drag left mouse on the 3D canvas: orbit camera around the vehicle
-- Mouse wheel on the 3D canvas: zoom the follow camera in/out
-- M: open/close the detailed 2D city map
-- Esc: close the detailed map
-- On the map: drag to pan, scroll to zoom, use **CENTER ON ME** or **FOLLOW PLAYER**
+- Hold and drag left mouse on the 3D canvas: orbit camera around the car
+- Mouse wheel on the 3D canvas: zoom the follow camera
+- M: open/close the detailed city map
+- Esc: close the detailed city map
 
-## Build 0.3 features
+## Destination and route guidance (Build 0.4)
 
-### Interactive navigation map
+1. Press **M** or click **OPEN MAP**.
+2. Click the destination anywhere on the OpenStreetMap view.
+3. The game places a destination pin and requests a driving route from the current vehicle position.
+4. The map draws the route and shows estimated distance and travel time.
+5. Close the map. A navigation panel displays the next manoeuvre, distance to the manoeuvre and remaining route distance/time.
+6. A gold route ribbon and pulsing beacon are rendered in the 3D game world.
+7. Click another map point to replace the destination, or use **CLEAR PIN** / the HUD X button to clear it.
 
-- Full-screen Leaflet map using the standard OpenStreetMap raster tile layer.
-- Street-level zoom and normal map pan/zoom.
-- Live player marker and heading line converted from the vehicle's local metric position to latitude/longitude.
-- Follow-player toggle, center-on-player control, and coordinate display.
-- Tiles are requested only for the visible map viewport; the game does not pre-download city tile archives.
+The vehicle is paused while the full-screen map is open. Map dragging pans the map; **FOLLOW PLAYER** and **CENTER ON ME** return the map to the vehicle.
 
-### 3D OSM world
+### Routing service configuration
 
-- Local metric projection centered near Sector 17, Chandigarh (30.7415, 76.7820).
-- Progressive Overpass chunk loading, one chunk at a time with request pacing and retry.
-- OSM road classes with width/lanes tags where present.
-- Joined road ribbons, intersection patches, inferred raised sidewalk strips on urban road classes, and curb strips.
-- OSM building ways and multipolygon relation outer/inner rings; building height and levels tags are used when available.
-- Parks, woodland and water polygons where they exist in OSM.
-- Selected named roads, amenities, tourism features and commercial places appear as 3D labels.
-- HUD reports chunk, road, building, sidewalk and park/water counts.
+The default route provider is the public OSRM demo service:
 
-## Map accuracy and limitations
+`https://router.project-osrm.org/route/v1/driving`
 
-The 2D map is a standard OpenStreetMap rendered map layer, so it provides a recognizable street map for the visible location at available zoom levels. It is not an aerial/satellite layer.
+It is useful for development and testing, not a production service guarantee. The OSRM demo server is best-effort, intended for reasonable non-commercial usage, and documents a maximum of one request per second. The game spaces route requests by at least 1.1 seconds per browser session. For a public or commercial release, configure a suitable routing provider or host your own OSRM service and set:
 
-The 3D game world is generated from OSM vector data and is still a work in progress. The exact detail depends on local OSM mapping coverage. Sidewalks are inferred for many urban road classes when explicit sidewalk tags are absent; those are visual approximations, not guaranteed surveyed sidewalks. Building heights use OSM height/levels tags where present and a fallback estimate where missing. OSM does not provide consistent facade materials, window layouts, interiors, road markings, traffic signals, or terrain elevation everywhere. Those need additional assets, data sources, and manual/algorithmic modelling.
+```env
+VITE_ROUTING_URL=https://your-routing-host/route/v1/driving
+```
 
-The project does not bundle the entire Chandigarh–Mohali dataset. It requests a map chunk around the player and adjacent chunks only as they become relevant. Loaded chunks are retained for the current session. Relation multipolygons are handled for basic outer and inner rings; complex multi-part relations and intricate building parts may need additional refinement.
+The value is the route endpoint prefix; the client appends the coordinates and OSRM route options. Configure the environment variable before running/building Vite.
+
+## Real-world map systems
+
+### Interactive 2D navigation
+- Leaflet displays standard OpenStreetMap raster map tiles.
+- The live vehicle marker and heading are projected from the game's local metric coordinates.
+- Clicking the map pins a destination and invokes the driving routing service.
+- The route, pin, current location, and coordinates update with game position.
+- Map tiles are requested for the visible viewport only.
+
+### Streamed 3D world
+- Local metric coordinate projection anchored near Sector 17, Chandigarh (30.7415, 76.7820).
+- Overpass queries load nearby OSM data in geographic chunks as the vehicle moves.
+- Roads use OSM road classes and `width` / `lanes` tags where present.
+- Joined road strips and intersection patches reduce gaps between mapped ways.
+- Sidewalks and curbs are generated for many urban road classes. Where explicit sidewalk data is missing, they are visual estimates.
+- Building footprints include supported way and multipolygon relation geometry; height and floor-count tags are used where available.
+- Parks, woodland and water polygons are rendered where present in OSM.
+- Selected named roads and places are labelled in the world.
+
+## Accuracy and production considerations
+
+GTA-TriCity uses the real geographic positions and mapped features available in OpenStreetMap. Detail varies by local mapping coverage. OSM data does not consistently include surveyed building heights, facade materials, windows, interiors, road markings, terrain elevation, traffic signals or pedestrian assets. Where data is missing, the game uses visual estimates or requires dedicated art/content work. A real geographic map is not the same as a photogrammetric reconstruction.
+
+The world streams chunks rather than downloading the whole Chandigarh–Mohali region at launch. Loaded chunks are retained during the game session. Continued development should add chunk unloading/LOD, persistent route recovery, lane-level navigation and better handling of complex OSM relations.
 
 ## Architecture
 
 ```text
 src/
-  main.js                    # renderer, player vehicle, camera, HUD and game loop
-  style.css                  # HUD, menus, map overlay and responsive styling
+  main.js                    # Three.js renderer, player vehicle, camera, HUD and game loop
+  style.css                  # game HUD, responsive navigation panel and map overlay
   world/
-    OSMStreamer.js           # Overpass requests, projection and 3D geometry
-    WorldMapView.js          # Leaflet 2D map and live player position
+    OSMStreamer.js           # Overpass requests, projection and 3D road/building/land geometry
+    WorldMapView.js          # Leaflet map, destination pins, OSRM routes and manoeuvre guidance
 
 vite.config.js               # local development Overpass proxy
-index.html                   # game shell
+index.html                   # game shell and navigation UI
 package.json                 # Vite, Three.js and Leaflet dependencies
 ```
 
-Planned systems:
-- `core/`: game lifecycle, input abstraction, asset loading
-- `vehicles/`: vehicle physics, suspension, collision, vehicle switching
-- `characters/`: walking/running controller, animation and interaction
+Planned game systems:
+- `core/`: game lifecycle, input management, asset loading and save state
+- `vehicles/`: vehicle physics, suspension, collision and vehicle switching
+- `characters/`: walking/running controller, animation and interactions
 - `traffic/`: lane graph, traffic lights and AI vehicles
-- `gameplay/`: missions, economy, garage, wanted system and saves
+- `gameplay/`: missions, economy, garages, wanted system and progression
 - `public/models/`: optimized GLB vehicles, buildings, props and characters
-- `public/audio/`: ambience, engines, traffic and UI sounds
+- `public/audio/`: city ambience, engines, traffic and UI sounds
 
-## Next milestones
+## Map data, attribution and service policies
 
-1. Verify OSM completeness in each Chandigarh sector and Mohali phase; improve relation and junction handling.
-2. Add lane markings, better junction corner geometry, building facade/window detail, roofs, terrain and district-specific assets.
-3. Add Rapier vehicle physics and road-aware collisions.
-4. Add recognizable custom landmark models and high-quality GLB building/vehicle assets.
-5. Add pedestrians, traffic AI, lighting, weather, missions, garages and persistence.
-6. Optimize with instancing, LODs, frustum culling, texture compression and proper chunk unloading.
+Map data © OpenStreetMap contributors. OpenStreetMap data is licensed under the Open Database License (ODbL). See https://www.openstreetmap.org/copyright. Review ODbL requirements when redistributing data or database derivatives.
 
-## OpenStreetMap attribution and licensing
+The interactive map uses the standard raster tile endpoint `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Keep visible attribution, honour caching and request only tiles the player is viewing. OSM Foundation tile servers are community-funded and best-effort, without an SLA; the official policy prohibits bulk downloads and prefetching. For public/commercial traffic, choose a suitable tile provider or operate your own tile infrastructure.
 
-Map data © OpenStreetMap contributors. OpenStreetMap data is licensed under the Open Database License (ODbL). See https://www.openstreetmap.org/copyright. Review ODbL obligations when redistributing data or database derivatives.
+The 3D map data uses public Overpass instances with sequential chunk requests. Shared Overpass services can be busy or rate-limited; a production release should use a suitable hosted service or self-hosted OSM extract/query backend.
 
-The interactive 2D map uses `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Keep the visible attribution. OpenStreetMap's standard tile servers are community-funded and best-effort: do not bulk-download or prefetch tiles, honour caching, and use a dedicated OSM-derived provider or self-hosted tiles if the project grows beyond modest interactive use. See https://operations.osmfoundation.org/policies/tiles/.
+The default routing endpoint is the OSRM public demo service. Its documented usage is reasonable non-commercial use, no more than one request per second, and no uptime/latency guarantee. Use a dedicated hosted routing provider or self-host OSRM for production traffic.
 
-Overpass instances are also shared services. The game queues map-data requests sequentially and spaces them; a production public deployment should use a service arrangement appropriate to its traffic rather than sending large volumes of requests to community instances.
+Relevant policies:
+- https://operations.osmfoundation.org/policies/tiles/
+- https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server
