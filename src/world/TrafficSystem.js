@@ -161,7 +161,7 @@ export class TrafficSystem {
             object, basePoints: points, lane, direction, points: lanePoints,
             length: laneLength, progress, speed: 4.8 + Math.random() * 4.4,
             targetSpeed: 5.5 + Math.random() * 4.8, pause: Math.random() * 2,
-            collisionCooldown: 0, roadType: type, oneway: Boolean(road.oneway)
+            collisionCooldown: 0, roadType: type, oneway: Boolean(road.oneway), respawnTimer: 0
           };
           const p = samplePath(agent.points, agent.progress);
           object.position.set(p.x, 0, p.z);
@@ -202,6 +202,11 @@ export class TrafficSystem {
     const events = [];
     for (const car of this.cars) {
       car.collisionCooldown = Math.max(0, car.collisionCooldown - dt);
+      if (car.respawnTimer > 0) {
+        car.respawnTimer = Math.max(0, car.respawnTimer - dt);
+        if (car.respawnTimer === 0) car.object.visible = true;
+        else continue;
+      }
       car.pause = Math.max(0, car.pause - dt);
       if (car.pause <= 0) {
         // Keep AI vehicles moving at city speeds, with gentle speed variation.
@@ -210,8 +215,11 @@ export class TrafficSystem {
       car.progress += car.speed * dt;
       if (car.progress >= car.length) {
         if (car.oneway) {
-          // One-way vehicles loop at the end rather than driving against the mapped direction.
+          // Hide briefly at the end of a one-way OSM segment, then re-enter at its start.
           car.progress = 0;
+          car.respawnTimer = 1.6;
+          car.object.visible = false;
+          continue;
         } else {
           // Two-way vehicles turn around at the end of the OSM way.
           car.direction *= -1;
