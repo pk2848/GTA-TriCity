@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OSMStreamer, CITY_ORIGIN } from './world/OSMStreamer.js';
 import { WorldMapView } from './world/WorldMapView.js';
 import { TrafficSystem } from './world/TrafficSystem.js';
+import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -68,10 +69,12 @@ for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
   tire.rotation.z = Math.PI / 2; tire.castShadow = true; wheel.add(tire);
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 14), rimMat);
   rim.rotation.z = Math.PI / 2; wheel.add(rim);
-  vehicle.add(wheel); wheels.push(wheel);
+  scene.add(wheel); wheels.push(wheel);
   if (z < 0) frontWheels.push(wheel);
 }
 for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshBasicMaterial({ color: 0xffe9ba }), x, 1.04, -2.16);
+
+const vehiclePhysics = new VehiclePhysics();
 
 // Twin exhaust flames illuminate only while N-key nitro is engaged.
 const nitroFlames = new THREE.Group();
@@ -106,7 +109,10 @@ const mapCounts = document.querySelector('#map-counts');
 const trafficCount = document.querySelector('#traffic-count');
 const toast = document.querySelector('#toast');
 const trafficSystem = new TrafficSystem(scene, counts => {
-  trafficCount.textContent = `AI traffic · ${counts.cars} cars · ${counts.pedestrians} pedestrians`;
+  trafficCount.textContent = `AI traffic · ${counts.cars} cars · ${counts.pedestrians} pedestrians · ${counts.signals || 0} signals · ${counts.crossings || 0} crossings`;
+}, event => {
+  // Collision events are also surfaced to gameplay and telemetry hooks.
+  if (event.type === 'vehicle') showImpact('TRAFFIC CONTACT', 'AI vehicle collision detected', true);
 });
 const streamer = new OSMStreamer(scene,
   status => {
@@ -116,7 +122,7 @@ const streamer = new OSMStreamer(scene,
   counts => {
     mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
   },
-  (roads, tileKey) => trafficSystem.addRoads(roads, tileKey)
+  (roads, tileKey, features) => trafficSystem.addRoads(roads, tileKey, features)
 );
 let navigationGroup = null;
 let destinationBeacon = null;
@@ -269,8 +275,9 @@ addEventListener('keydown', event => {
 });
 addEventListener('keyup', event => { keys[event.code] = false; });
 function resetVehicle() {
-  vehicle.position.set(0, 0, 0);
-  speed = 0; heading = 0; vehicle.rotation.y = heading;
+  vehiclePhysics.reset();
+  vehiclePhysics.syncVisuals(vehicle, wheels);
+  speed = 0; heading = 0;
   vehicleCondition = 100; nitroFuel = 100; collisionCooldown = 0;
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
   toast.textContent = 'Vehicle reset and repaired · Nitro refilled';
@@ -347,32 +354,21 @@ function animate() {
     const right = keys.KeyD || keys.ArrowRight;
     const steer = (left ? 1 : 0) - (right ? 1 : 0);
 
-    // Up/W always accelerates along the car's current nose direction (-local Z).
-    if (forward) speed += 22 * dt;
-    else if (reverse) speed -= 16 * dt;
-    else speed *= Math.pow(0.982, dt * 60);
-    if (keys.Space) speed *= Math.pow(0.87, dt * 60);
-
-    // N is a finite nitro charge. It works from a standstill and boosts in the
-    // current travel direction; releasing N lets the tank recharge slowly.
+    // Cannon RaycastVehicle now owns engine force, braking, grip and suspension.
     nitroActive = Boolean(keys.KeyN && nitroFuel > 0);
-    if (nitroActive) {
-      const travelDirection = speed < -0.5 ? -1 : 1;
-      speed += travelDirection * 42 * dt;
-      nitroFuel = Math.max(0, nitroFuel - 34 * dt);
-    } else {
-      nitroFuel = Math.min(100, nitroFuel + 10 * dt);
-    }
-    if (keys.ShiftLeft || keys.ShiftRight) speed += Math.sign(speed || 1) * 5 * dt;
-    const conditionFactor = 0.62 + 0.38 * (vehicleCondition / 100);
-    speed = THREE.MathUtils.clamp(speed, -12, (nitroActive ? 72 : 42) * conditionFactor);
+    if (nitroActive) nitroFuel = Math.max(0, nitroFuel - 30 * dt);
+    else nitroFuel = Math.min(100, nitroFuel + 8 * dt);
 
-    if (Math.abs(speed) > 0.2) heading += steer * dt * (1.5 + Math.min(Math.abs(speed) / 24, 1.5)) * Math.sign(speed);
-    vehicle.rotation.y = heading;
-    vehicle.position.x -= Math.sin(heading) * speed * dt;
-    vehicle.position.z -= Math.cos(heading) * speed * dt;
-    frontWheels.forEach(wheel => { wheel.rotation.y = steer * 0.38; });
-    wheels.forEach(wheel => { wheel.rotation.x -= speed * dt * 1.8; });
+    vehiclePhysics.update(dt, {
+      throttle: forward ? 1 : reverse ? -1 : 0,
+      steer,
+      brake: Boolean(keys.Space),
+      nitro: nitroActive,
+      condition: vehicleCondition
+    });
+    vehiclePhysics.syncVisuals(vehicle, wheels);
+    speed = vehiclePhysics.speedMps;
+    heading = vehiclePhysics.heading;
     nitroFlames.visible = nitroActive;
     nitroGlow.intensity = nitroActive ? 24 : 0;
 
@@ -384,16 +380,17 @@ function animate() {
       const impact = impacts[0];
       collisionCooldown = 1.05;
       if (impact.type === 'vehicle') {
-        speed *= 0.16;
-        heading += (Math.random() - 0.5) * 0.18;
+        vehiclePhysics.applyImpact(impact.impact, Math.random() > 0.5 ? 1 : -1);
         vehicleCondition = Math.max(0, vehicleCondition - (9 + impact.impact * 11));
-        showImpact('TRAFFIC COLLISION', 'Vehicle impact · speed reduced · repair at a garage later', true);
+        showImpact('TRAFFIC COLLISION', 'Vehicle impact · chassis jolted · vehicle condition reduced', true);
       } else {
-        speed *= 0.42;
-        heading += (Math.random() - 0.5) * 0.08;
+        vehiclePhysics.applyImpact(impact.impact * 0.55, Math.random() > 0.5 ? 1 : -1);
         vehicleCondition = Math.max(0, vehicleCondition - (3 + impact.impact * 5));
         showImpact('PEDESTRIAN IMPACT', 'Pedestrian stumbled and is recovering · drive carefully', true);
       }
+      vehiclePhysics.syncVisuals(vehicle, wheels);
+      speed = vehiclePhysics.speedMps;
+      heading = vehiclePhysics.heading;
     }
 
     mapCheckElapsed += dt;
