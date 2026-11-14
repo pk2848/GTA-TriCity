@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-// Sector 17, Chandigarh is the local origin. World units are metres.
+// Local metric origin: Sector 17, Chandigarh. One Three.js unit represents one metre.
 export const CITY_ORIGIN = Object.freeze({ lat: 30.7415, lon: 76.7820 });
-export const TILE_DEGREES = 0.018; // about 2 km per tile at this latitude
+export const TILE_DEGREES = 0.018;
 const METRES_PER_LAT_DEGREE = 110540;
 const METRES_PER_LON_DEGREE = 111320 * Math.cos(CITY_ORIGIN.lat * Math.PI / 180);
 const OVERPASS_ENDPOINTS = [
@@ -22,20 +22,19 @@ const roadColors = {
   residential: 0x51534d, living_street: 0x56564f, service: 0x62615a,
   pedestrian: 0x77776b, cycleway: 0x61736c, footway: 0x77776b, path: 0x747466
 };
+const urbanRoads = new Set(['motorway','trunk','primary','secondary','tertiary','unclassified','residential','living_street','service']);
+const sidewalkMaterial = new THREE.MeshStandardMaterial({ color: 0x92938a, roughness: 0.96, side: THREE.DoubleSide });
+const curbMaterial = new THREE.MeshStandardMaterial({ color: 0x666b65, roughness: 0.9, side: THREE.DoubleSide });
+const parkMaterial = new THREE.MeshStandardMaterial({ color: 0x536f50, roughness: 1, side: THREE.DoubleSide });
+const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x3f6044, roughness: 1, side: THREE.DoubleSide });
+const waterMaterial = new THREE.MeshStandardMaterial({ color: 0x527f8b, roughness: 0.24, metalness: 0.08, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
 
 export function geoToWorld(lat, lon) {
-  return {
-    x: (lon - CITY_ORIGIN.lon) * METRES_PER_LON_DEGREE,
-    z: -(lat - CITY_ORIGIN.lat) * METRES_PER_LAT_DEGREE
-  };
+  return { x: (lon - CITY_ORIGIN.lon) * METRES_PER_LON_DEGREE, z: -(lat - CITY_ORIGIN.lat) * METRES_PER_LAT_DEGREE };
 }
 export function worldToGeo(x, z) {
-  return {
-    lat: CITY_ORIGIN.lat - z / METRES_PER_LAT_DEGREE,
-    lon: CITY_ORIGIN.lon + x / METRES_PER_LON_DEGREE
-  };
+  return { lat: CITY_ORIGIN.lat - z / METRES_PER_LAT_DEGREE, lon: CITY_ORIGIN.lon + x / METRES_PER_LON_DEGREE };
 }
-
 function tileBounds(ix, iy) {
   const west = CITY_ORIGIN.lon + (ix - 0.5) * TILE_DEGREES;
   const south = CITY_ORIGIN.lat + (iy - 0.5) * TILE_DEGREES;
@@ -47,8 +46,133 @@ function stableHash(value) {
   for (let i = 0; i < String(value).length; i++) h = Math.imul(h ^ String(value).charCodeAt(i), 16777619);
   return h >>> 0;
 }
-function finiteGeometry(geometry) {
-  return Array.isArray(geometry) && geometry.length >= 2 && geometry.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+function validRing(ring) {
+  return Array.isArray(ring) && ring.length >= 4 && ring.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+}
+function parseMetres(value) {
+  const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function parseTagColor(value, fallback) {
+  if (typeof value === 'string' && /^#?[0-9a-f]{6}$/i.test(value.trim())) {
+    return Number.parseInt(value.trim().replace('#', ''), 16);
+  }
+  return fallback;
+}
+function appendGeometry(target, geometry) {
+  const positions = geometry.getAttribute('position').array;
+  const base = target.positions.length / 3;
+  for (let i = 0; i < positions.length; i++) target.positions.push(positions[i]);
+  if (geometry.index) {
+    const indices = geometry.index.array;
+    for (let i = 0; i < indices.length; i++) target.indices.push(base + indices[i]);
+  } else {
+    for (let i = 0; i < positions.length / 3; i++) target.indices.push(base + i);
+  }
+}
+function makeMesh(data, material, name) {
+  if (!data.positions.length) return null;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+  geometry.setIndex(data.indices);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = name;
+  mesh.frustumCulled = true;
+  return mesh;
+}
+function makeShape(ring) {
+  const points = ring.map(p => geoToWorld(p.lat, p.lon));
+  const first = points[0], last = points[points.length - 1];
+  if (Math.hypot(first.x - last.x, first.z - last.z) > 3) return null;
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0].x, -points[0].z);
+  for (let i = 1; i < points.length - 1; i++) shape.lineTo(points[i].x, -points[i].z);
+  shape.closePath();
+  return shape;
+}
+function polygonCentroid(ring) {
+  let x = 0, z = 0, count = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const p = geoToWorld(ring[i].lat, ring[i].lon);
+    x += p.x; z += p.z; count++;
+  }
+  return count ? { x: x / count, z: z / count } : { x: 0, z: 0 };
+}
+function createLabel(name, x, z, category = 'place') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 640; canvas.height = 112;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(12,22,21,0.88)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(4, 4, 632, 104, 13);
+  else ctx.rect(4, 4, 632, 104);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(231,205,143,0.8)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#ecd7a6';
+  ctx.font = '700 36px Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const safeName = String(name).toUpperCase().slice(0, 30);
+  ctx.fillText(safeName, 320, 57, 590);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+  sprite.name = `osm-label-${category}`;
+  sprite.position.set(x, 7, z);
+  sprite.scale.set(28, 4.9, 1);
+  return sprite;
+}
+function pathOffsets(points, halfWidth) {
+  const offsets = [];
+  for (let i = 0; i < points.length; i++) {
+    let prev = null, next = null;
+    if (i > 0) {
+      const dx = points[i].x - points[i - 1].x, dz = points[i].z - points[i - 1].z;
+      const len = Math.hypot(dx, dz) || 1;
+      prev = { x: dx / len, z: dz / len };
+    }
+    if (i < points.length - 1) {
+      const dx = points[i + 1].x - points[i].x, dz = points[i + 1].z - points[i].z;
+      const len = Math.hypot(dx, dz) || 1;
+      next = { x: dx / len, z: dz / len };
+    }
+    const n1 = prev ? { x: -prev.z, z: prev.x } : { x: -next.z, z: next.x };
+    const n2 = next ? { x: -next.z, z: next.x } : n1;
+    let mx = n1.x + n2.x, mz = n1.z + n2.z;
+    const ml = Math.hypot(mx, mz) || 1;
+    mx /= ml; mz /= ml;
+    const dot = Math.max(0.38, Math.abs(mx * n2.x + mz * n2.z));
+    const scale = Math.min(halfWidth / dot, halfWidth * 2.5);
+    offsets.push({ x: mx * scale, z: mz * scale });
+  }
+  return offsets;
+}
+function addRibbon(target, points, width, centerOffset = 0, y = 0.05) {
+  if (points.length < 2) return;
+  const offsets = pathOffsets(points, Math.abs(centerOffset) + width / 2);
+  const base = target.positions.length / 3;
+  for (let i = 0; i < points.length; i++) {
+    const offset = offsets[i];
+    const centerX = points[i].x + Math.sign(centerOffset) * offset.x * (Math.abs(centerOffset) / (Math.abs(centerOffset) + width / 2 || 1));
+    const centerZ = points[i].z + Math.sign(centerOffset) * offset.z * (Math.abs(centerOffset) / (Math.abs(centerOffset) + width / 2 || 1));
+    const halfX = offset.x * (width / 2) / (Math.abs(centerOffset) + width / 2 || 1);
+    const halfZ = offset.z * (width / 2) / (Math.abs(centerOffset) + width / 2 || 1);
+    target.positions.push(centerX + halfX, y, centerZ + halfZ, centerX - halfX, y, centerZ - halfZ);
+  }
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = base + i * 2;
+    target.indices.push(a, a + 1, a + 2, a + 2, a + 1, a + 3);
+  }
+}
+function addJunctionPatch(target, point, radius, y = 0.065) {
+  const base = target.positions.length / 3;
+  target.positions.push(point.x, y, point.z);
+  const steps = 14;
+  for (let i = 0; i < steps; i++) {
+    const angle = Math.PI * 2 * i / steps;
+    target.positions.push(point.x + Math.cos(angle) * radius, y, point.z + Math.sin(angle) * radius);
+  }
+  for (let i = 0; i < steps; i++) target.indices.push(base, base + 1 + i, base + 1 + ((i + 1) % steps));
 }
 
 export class OSMStreamer {
@@ -64,6 +188,9 @@ export class OSMStreamer {
     this.tiles = new Map();
     this.totalRoads = 0;
     this.totalBuildings = 0;
+    this.totalSidewalks = 0;
+    this.totalParks = 0;
+    this.seen = new Set();
     this.currentTile = { ix: 0, iy: 0 };
   }
 
@@ -79,7 +206,6 @@ export class OSMStreamer {
   prefetchAt(lat, lon, ix, iy) {
     const b = tileBounds(ix, iy);
     const margin = TILE_DEGREES * 0.23;
-    // Fetch only the next chunk in the direction of travel, not a 3x3 burst.
     if (lat > b.north - margin) this.requestTile(ix, iy + 1);
     if (lat < b.south + margin) this.requestTile(ix, iy - 1);
     if (lon > b.east - margin) this.requestTile(ix + 1, iy);
@@ -100,7 +226,7 @@ export class OSMStreamer {
   requestTile(ix, iy, force = false) {
     const key = tileKey(ix, iy);
     if (this.loaded.has(key) || this.loading.has(key) || (!force && this.failed.has(key))) return;
-    if (this.queue.some(t => t.key === key)) return;
+    if (this.queue.some(tile => tile.key === key)) return;
     this.queue.push({ ix, iy, key });
     this.processQueue();
   }
@@ -111,8 +237,7 @@ export class OSMStreamer {
     while (this.queue.length) {
       const tile = this.queue.shift();
       await this.fetchTile(tile);
-      // Public Overpass instances are shared resources. Keep requests sequential and paced.
-      if (this.queue.length) await new Promise(resolve => setTimeout(resolve, 1100));
+      if (this.queue.length) await new Promise(resolve => setTimeout(resolve, 1200));
     }
     this.active = false;
   }
@@ -120,12 +245,25 @@ export class OSMStreamer {
   buildQuery(bounds) {
     const { south, west, north, east } = bounds;
     const bbox = `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`;
-    return `[out:json][timeout:35];(way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|cycleway|footway|path)$"](${bbox});way["building"](${bbox}););out geom;`;
+    return `[out:json][timeout:45];(
+      way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|cycleway|footway|path)$"](${bbox});
+      way["building"](${bbox});
+      relation["type"="multipolygon"]["building"](${bbox});
+      way["leisure"~"^(park|garden|playground|recreation_ground)$"](${bbox});
+      way["landuse"~"^(grass|forest|meadow|recreation_ground)$"](${bbox});
+      way["natural"~"^(water|wood)$"](${bbox});
+      way["water"](${bbox});
+      way["amenity"~"^(school|university|hospital|marketplace|place_of_worship|parking)$"]["name"](${bbox});
+      node["amenity"~"^(school|university|hospital|marketplace|place_of_worship|parking)$"]["name"](${bbox});
+      node["tourism"]["name"](${bbox});
+      node["shop"="mall"]["name"](${bbox});
+      way["tourism"]["name"](${bbox});
+    );out geom;`;
   }
 
   async postQuery(url, query) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 55000);
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -142,9 +280,7 @@ export class OSMStreamer {
 
   async fetchData(query) {
     const attempts = [];
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-      attempts.push('/osm-query');
-    }
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') attempts.push('/osm-query');
     attempts.push(...OVERPASS_ENDPOINTS);
     let lastError;
     for (const endpoint of attempts) {
@@ -160,18 +296,18 @@ export class OSMStreamer {
     this.onStatus(`FETCHING ${tile.key.replace(':', ' / ')}…`);
     try {
       const data = await this.fetchData(this.buildQuery(bounds));
-      const elements = Array.isArray(data.elements) ? data.elements : [];
-      const result = this.createTileGeometry(elements);
+      const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
       const group = new THREE.Group();
       group.name = `osm-tile-${tile.key}`;
-      result.roadMeshes.forEach(mesh => group.add(mesh));
-      result.buildingMeshes.forEach(mesh => group.add(mesh));
+      [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.labels].forEach(mesh => group.add(mesh));
       this.scene.add(group);
       this.tiles.set(tile.key, { group, bounds, roads: result.roadCount, buildings: result.buildingCount });
       this.loaded.add(tile.key);
       this.totalRoads += result.roadCount;
       this.totalBuildings += result.buildingCount;
-      this.onStatus(`LOADED CHUNK ${tile.key.replace(':', ' / ')}`);
+      this.totalSidewalks += result.sidewalkCount;
+      this.totalParks += result.parkCount;
+      this.onStatus(`LOADED ${tile.key.replace(':', ' / ')} · ${result.roadCount} roads · ${result.buildingCount} buildings`);
       this.emitCounts();
     } catch (error) {
       this.failed.add(tile.key);
@@ -185,96 +321,198 @@ export class OSMStreamer {
   }
 
   createTileGeometry(elements) {
-    const roadsByType = new Map();
-    const buildingsByColor = new Map();
-    let roadCount = 0, buildingCount = 0;
+    const roads = new Map(), sidewalks = { positions: [], indices: [] }, curbs = { positions: [], indices: [] };
+    const land = new Map(), buildings = new Map(), labels = [];
+    const junctionNodes = new Map();
+    let roadCount = 0, buildingCount = 0, sidewalkCount = 0, parkCount = 0;
+    let labelCount = 0;
+
+    const addLabel = (name, x, z, category) => {
+      if (!name || labelCount >= 22) return;
+      labels.push(createLabel(name, x, z, category));
+      labelCount++;
+    };
 
     for (const element of elements) {
       const tags = element.tags || {};
-      const geometry = element.geometry;
-      if (!finiteGeometry(geometry)) continue;
+      const idKey = `${element.type || 'way'}/${element.id}`;
+      if (this.seen.has(idKey)) continue;
+
+      // Named POI nodes are rendered as floating map labels; the 2D map remains the detailed navigator.
+      if (element.type === 'node' && Number.isFinite(element.lat) && Number.isFinite(element.lon) && tags.name) {
+        const important = tags.amenity || tags.tourism || tags.shop || tags.historic;
+        if (important) {
+          const p = geoToWorld(element.lat, element.lon);
+          addLabel(tags.name, p.x, p.z, 'poi');
+          this.seen.add(idKey);
+        }
+        continue;
+      }
+
+      let rings = [];
+      if (element.type === 'relation' && Array.isArray(element.members)) {
+        rings = element.members.filter(member => member.role === 'outer' && validRing(member.geometry)).map(member => member.geometry);
+      } else if (validRing(element.geometry)) {
+        rings = [element.geometry];
+      }
+      if (!rings.length) continue;
+
       if (tags.highway) {
         const type = tags.highway;
-        const width = roadWidths[type] || 4.5;
-        const list = roadsByType.get(type) || { positions: [], indices: [] };
-        const points = geometry.map(p => geoToWorld(p.lat, p.lon));
-        for (let i = 0; i < points.length - 1; i++) {
-          const a = points[i], b = points[i + 1];
-          const dx = b.x - a.x, dz = b.z - a.z;
-          const length = Math.hypot(dx, dz);
-          if (length < 0.5) continue;
-          const nx = -dz / length * width / 2;
-          const nz = dx / length * width / 2;
-          const base = list.positions.length / 3;
-          list.positions.push(
-            a.x + nx, 0.035, a.z + nz,
-            a.x - nx, 0.035, a.z - nz,
-            b.x + nx, 0.035, b.z + nz,
-            b.x - nx, 0.035, b.z - nz
-          );
-          list.indices.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+        const widthTag = parseMetres(tags.width);
+        const laneCount = parseMetres(tags.lanes);
+        const width = THREE.MathUtils.clamp(widthTag || ((laneCount && laneCount > 0) ? laneCount * 3.2 : (roadWidths[type] || 4.5)), 1.8, 28);
+        const points = rings[0].map(point => geoToWorld(point.lat, point.lon));
+        if (points.length < 2) continue;
+        const roadData = roads.get(type) || { positions: [], indices: [] };
+        addRibbon(roadData, points, width, 0, 0.055);
+        roads.set(type, roadData);
+        roadCount++;
+        for (const point of points) {
+          const key = `${point.x.toFixed(1)}:${point.z.toFixed(1)}`;
+          const node = junctionNodes.get(key) || { point, ways: 0, radius: 0 };
+          node.ways++;
+          node.radius = Math.max(node.radius, width / 2 + 0.8);
+          junctionNodes.set(key, node);
         }
-        if (list.positions.length) { roadsByType.set(type, list); roadCount++; }
-      } else if (tags.building && tags.building !== 'no' && geometry.length >= 4) {
-        const points = geometry.map(p => geoToWorld(p.lat, p.lon));
-        const first = points[0], last = points[points.length - 1];
-        if (Math.hypot(first.x - last.x, first.z - last.z) > 3) continue;
-        const shape = new THREE.Shape();
-        shape.moveTo(points[0].x, -points[0].z);
-        for (let i = 1; i < points.length - 1; i++) shape.lineTo(points[i].x, -points[i].z);
-        shape.closePath();
-        const rawHeight = Number.parseFloat(tags.height);
-        const levels = Number.parseFloat(tags['building:levels']);
-        const height = THREE.MathUtils.clamp(Number.isFinite(rawHeight) ? rawHeight : (Number.isFinite(levels) ? levels * 3 : 6 + (stableHash(element.id) % 4) * 2.2), 3, 48);
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: 1, curveSegments: 1 });
-        geo.rotateX(-Math.PI / 2);
-        const colorIndex = stableHash(element.id) % 6;
-        const list = buildingsByColor.get(colorIndex) || { positions: [], indices: [] };
-        const pos = geo.attributes.position.array;
-        const base = list.positions.length / 3;
-        list.positions.push(...pos);
-        if (geo.index) {
-          for (const value of geo.index.array) list.indices.push(base + value);
-        } else {
-          for (let i = 0; i < pos.length / 3; i++) list.indices.push(base + i);
+
+        if (urbanRoads.has(type) && tags.sidewalk !== 'no' && tags.foot !== 'no') {
+          const sidewalkWidth = THREE.MathUtils.clamp(parseMetres(tags['sidewalk:width']) || 1.55, 0.9, 3.5);
+          const generic = tags.sidewalk;
+          const leftOn = generic === 'right' ? false : (tags['sidewalk:left'] !== 'no');
+          const rightOn = generic === 'left' ? false : (tags['sidewalk:right'] !== 'no');
+          if (leftOn) {
+            addRibbon(sidewalks, points, sidewalkWidth, width / 2 + sidewalkWidth / 2 + 0.05, 0.13);
+            addRibbon(curbs, points, 0.18, width / 2 + 0.02, 0.105);
+          }
+          if (rightOn) {
+            addRibbon(sidewalks, points, sidewalkWidth, -(width / 2 + sidewalkWidth / 2 + 0.05), 0.13);
+            addRibbon(curbs, points, 0.18, -(width / 2 + 0.02), 0.105);
+          }
+          if (leftOn || rightOn) sidewalkCount++;
         }
-        buildingsByColor.set(colorIndex, list);
-        geo.dispose();
-        buildingCount++;
+        if (tags.name && /^(primary|secondary|tertiary|residential|unclassified)$/u.test(type) && labelCount < 8) {
+          const middle = points[Math.floor(points.length / 2)];
+          addLabel(tags.name, middle.x, middle.z, 'road');
+        }
+        this.seen.add(idKey);
+        continue;
+      }
+
+      const isBuilding = Boolean(tags.building && tags.building !== 'no');
+      if (isBuilding) {
+        const outerRings = rings;
+        for (const outerRing of outerRings) {
+          const shape = makeShape(outerRing);
+          if (!shape) continue;
+          if (element.type === 'relation') {
+            for (const member of element.members || []) {
+              if (member.role !== 'inner' || !validRing(member.geometry)) continue;
+              const inner = makeShape(member.geometry);
+              if (!inner) continue;
+              const path = new THREE.Path();
+              path.moveTo(inner.points[0].x, inner.points[0].y);
+              for (let i = 1; i < inner.points.length; i++) path.lineTo(inner.points[i].x, inner.points[i].y);
+              path.closePath();
+              shape.holes.push(path);
+            }
+          }
+          const explicitHeight = parseMetres(tags.height);
+          const levels = parseMetres(tags['building:levels']);
+          const minHeight = THREE.MathUtils.clamp(parseMetres(tags.min_height) || ((parseMetres(tags['building:min_level']) || 0) * 3), 0, 20);
+          const totalHeight = explicitHeight || (levels ? levels * 3 : 6 + (stableHash(element.id) % 5) * 2.1);
+          const height = THREE.MathUtils.clamp(totalHeight - minHeight, 3, 70);
+          const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: 1, curveSegments: 1 });
+          geometry.rotateX(-Math.PI / 2);
+          const p = polygonCentroid(outerRing);
+          const colorIndex = stableHash(element.id) % 8;
+          const materialColor = parseTagColor(tags.colour || tags['building:colour'], [0xb7b1a3,0xc7bcaa,0xa9aaa2,0x979d98,0xc8c5b8,0x9c9387,0xb9a48b,0x8f9b9d][colorIndex]);
+          const list = buildings.get(materialColor) || { positions: [], indices: [], minHeight: 0 };
+          appendGeometry(list, geometry);
+          list.minHeight = minHeight;
+          buildings.set(materialColor, list);
+          geometry.dispose();
+          if ((tags.name || tags['name:en']) && (tags.amenity || tags.shop || tags.office || tags.tourism || tags.building === 'commercial' || tags.building === 'retail')) {
+            addLabel(tags.name || tags['name:en'], p.x, p.z, 'building');
+          }
+          buildingCount++;
+        }
+        this.seen.add(idKey);
+        continue;
+      }
+
+      const isWater = tags.natural === 'water' || tags.water || tags.landuse === 'reservoir';
+      const isWood = tags.natural === 'wood' || tags.landuse === 'forest';
+      const isPark = tags.leisure === 'park' || tags.leisure === 'garden' || tags.leisure === 'playground' || tags.landuse === 'grass' || tags.landuse === 'meadow' || tags.landuse === 'recreation_ground';
+      if (isWater || isWood || isPark) {
+        for (const ring of rings) {
+          const shape = makeShape(ring);
+          if (!shape) continue;
+          const geometry = new THREE.ShapeGeometry(shape);
+          geometry.rotateX(-Math.PI / 2);
+          const kind = isWater ? 'water' : (isWood ? 'wood' : 'park');
+          const list = land.get(kind) || { positions: [], indices: [] };
+          appendGeometry(list, geometry);
+          land.set(kind, list);
+          geometry.dispose();
+          if (tags.name && labelCount < 22) {
+            const p = polygonCentroid(ring);
+            addLabel(tags.name, p.x, p.z, kind);
+          }
+          parkCount++;
+        }
+        this.seen.add(idKey);
       }
     }
 
     const roadMeshes = [];
-    for (const [type, list] of roadsByType) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(list.positions, 3));
-      geometry.setIndex(list.indices);
-      geometry.computeVertexNormals();
-      const material = new THREE.MeshStandardMaterial({ color: roadColors[type] || 0x4a4d48, roughness: 0.98, metalness: 0.0, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.receiveShadow = false;
-      mesh.frustumCulled = true;
-      roadMeshes.push(mesh);
+    for (const [type, data] of roads) {
+      const mesh = makeMesh(data, new THREE.MeshStandardMaterial({ color: roadColors[type] || 0x4a4d48, roughness: 0.98, side: THREE.DoubleSide }), `road-${type}`);
+      if (mesh) roadMeshes.push(mesh);
+    }
+
+    // Junction disks stitch the gaps where multiple OSM ways meet.
+    const junctionData = { positions: [], indices: [] };
+    for (const node of junctionNodes.values()) {
+      if (node.ways >= 2) addJunctionPatch(junctionData, node.point, node.radius);
+    }
+    const junctionMesh = makeMesh(junctionData, new THREE.MeshStandardMaterial({ color: 0x414642, roughness: 0.98, side: THREE.DoubleSide }), 'road-junctions');
+    if (junctionMesh) roadMeshes.push(junctionMesh);
+
+    const sidewalkMesh = makeMesh(sidewalks, sidewalkMaterial, 'raised-sidewalks');
+    const curbMesh = makeMesh(curbs, curbMaterial, 'street-curbs');
+    const sidewalkMeshes = [sidewalkMesh, curbMesh].filter(Boolean);
+
+    const landMeshes = [];
+    for (const [kind, data] of land) {
+      const material = kind === 'water' ? waterMaterial : (kind === 'wood' ? woodMaterial : parkMaterial);
+      const mesh = makeMesh(data, material, `land-${kind}`);
+      if (mesh) { mesh.position.y = kind === 'water' ? 0.025 : 0.012; landMeshes.push(mesh); }
     }
 
     const buildingMeshes = [];
-    const buildingColors = [0xb7b1a3, 0xc7bcaa, 0xa9aaa2, 0x979d98, 0xc8c5b8, 0x9c9387];
-    for (const [colorIndex, list] of buildingsByColor) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(list.positions, 3));
-      geometry.setIndex(list.indices);
-      geometry.computeVertexNormals();
-      const material = new THREE.MeshStandardMaterial({ color: buildingColors[colorIndex], roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
-      buildingMeshes.push(mesh);
+    for (const [color, data] of buildings) {
+      const mesh = makeMesh(data, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide }), 'osm-buildings');
+      if (mesh) {
+        mesh.position.y = data.minHeight || 0;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        buildingMeshes.push(mesh);
+      }
     }
-    return { roadMeshes, buildingMeshes, roadCount, buildingCount };
+    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, roadCount, buildingCount, sidewalkCount, parkCount };
   }
 
   emitCounts() {
-    this.onCounts({ chunks: this.loaded.size, roads: this.totalRoads, buildings: this.totalBuildings, queued: this.queue.length, loading: this.loading.size });
+    this.onCounts({
+      chunks: this.loaded.size,
+      roads: this.totalRoads,
+      buildings: this.totalBuildings,
+      sidewalks: this.totalSidewalks,
+      parks: this.totalParks,
+      queued: this.queue.length,
+      loading: this.loading.size
+    });
   }
 
   dispose() {
@@ -282,7 +520,7 @@ export class OSMStreamer {
       group.traverse(object => {
         if (object.geometry) object.geometry.dispose();
         if (object.material) {
-          if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+          if (Array.isArray(object.material)) object.material.forEach(material => material.dispose());
           else object.material.dispose();
         }
       });
