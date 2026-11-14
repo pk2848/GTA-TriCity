@@ -208,7 +208,7 @@ export class TrafficSystem{
   for(let i=0;i<2&&this.pedestrians.length<PEDESTRIAN_LIMIT;i++){
    const a=i===0?start:end,b=i===0?end:start,object=makePedestrian(PEOPLE_COLORS[(i+3)%PEOPLE_COLORS.length],i+3);
    const points=[a,b],length=dist(a,b),progress=Math.random()*length;
-   const person={object,points,length,progress,speed:.85+Math.random()*.35,phase:Math.random()*6,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:true,wait:Math.random()*8};
+   const person={object,points,length,progress,speed:.85+Math.random()*.35,phase:Math.random()*6,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:true,wait:Math.random()*8,crossingPoint:p,crossingAxis:t};
    const q=samplePath(points,progress);object.position.set(q.x,0,q.z);object.rotation.y=q.heading;this.scene.add(object);this.pedestrians.push(person);
   }
   this.crossings.push({id:feature.id,point:p,start,end,road:near.road});
@@ -231,7 +231,9 @@ export class TrafficSystem{
    if(car.pauseTimer>0){car.pauseTimer-=dt;car.speed=Math.max(0,car.speed-dt*5);}
    const current=samplePath(car.points,car.progress),remaining=car.length-car.progress;
    const heading={x:-Math.sin(current.heading),z:-Math.cos(current.heading)},signal=this.nearestSignal(current,heading);
-   const stop=signal&&signal.distance<17&&signal.state==='red'&&remaining>2&&remaining<32;
+   const toSignal=signal?{x:signal.signal.feature.x-current.x,z:signal.signal.feature.z-current.z}:null;
+   const signalAhead=Boolean(toSignal&&(toSignal.x*heading.x+toSignal.z*heading.z)>-1.5);
+   const stop=signal&&signal.distance<18&&signal.state==='red'&&signalAhead&&remaining>2;
    const target=stop||car.pauseTimer>0?0:car.targetSpeed;
    car.speed+=(target-car.speed)*Math.min(1,dt*(stop?3.2:.65));
    if(!stop&&car.pauseTimer<=0)car.speed=THREE.MathUtils.clamp(car.speed,2.5,10.5);
@@ -265,7 +267,15 @@ export class TrafficSystem{
    }
    if(person.crossing){
     person.wait=Math.max(0,person.wait-dt);
-    if(person.wait===0){person.progress+=person.speed*person.direction*dt;if(person.progress>=person.length){person.progress=person.length;person.direction=-1;person.wait=4+Math.random()*8;}if(person.progress<=0){person.progress=0;person.direction=1;person.wait=4+Math.random()*8;}}
+    const crossingSignal=this.nearestSignal(person.crossingPoint,person.crossingAxis);
+    const pedestrianGreen=!crossingSignal||crossingSignal.state==='red';
+    if(person.wait===0&&pedestrianGreen){
+     person.progress+=person.speed*person.direction*dt;
+     if(person.progress>=person.length){person.progress=person.length;person.direction=-1;person.wait=4+Math.random()*8;}
+     if(person.progress<=0){person.progress=0;person.direction=1;person.wait=4+Math.random()*8;}
+    }else if(person.wait===0&&!pedestrianGreen){
+     person.wait=.25;
+    }
    }else{
     person.progress+=person.speed*person.direction*dt;
     if(person.progress>=person.length){person.direction=-1;person.progress=person.length;}
