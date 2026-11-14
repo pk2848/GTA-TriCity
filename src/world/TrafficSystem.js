@@ -150,11 +150,11 @@ export class TrafficSystem {
         const directions = road.oneway ? [1] : [1, -1];
         for (const direction of directions) {
           if (this.cars.length >= CAR_LIMIT) break;
-          const lane = direction === 1 ? -width * 0.17 : width * 0.17;
+          const lane = -width * 0.17;
           const lanePoints = offsetPath(direction === 1 ? points : [...points].reverse(), lane);
           const laneLength = pathLength(lanePoints);
           if (laneLength < 65) continue;
-          const color = CAR_PALETTE[(this.cars.length * 7 + Number(key.slice(-3)) || this.cars.length) % CAR_PALETTE.length];
+          const color = CAR_PALETTE[Math.floor(Math.random() * CAR_PALETTE.length)];
           const object = makeTrafficCar(color);
           const progress = Math.random() * Math.max(1, laneLength - 16);
           const agent = {
@@ -212,7 +212,6 @@ export class TrafficSystem {
         // Reverse at the end of an OSM way and use the opposite lane on two-way roads.
         car.direction *= -1;
         const base = car.direction === 1 ? car.basePoints : [...car.basePoints].reverse();
-        car.lane = -car.lane;
         car.points = offsetPath(base, car.lane);
         car.length = pathLength(car.points);
         car.progress = 0;
@@ -222,7 +221,7 @@ export class TrafficSystem {
       car.object.rotation.y = p.heading;
 
       const distance = Math.hypot(player.x - p.x, player.z - p.z);
-      if (distance < 3.15 && car.collisionCooldown <= 0) {
+      if (distance < 3.15 && Math.abs(player.speed) > 4 && car.collisionCooldown <= 0) {
         car.collisionCooldown = 2.4;
         car.pause = 1.8;
         events.push({ type: 'vehicle', impact: THREE.MathUtils.clamp(Math.abs(player.speed) / 28, 0.35, 1), agent: car });
@@ -257,7 +256,7 @@ export class TrafficSystem {
       limbs.rightArm.rotation.x = stride * 0.65;
 
       const distance = Math.hypot(player.x - p.x, player.z - p.z);
-      if (distance < 2.35 && person.collisionCooldown <= 0) {
+      if (distance < 2.35 && Math.abs(player.speed) > 2.5 && person.collisionCooldown <= 0) {
         person.fallen = true;
         person.fallTimer = 3.5;
         person.object.rotation.z = (Math.random() > 0.5 ? 1 : -1) * 0.35;
