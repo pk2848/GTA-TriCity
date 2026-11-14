@@ -102,7 +102,10 @@ let cameraYaw = 0;
 let cameraPitch = 0.12;
 const keys = Object.create(null);
 addEventListener('keydown', event => {
-  if (event.code === 'KeyM' && !event.repeat) { mapView.toggle(); event.preventDefault(); return; }
+  if (event.code === 'KeyM' && !event.repeat) {
+    Object.keys(keys).forEach(key => { keys[key] = false; });
+    mapView.toggle(); event.preventDefault(); return;
+  }
   if (event.code === 'Escape' && mapView.isOpen) { mapView.close(); return; }
   if (mapView.isOpen) return;
   keys[event.code] = true;
@@ -180,7 +183,7 @@ let mapUiElapsed = 0;
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
-  if (started) {
+  if (started && !mapView.isOpen) {
     const forward = keys.KeyW || keys.ArrowUp;
     const reverse = keys.KeyS || keys.ArrowDown;
     const left = keys.KeyA || keys.ArrowLeft;
