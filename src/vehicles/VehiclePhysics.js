@@ -176,6 +176,7 @@ export class VehiclePhysics {
   addBuildingObstacles(obstacles = [], tileKey = '') {
     let added = 0;
     for (const obstacle of obstacles) {
+      if (this.obstacleBodies.length >= 3500) break;
       const id = String(obstacle.id || `${tileKey}:${obstacle.x}:${obstacle.z}`);
       if (this.obstacleIds.has(id)) continue;
       const width = Number(obstacle.width), depth = Number(obstacle.depth), height = Number(obstacle.height);
