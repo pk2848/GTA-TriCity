@@ -176,10 +176,11 @@ function addJunctionPatch(target, point, radius, y = 0.065) {
 }
 
 export class OSMStreamer {
-  constructor(scene, onStatus = () => {}, onCounts = () => {}) {
+  constructor(scene, onStatus = () => {}, onCounts = () => {}, onRoads = () => {}) {
     this.scene = scene;
     this.onStatus = onStatus;
     this.onCounts = onCounts;
+    this.onRoads = onRoads;
     this.loaded = new Set();
     this.loading = new Set();
     this.failed = new Set();
@@ -297,6 +298,7 @@ export class OSMStreamer {
     try {
       const data = await this.fetchData(this.buildQuery(bounds));
       const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
+      if (result.trafficRoads.length) this.onRoads(result.trafficRoads, tile.key);
       const group = new THREE.Group();
       group.name = `osm-tile-${tile.key}`;
       [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.labels].forEach(mesh => group.add(mesh));
@@ -323,6 +325,7 @@ export class OSMStreamer {
   createTileGeometry(elements) {
     const roads = new Map(), sidewalks = { positions: [], indices: [] }, curbs = { positions: [], indices: [] };
     const land = new Map(), buildings = new Map(), labels = [];
+    const trafficRoads = [];
     const junctionNodes = new Map();
     let roadCount = 0, buildingCount = 0, sidewalkCount = 0, parkCount = 0;
     let labelCount = 0;
@@ -367,6 +370,14 @@ export class OSMStreamer {
         const roadData = roads.get(type) || { positions: [], indices: [] };
         addRibbon(roadData, points, width, 0, 0.055);
         roads.set(type, roadData);
+        trafficRoads.push({
+          id: element.id,
+          type,
+          width,
+          points: points.map(point => ({ x: point.x, z: point.z })),
+          oneway: ['yes', '1', 'true'].includes(String(tags.oneway || '').toLowerCase()),
+          sidewalk: tags.sidewalk !== 'no' && tags.foot !== 'no'
+        });
         roadCount++;
         for (const point of points) {
           const key = `${point.x.toFixed(1)}:${point.z.toFixed(1)}`;
@@ -499,7 +510,7 @@ export class OSMStreamer {
         buildingMeshes.push(mesh);
       }
     }
-    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, roadCount, buildingCount, sidewalkCount, parkCount };
+    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, trafficRoads, roadCount, buildingCount, sidewalkCount, parkCount };
   }
 
   emitCounts() {
