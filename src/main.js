@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OSMStreamer, CITY_ORIGIN } from './world/OSMStreamer.js';
 import { WorldMapView } from './world/WorldMapView.js';
+import { TrafficSystem } from './world/TrafficSystem.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -59,6 +60,7 @@ addBox(vehicle, 2.05, 0.66, 4.25, bodyMat, 0, 0.98, 0);
 addBox(vehicle, 1.72, 0.78, 2.05, glassMat, 0, 1.63, -0.12);
 addBox(vehicle, 1.78, 0.1, 1.45, new THREE.MeshStandardMaterial({ color: 0xa8c2c3, roughness: 0.2, metalness: 0.18 }), 0, 2.02, -0.12);
 const wheels = [];
+const frontWheels = [];
 for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
   const wheel = new THREE.Group();
   wheel.position.set(x, 0.48, z);
@@ -67,8 +69,27 @@ for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 14), rimMat);
   rim.rotation.z = Math.PI / 2; wheel.add(rim);
   vehicle.add(wheel); wheels.push(wheel);
+  if (z < 0) frontWheels.push(wheel);
 }
 for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshBasicMaterial({ color: 0xffe9ba }), x, 1.04, -2.16);
+
+// Twin exhaust flames illuminate only while N-key nitro is engaged.
+const nitroFlames = new THREE.Group();
+nitroFlames.name = 'nitro-exhaust-flames';
+nitroFlames.visible = false;
+for (const x of [-0.53, 0.53]) {
+  const flame = new THREE.Mesh(
+    new THREE.ConeGeometry(0.2, 1.05, 9),
+    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.88, depthWrite: false })
+  );
+  flame.rotation.x = Math.PI / 2;
+  flame.position.set(x, 0.58, 2.35);
+  nitroFlames.add(flame);
+}
+const nitroGlow = new THREE.PointLight(0x39bfff, 0, 14);
+nitroGlow.position.set(0, 0.7, 2.25);
+nitroFlames.add(nitroGlow);
+vehicle.add(nitroFlames);
 
 // Checkpoint is positioned in the first mapped neighbourhood, north-east of the start.
 const checkpoint = new THREE.Group();
@@ -82,7 +103,11 @@ const glow = new THREE.PointLight(0xffbd59, 38, 36); glow.position.y = 5; checkp
 
 const mapState = document.querySelector('#map-state');
 const mapCounts = document.querySelector('#map-counts');
+const trafficCount = document.querySelector('#traffic-count');
 const toast = document.querySelector('#toast');
+const trafficSystem = new TrafficSystem(scene, counts => {
+  trafficCount.textContent = `AI traffic · ${counts.cars} cars · ${counts.pedestrians} pedestrians`;
+});
 const streamer = new OSMStreamer(scene,
   status => {
     mapState.textContent = status.length > 22 ? status.slice(0, 20) + '…' : status;
@@ -90,7 +115,8 @@ const streamer = new OSMStreamer(scene,
   },
   counts => {
     mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
-  }
+  },
+  (roads, tileKey) => trafficSystem.addRoads(roads, tileKey)
 );
 let navigationGroup = null;
 let destinationBeacon = null;
@@ -208,6 +234,27 @@ let missionDone = false;
 let started = false;
 let cameraYaw = 0;
 let cameraPitch = 0.12;
+let nitroFuel = 100;
+let nitroActive = false;
+let vehicleCondition = 100;
+let collisionCooldown = 0;
+let impactTimer = 0;
+let cameraShake = 0;
+const impactFeedback = document.querySelector('#impact-feedback');
+const impactTitle = document.querySelector('#impact-title');
+const impactCopy = document.querySelector('#impact-copy');
+const nitroFill = document.querySelector('#nitro-fill');
+const nitroValue = document.querySelector('#nitro-value');
+const conditionValue = document.querySelector('#condition-value');
+
+function showImpact(title, copy, warning = false) {
+  impactTitle.textContent = title;
+  impactCopy.textContent = copy;
+  impactFeedback.hidden = false;
+  impactFeedback.classList.toggle('is-warning', warning);
+  impactTimer = 2.2;
+  cameraShake = warning ? 0.85 : 0.55;
+}
 const keys = Object.create(null);
 addEventListener('keydown', event => {
   if (event.code === 'KeyM' && !event.repeat) {
@@ -224,7 +271,9 @@ addEventListener('keyup', event => { keys[event.code] = false; });
 function resetVehicle() {
   vehicle.position.set(0, 0, 0);
   speed = 0; heading = 0; vehicle.rotation.y = heading;
+  vehicleCondition = 100; nitroFuel = 100; collisionCooldown = 0;
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
+  toast.textContent = 'Vehicle reset and repaired · Nitro refilled';
 }
 
 let dragging = false, lastX = 0, lastY = 0;
