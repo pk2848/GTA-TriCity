@@ -141,7 +141,8 @@ const streamer = new OSMStreamer(scene,
   counts => {
     mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
   },
-  (roads, tileKey, features) => trafficSystem.addRoads(roads, tileKey, features)
+  (roads, tileKey, features) => trafficSystem.addRoads(roads, tileKey, features),
+  (obstacles, tileKey) => vehiclePhysics.addBuildingObstacles(obstacles, tileKey)
 );
 let navigationGroup = null;
 let destinationBeacon = null;
