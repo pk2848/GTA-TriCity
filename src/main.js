@@ -380,7 +380,6 @@ function animate() {
     const impacts = trafficSystem.update(dt, {
       x: vehicle.position.x, z: vehicle.position.z, heading, speed
     });
-    collisionCooldown = Math.max(0, collisionCooldown - dt);
     if (impacts.length && collisionCooldown <= 0) {
       const impact = impacts[0];
       collisionCooldown = 1.05;
