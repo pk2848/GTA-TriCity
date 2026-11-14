@@ -408,11 +408,11 @@ export class OSMStreamer {
           if (element.type === 'relation') {
             for (const member of element.members || []) {
               if (member.role !== 'inner' || !validRing(member.geometry)) continue;
-              const inner = makeShape(member.geometry);
-              if (!inner) continue;
+              const innerPoints = member.geometry.map(point => geoToWorld(point.lat, point.lon));
+              if (innerPoints.length < 4) continue;
               const path = new THREE.Path();
-              path.moveTo(inner.points[0].x, inner.points[0].y);
-              for (let i = 1; i < inner.points.length; i++) path.lineTo(inner.points[i].x, inner.points[i].y);
+              path.moveTo(innerPoints[0].x, -innerPoints[0].z);
+              for (let i = 1; i < innerPoints.length - 1; i++) path.lineTo(innerPoints[i].x, -innerPoints[i].z);
               path.closePath();
               shape.holes.push(path);
             }
@@ -424,12 +424,12 @@ export class OSMStreamer {
           const height = THREE.MathUtils.clamp(totalHeight - minHeight, 3, 70);
           const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: 1, curveSegments: 1 });
           geometry.rotateX(-Math.PI / 2);
+          geometry.translate(0, minHeight, 0);
           const p = polygonCentroid(outerRing);
           const colorIndex = stableHash(element.id) % 8;
           const materialColor = parseTagColor(tags.colour || tags['building:colour'], [0xb7b1a3,0xc7bcaa,0xa9aaa2,0x979d98,0xc8c5b8,0x9c9387,0xb9a48b,0x8f9b9d][colorIndex]);
-          const list = buildings.get(materialColor) || { positions: [], indices: [], minHeight: 0 };
+          const list = buildings.get(materialColor) || { positions: [], indices: [] };
           appendGeometry(list, geometry);
-          list.minHeight = minHeight;
           buildings.set(materialColor, list);
           geometry.dispose();
           if ((tags.name || tags['name:en']) && (tags.amenity || tags.shop || tags.office || tags.tourism || tags.building === 'commercial' || tags.building === 'retail')) {
@@ -494,7 +494,6 @@ export class OSMStreamer {
     for (const [color, data] of buildings) {
       const mesh = makeMesh(data, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide }), 'osm-buildings');
       if (mesh) {
-        mesh.position.y = data.minHeight || 0;
         mesh.castShadow = false;
         mesh.receiveShadow = true;
         buildingMeshes.push(mesh);
