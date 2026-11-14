@@ -69,6 +69,8 @@ export class WorldMapView {
     this.headingLine = null;
     this.destinationMarker = null;
     this.routeLayer = null;
+    this.routeOutline = null;
+    this.routeArrows = [];
     this.followPlayer = true;
     this.isOpen = false;
     this.lastPosition = { x: 0, z: 0, heading: 0 };
@@ -214,10 +216,39 @@ export class WorldMapView {
         : destination;
       const latLngs = coordinates.map(([lon, lat]) => [lat, lon]);
       if (this.routeLayer) this.map.removeLayer(this.routeLayer);
-      this.routeLayer = L.polyline(latLngs, {
-        color: '#e6a93e', weight: 7, opacity: 0.94, lineCap: 'round', lineJoin: 'round'
+      if (this.routeOutline) this.map.removeLayer(this.routeOutline);
+      this.routeArrows.forEach(marker => this.map.removeLayer(marker));
+      this.routeArrows = [];
+
+      // Dark casing keeps the route legible over map labels, even at city-wide zoom.
+      this.routeOutline = L.polyline(latLngs, {
+        color: '#14231e', weight: 13, opacity: 0.88, lineCap: 'round', lineJoin: 'round'
       }).addTo(this.map);
+      this.routeLayer = L.polyline(latLngs, {
+        color: '#f2a928', weight: 7, opacity: 1, lineCap: 'round', lineJoin: 'round'
+      }).addTo(this.map);
+
+      // Screen-sized direction chevrons remain visible when the user zooms out.
+      const arrowCount = Math.min(12, Math.max(1, Math.floor(coordinates.length / 22)));
+      for (let i = 1; i <= arrowCount; i++) {
+        const index = Math.max(0, Math.min(coordinates.length - 1,
+          Math.round(i * (coordinates.length - 1) / (arrowCount + 1))));
+        const previous = coordinates[Math.max(0, index - 1)];
+        const next = coordinates[Math.min(coordinates.length - 1, index + 1)];
+        const bearing = Math.atan2(next[0] - previous[0], (next[1] - previous[1]) * Math.cos(next[0] * Math.PI / 180)) * 180 / Math.PI;
+        const icon = L.divIcon({
+          className: 'route-direction-marker',
+          html: `<span class="route-direction-chevron" style="transform:rotate(${bearing}deg)">➤</span>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+        const marker = L.marker(latLngs[index], { icon, interactive: false, keyboard: false, zIndexOffset: 900 });
+        marker.addTo(this.map);
+        this.routeArrows.push(marker);
+      }
+      this.routeOutline.bringToFront();
       this.routeLayer.bringToFront();
+      this.routeArrows.forEach(marker => marker.bringToFront());
       this.playerMarker.bringToFront();
       this.destinationMarker.setLatLng([navigationDestination.lat, navigationDestination.lon]);
       this.destinationMarker.setPopupContent(snapped
@@ -261,6 +292,9 @@ export class WorldMapView {
       this.setRouteMessage('ROUTE NOT AVAILABLE', message);
       this.onStatus(message);
       if (this.routeLayer) { this.map.removeLayer(this.routeLayer); this.routeLayer = null; }
+      if (this.routeOutline) { this.map.removeLayer(this.routeOutline); this.routeOutline = null; }
+      this.routeArrows.forEach(marker => this.map.removeLayer(marker));
+      this.routeArrows = [];
       this.route = null;
       this.onRouteChange(null);
       this.onGuidance(null);
@@ -274,8 +308,12 @@ export class WorldMapView {
     if (this.routeAbortController) this.routeAbortController.abort();
     this.routeAbortController = null;
     if (this.routeLayer && this.map) this.map.removeLayer(this.routeLayer);
+    if (this.routeOutline && this.map) this.map.removeLayer(this.routeOutline);
+    this.routeArrows.forEach(marker => { if (this.map) this.map.removeLayer(marker); });
     if (this.destinationMarker && this.map) this.map.removeLayer(this.destinationMarker);
     this.routeLayer = null;
+    this.routeOutline = null;
+    this.routeArrows = [];
     this.destinationMarker = null;
     this.route = null;
     this.clearButton.disabled = true;
