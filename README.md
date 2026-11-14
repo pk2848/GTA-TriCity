@@ -91,7 +91,7 @@ npm run dev
 
 The geography, mapped road positions and feature footprints come from OpenStreetMap, but coverage varies. Sidewalks are inferred where specific sidewalk tags are missing. Building heights use estimates where OSM tags are absent. Facades are procedural, not surveyed architectural models; windows and building palettes are visual estimates. Traffic cars and pedestrians are procedural game characters. AI traffic is not synchronized to live traffic-control systems.
 
-The physics world currently uses a simplified flat ground collision plane plus raycast suspension. The next physics pass should add OSM building/curb collision bodies, terrain elevation, road surface grip variation and more complete collisions between AI vehicles and the player. Current AI vehicles use lane paths with endpoint junction selection; full lane topology, turn signals, queueing, safe-distance following and complex intersection conflict resolution remain future work.
+The physics world uses a simplified flat ground collision plane, raycast suspension and deduplicated OSM-derived oriented building collision boxes (capped at 3,500 bodies). Curbs and terrain elevation are not yet part of the physics surface, and AI vehicles are still kinematic traffic agents rather than rigid bodies in the Cannon world. Full lane topology, turn signals, queueing, safe-distance following and complex intersection conflict resolution remain future work.
 
 The whole city is not downloaded at start. OSM chunks stream around the player's position and remain loaded for the current session. Production-scale use needs chunk unloading/LOD, memory budgets, persistent world state and a suitable map-data/routing service.
 
@@ -116,7 +116,7 @@ package.json                 # Vite, Three.js, Leaflet and cannon-es
 
 ## Next production priorities
 
-1. OSM building and road collision bodies; terrain and road-surface physics.
+1. Terrain elevation, curb collision, road-surface grip and physical AI vehicle collisions.
 2. More complete lane graphs, right/left turn choice, junction conflict rules, traffic queues and safe following distances.
 3. Better procedural and authored local vehicle/character GLB assets with animation, LOD and instancing.
 4. Traffic signal groups with directional heads, pedestrian countdown phases and smarter crossing behaviour.
