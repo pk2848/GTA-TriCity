@@ -107,7 +107,7 @@ addEventListener('keyup', event => { keys[event.code] = false; });
 function resetVehicle() {
   vehicle.position.set(0, 0, 0);
   speed = 0; heading = 0; vehicle.rotation.y = heading;
-  streamer.requestAt(vehicle.position.x, vehicle.position.z);
+  streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
 }
 
 let dragging = false, lastX = 0, lastY = 0;
@@ -127,7 +127,7 @@ renderer.domElement.addEventListener('pointermove', event => {
 document.querySelector('#start').addEventListener('click', () => {
   started = true;
   document.querySelector('#start-screen').style.display = 'none';
-  streamer.requestAt(vehicle.position.x, vehicle.position.z);
+  streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
   toast.textContent = `Loading roads and building footprints near ${CITY_ORIGIN.lat.toFixed(4)}, ${CITY_ORIGIN.lon.toFixed(4)}…`;
 });
 document.querySelector('#retry-map').addEventListener('click', () => streamer.retryCurrent());
@@ -184,7 +184,7 @@ function animate() {
     wheels.forEach(wheel => { wheel.rotation.x -= speed * dt * 1.8; });
     mapCheckElapsed += dt;
     if (mapCheckElapsed > 1.5) {
-      streamer.requestAt(vehicle.position.x, vehicle.position.z);
+      streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
       mapCheckElapsed = 0;
     }
     if (!missionDone && Math.hypot(vehicle.position.x - checkpoint.position.x, vehicle.position.z - checkpoint.position.z) < 12) {
