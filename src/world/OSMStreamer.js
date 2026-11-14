@@ -464,6 +464,42 @@ export class OSMStreamer {
           appendGeometry(list, geometry);
           buildings.set(materialColor, list);
           geometry.dispose();
+
+          // Instanced windows add readable facades without creating hundreds of draw calls.
+          const facadePoints = outerRing.map(point => geoToWorld(point.lat, point.lon));
+          let signedArea = 0;
+          for (let edge = 0; edge < facadePoints.length - 1; edge++) {
+            const a = facadePoints[edge], b = facadePoints[edge + 1];
+            signedArea += a.x * b.z - b.x * a.z;
+          }
+          const winding = signedArea >= 0 ? 1 : -1;
+          const floorCount = Math.min(16, Math.max(1, Math.floor(height / 3.15)));
+          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 12000; edge++) {
+            const a = facadePoints[edge], b = facadePoints[edge + 1];
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const edgeLength = Math.hypot(dx, dz);
+            if (edgeLength < 4.2) continue;
+            const count = Math.min(9, Math.max(1, Math.floor(edgeLength / 2.65)));
+            const nx = (dz / edgeLength) * winding;
+            const nz = (-dx / edgeLength) * winding;
+            const yaw = Math.atan2(nx, nz);
+            const paneWidth = Math.min(1.28, edgeLength / (count + 1) * 0.68);
+            for (let floor = 0; floor < floorCount && windowMatrices.length < 12000; floor++) {
+              const y = minHeight + 1.55 + floor * 3.05;
+              if (y + 0.55 > minHeight + height) continue;
+              for (let pane = 0; pane < count && windowMatrices.length < 12000; pane++) {
+                const t = (pane + 1) / (count + 1);
+                windowMatrices.push({
+                  x: a.x + dx * t + nx * 0.075,
+                  y,
+                  z: a.z + dz * t + nz * 0.075,
+                  yaw,
+                  width: paneWidth,
+                  height: 1.05
+                });
+              }
+            }
+          }
           if ((tags.name || tags['name:en']) && (tags.amenity || tags.shop || tags.office || tags.tourism || tags.building === 'commercial' || tags.building === 'retail')) {
             addLabel(tags.name || tags['name:en'], p.x, p.z, 'building');
           }
@@ -531,9 +567,38 @@ export class OSMStreamer {
         buildingMeshes.push(mesh);
       }
     }
-    const windowMesh = this.createWindowInstances(windowMatrices);
-    const detailMeshes = windowMesh ? [windowMesh] : [];
+    const windowMeshes = this.createWindowInstances(windowMatrices);
+    const detailMeshes = windowMeshes || [];
     return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, trafficRoads, trafficFeatures, detailMeshes, roadCount, buildingCount, sidewalkCount, parkCount };
+  }
+
+  createWindowInstances(records) {
+    if (!records.length) return null;
+    const frameGeometry = new THREE.BoxGeometry(1.18, 1.16, 0.075);
+    const glassGeometry = new THREE.BoxGeometry(1.0, 0.94, 0.045);
+    const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x756f63, roughness: 0.86, metalness: 0.02 });
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: 0x263d49, roughness: 0.24, metalness: 0.16, emissive: 0x111d24, emissiveIntensity: 0.22 });
+    const frames = new THREE.InstancedMesh(frameGeometry, frameMaterial, records.length);
+    const panes = new THREE.InstancedMesh(glassGeometry, glassMaterial, records.length);
+    frames.name = 'procedural-building-window-frames';
+    panes.name = 'procedural-building-glazing';
+    const dummy = new THREE.Object3D();
+    records.forEach((record, index) => {
+      dummy.position.set(record.x, record.y, record.z);
+      dummy.rotation.set(0, record.yaw, 0);
+      dummy.scale.set(record.width, record.height, 1);
+      dummy.updateMatrix();
+      frames.setMatrixAt(index, dummy.matrix);
+      dummy.position.y += 0.015;
+      dummy.scale.set(record.width * 0.82, record.height * 0.82, 1);
+      dummy.updateMatrix();
+      panes.setMatrixAt(index, dummy.matrix);
+    });
+    frames.instanceMatrix.needsUpdate = true;
+    panes.instanceMatrix.needsUpdate = true;
+    frames.computeBoundingSphere();
+    panes.computeBoundingSphere();
+    return [frames, panes];
   }
 
   emitCounts() {
