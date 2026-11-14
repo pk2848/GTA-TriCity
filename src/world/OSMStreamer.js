@@ -176,11 +176,12 @@ function addJunctionPatch(target, point, radius, y = 0.065) {
 }
 
 export class OSMStreamer {
-  constructor(scene, onStatus = () => {}, onCounts = () => {}, onRoads = () => {}) {
+  constructor(scene, onStatus = () => {}, onCounts = () => {}, onRoads = () => {}, onObstacles = () => {}) {
     this.scene = scene;
     this.onStatus = onStatus;
     this.onCounts = onCounts;
     this.onRoads = onRoads;
+    this.onObstacles = onObstacles;
     this.loaded = new Set();
     this.loading = new Set();
     this.failed = new Set();
@@ -303,6 +304,7 @@ export class OSMStreamer {
       const data = await this.fetchData(this.buildQuery(bounds));
       const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
       if (result.trafficRoads.length || result.trafficFeatures.length) this.onRoads(result.trafficRoads, tile.key, result.trafficFeatures);
+      if (result.obstacles.length) this.onObstacles(result.obstacles, tile.key);
       const group = new THREE.Group();
       group.name = `osm-tile-${tile.key}`;
       [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.detailMeshes, ...result.labels].forEach(mesh => group.add(mesh));
@@ -331,6 +333,7 @@ export class OSMStreamer {
     const land = new Map(), buildings = new Map(), labels = [];
     const trafficRoads = [];
     const trafficFeatures = [];
+    const obstacles = [];
     const windowMatrices = [];
     const junctionNodes = new Map();
     let roadCount = 0, buildingCount = 0, sidewalkCount = 0, parkCount = 0;
@@ -454,6 +457,35 @@ export class OSMStreamer {
           const minHeight = THREE.MathUtils.clamp(parseMetres(tags.min_height) || ((parseMetres(tags['building:min_level']) || 0) * 3), 0, 20);
           const totalHeight = explicitHeight || (levels ? levels * 3 : 6 + (stableHash(element.id) % 5) * 2.1);
           const height = THREE.MathUtils.clamp(totalHeight - minHeight, 3, 70);
+
+          // Oriented footprint bounds become static physics boxes so the player car
+          // collides with real mapped building blocks rather than driving through them.
+          const footprint = outerRing.map(point => geoToWorld(point.lat, point.lon));
+          const origin = footprint[0], nextPoint = footprint[1] || footprint[0];
+          let ux = nextPoint.x - origin.x, uz = nextPoint.z - origin.z;
+          const axisLength = Math.hypot(ux, uz) || 1;
+          ux /= axisLength; uz /= axisLength;
+          const vx = -uz, vz = ux;
+          let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+          for (const point of footprint) {
+            const u = point.x * ux + point.z * uz;
+            const v = point.x * vx + point.z * vz;
+            minU = Math.min(minU, u); maxU = Math.max(maxU, u);
+            minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+          }
+          const midU = (minU + maxU) / 2, midV = (minV + maxV) / 2;
+          if (obstacles.length < 1200 && maxU - minU > 2.2 && maxV - minV > 2.2) {
+            obstacles.push({
+              id: `${idKey}:${Math.round(midU)}:${Math.round(midV)}`,
+              x: ux * midU + vx * midV,
+              z: uz * midU + vz * midV,
+              width: maxU - minU,
+              depth: maxV - minV,
+              height,
+              minHeight,
+              yaw: Math.atan2(-uz, ux)
+            });
+          }
           const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: 1, curveSegments: 1 });
           geometry.rotateX(-Math.PI / 2);
           geometry.translate(0, minHeight, 0);
@@ -587,7 +619,7 @@ export class OSMStreamer {
     }
     const windowMeshes = this.createWindowInstances(windowMatrices);
     const detailMeshes = windowMeshes || [];
-    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, trafficRoads, trafficFeatures, detailMeshes, roadCount, buildingCount, sidewalkCount, parkCount };
+    return { roadMeshes, sidewalkMeshes, landMeshes, buildingMeshes, labels, trafficRoads, trafficFeatures, obstacles, detailMeshes, roadCount, buildingCount, sidewalkCount, parkCount };
   }
 
   createWindowInstances(records) {
