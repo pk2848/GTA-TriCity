@@ -10,7 +10,7 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH × MOHALI · BUILD 0.3</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH × MOHALI · BUILD 0.4</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">SECTOR 17</b></span></div>
     <div class="map-panel">
@@ -18,9 +18,18 @@
       <div id="map-counts">0 chunks · 0 roads · 0 buildings</div>
       <button id="retry-map" type="button">RETRY CURRENT AREA ↻</button>
     </div>
-    <div class="help">WASD / ARROWS <i>DRIVE</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; SHIFT <i>BOOST</i> &nbsp; R <i>RESET</i> &nbsp; MOUSE DRAG <i>ORBIT</i> &nbsp; M <i>MAP</i></div>
+    <div class="help">WASD / ARROWS <i>DRIVE</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; SHIFT <i>BOOST</i> &nbsp; R <i>RESET</i> &nbsp; MOUSE DRAG <i>ORBIT</i> &nbsp; M <i>MAP / PIN DESTINATION</i></div>
   </div>
   <div id="crosshair">+</div>
+  <section id="nav-guidance" class="nav-guidance" hidden aria-live="polite">
+    <div id="nav-arrow" class="nav-arrow">↑</div>
+    <div class="nav-guidance-copy">
+      <small id="nav-kicker">UPCOMING MANEUVER</small>
+      <strong id="nav-instruction">Set a destination on the map</strong>
+      <span id="nav-details">Press M and click your destination.</span>
+    </div>
+    <button id="nav-clear" type="button" title="Clear destination">✕</button>
+  </section>
   <div id="toast">Drag with the mouse to look around · Press M to open the city map.</div>
   <div id="minimap-wrap">
     <canvas id="minimap" width="180" height="180"></canvas><span>N</span>
@@ -37,16 +46,20 @@
         <button id="close-map" type="button" aria-label="Close map">✕</button>
       </div>
     </header>
+    <div class="route-toolbar">
+      <div><strong id="route-status">SET A DESTINATION</strong><small id="route-summary">Click a point on the map to calculate a driving route.</small></div>
+      <button id="clear-route" type="button" disabled>CLEAR PIN</button>
+    </div>
     <div id="world-map" role="application" aria-label="Interactive OpenStreetMap showing your current game position"></div>
     <footer class="map-footer"><span id="map-coordinates">PLAYER POSITION · SECTOR 17 AREA</span><span>Scroll to zoom · Drag to pan · © OpenStreetMap contributors</span></footer>
   </section>
 
   <div id="start-screen">
     <div class="start-card">
-      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.3</div>
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.4</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
-      <p>Explore Chandigarh and Mohali with mouse-orbit driving controls, an interactive live map, and progressively streamed 3D OpenStreetMap roads and buildings.</p>
-      <div class="start-meta"><span>SECTOR 17 START</span><span>3D + LIVE 2D MAP</span></div>
+      <p>Explore Chandigarh and Mohali with mouse-orbit driving controls, an interactive live map, clickable destinations, driving routes and turn-by-turn guidance.</p>
+      <div class="start-meta"><span>SECTOR 17 START</span><span>3D + GPS ROUTING</span></div>
       <button id="start" type="button">ENTER THE CITY <span>→</span></button>
       <small>Desktop recommended · Internet connection required for live map data. Map detail depends on OpenStreetMap coverage.</small>
     </div>
