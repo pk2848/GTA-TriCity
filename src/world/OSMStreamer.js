@@ -459,7 +459,25 @@ export class OSMStreamer {
           geometry.translate(0, minHeight, 0);
           const p = polygonCentroid(outerRing);
           const colorIndex = stableHash(element.id) % 8;
-          const materialColor = parseTagColor(tags.colour || tags['building:colour'], [0xb7b1a3,0xc7bcaa,0xa9aaa2,0x979d98,0xc8c5b8,0x9c9387,0xb9a48b,0x8f9b9d][colorIndex]);
+          const buildingType = String(tags.building || '').toLowerCase();
+          const materialTag = String(tags['building:material'] || '').toLowerCase();
+          const palettes = {
+            residential: [0xd2c7b4,0xc3b8a7,0xb7b4a9,0xe0d7c6,0xb9ad98,0x9faaa5,0xcbb99f,0xaaa394],
+            commercial: [0xb8b1a1,0xaaa59a,0xc2b4a0,0x9ba5a1,0xc9c2b5,0xa59d90,0xb6ada0,0x929e9e],
+            industrial: [0x969995,0x858c8d,0xa5a49a,0x777f80,0xb1aea5,0x888a84,0x9b9f99,0x858b8a],
+            civic: [0xd1c7b6,0xbcb4a6,0xd8d1c3,0xaeb5b0,0xc4bbaa,0xe0d7c8,0xb5afa2,0x9fa9a7]
+          };
+          const palette = ['apartments','house','residential','detached','semidetached_house','terrace','dormitory'].includes(buildingType)
+            ? palettes.residential
+            : ['commercial','retail','office','hotel','supermarket'].includes(buildingType)
+              ? palettes.commercial
+              : ['industrial','warehouse','manufacture','garages'].includes(buildingType)
+                ? palettes.industrial
+                : ['school','university','public','hospital','government','train_station'].includes(buildingType)
+                  ? palettes.civic
+                  : [0xc8c0b2,0xb8b1a3,0xd2c8b8,0xa9aaa2,0x9eaaa4,0xc8b59c,0x9c9387,0xb0aaa0];
+          const materialColor = parseTagColor(tags.colour || tags['building:colour'],
+            materialTag.includes('brick') ? 0x9b7665 : materialTag.includes('glass') ? 0x91a8ae : palette[colorIndex]);
           const list = buildings.get(materialColor) || { positions: [], indices: [] };
           appendGeometry(list, geometry);
           buildings.set(materialColor, list);
