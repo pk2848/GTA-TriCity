@@ -10,15 +10,25 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH × MOHALI · BUILD 0.4</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH × MOHALI · BUILD 0.5</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">SECTOR 17</b></span></div>
     <div class="map-panel">
       <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
       <div id="map-counts">0 chunks · 0 roads · 0 buildings</div>
+      <div id="traffic-count">AI traffic · 0 cars · 0 pedestrians</div>
       <button id="retry-map" type="button">RETRY CURRENT AREA ↻</button>
     </div>
-    <div class="help">WASD / ARROWS <i>DRIVE</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; SHIFT <i>BOOST</i> &nbsp; R <i>RESET</i> &nbsp; MOUSE DRAG <i>ORBIT</i> &nbsp; M <i>MAP / PIN DESTINATION</i></div>
+    <div id="vehicle-status">
+      <div class="vehicle-row"><span>NITRO <kbd>N</kbd></span><strong id="nitro-value">100%</strong></div>
+      <div class="nitro-track"><span id="nitro-fill"></span></div>
+      <div class="vehicle-row condition-row"><span>VEHICLE CONDITION</span><strong id="condition-value">100%</strong></div>
+    </div>
+    <div id="impact-feedback" hidden>
+      <strong id="impact-title">IMPACT</strong>
+      <span id="impact-copy">Vehicle collision</span>
+    </div>
+    <div class="help">W / ↑ <i>DRIVE FORWARD</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></div>
   </div>
   <div id="crosshair">+</div>
   <section id="nav-guidance" class="nav-guidance" hidden aria-live="polite">
@@ -56,9 +66,9 @@
 
   <div id="start-screen">
     <div class="start-card">
-      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.4</div>
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.5</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
-      <p>Explore Chandigarh and Mohali with mouse-orbit driving controls, an interactive live map, clickable destinations, driving routes and turn-by-turn guidance.</p>
+      <p>Explore Chandigarh and Mohali with mouse-orbit driving controls, an interactive live map, clickable destinations, turn-by-turn driving routes, AI traffic, pedestrians and vehicle physics.</p>
       <div class="start-meta"><span>SECTOR 17 START</span><span>3D + GPS ROUTING</span></div>
       <button id="start" type="button">ENTER THE CITY <span>→</span></button>
       <small>Desktop recommended · Internet connection required for live map data. Map detail depends on OpenStreetMap coverage.</small>
