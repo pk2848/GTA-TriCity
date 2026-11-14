@@ -2,7 +2,7 @@ import L from 'leaflet';
 import { geoToWorld, worldToGeo } from './OSMStreamer.js';
 
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const ROUTING_URL = 'https://router.project-osrm.org/route/v1/driving';
+const ROUTING_URL = (import.meta.env.VITE_ROUTING_URL || 'https://router.project-osrm.org/route/v1/driving').replace(/\\/$/, '');
 const REQUEST_GAP_MS = 1100;
 
 function haversineMetres(a, b) {
