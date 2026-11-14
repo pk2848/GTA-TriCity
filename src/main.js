@@ -92,7 +92,115 @@ const streamer = new OSMStreamer(scene,
     mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
   }
 );
-const mapView = new WorldMapView();
+let navigationGroup = null;
+let destinationBeacon = null;
+let destinationRing = null;
+
+function clearNavigationObjects() {
+  if (!navigationGroup) return;
+  scene.remove(navigationGroup);
+  navigationGroup.traverse(object => {
+    if (object.geometry) object.geometry.dispose();
+    if (object.material) {
+      if (Array.isArray(object.material)) object.material.forEach(material => material.dispose());
+      else object.material.dispose();
+    }
+  });
+  navigationGroup = null;
+  destinationBeacon = null;
+  destinationRing = null;
+}
+
+function buildNavigationObjects(routeData) {
+  clearNavigationObjects();
+  if (!routeData) return;
+
+  navigationGroup = new THREE.Group();
+  navigationGroup.name = 'active-navigation-route';
+  const routePoints = routeData.worldPoints || [];
+  if (routePoints.length > 1) {
+    const positions = [];
+    const indices = [];
+    const halfWidth = 1.05;
+    for (let i = 0; i < routePoints.length; i++) {
+      const point = routePoints[i];
+      let dx = 0, dz = -1;
+      if (i < routePoints.length - 1) {
+        dx = routePoints[i + 1].x - point.x;
+        dz = routePoints[i + 1].z - point.z;
+      } else if (i > 0) {
+        dx = point.x - routePoints[i - 1].x;
+        dz = point.z - routePoints[i - 1].z;
+      }
+      const length = Math.hypot(dx, dz) || 1;
+      const nx = -dz / length * halfWidth;
+      const nz = dx / length * halfWidth;
+      positions.push(point.x + nx, 0.29, point.z + nz, point.x - nx, 0.29, point.z - nz);
+      if (i < routePoints.length - 1) {
+        const base = i * 2;
+        indices.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+      }
+    }
+    const routeGeometry = new THREE.BufferGeometry();
+    routeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    routeGeometry.setIndex(indices);
+    routeGeometry.computeVertexNormals();
+    const routeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffc34f, transparent: true, opacity: 0.94, side: THREE.DoubleSide,
+      depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2
+    });
+    const routeMesh = new THREE.Mesh(routeGeometry, routeMaterial);
+    routeMesh.name = 'navigation-route-ribbon';
+    routeMesh.renderOrder = 5;
+    navigationGroup.add(routeMesh);
+  }
+
+  destinationBeacon = new THREE.Group();
+  destinationBeacon.name = 'destination-beacon';
+  destinationBeacon.position.set(routeData.destinationWorld.x, 0, routeData.destinationWorld.z);
+  const beaconStem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.34, 0.55, 22, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffd36d, transparent: true, opacity: 0.24, depthWrite: false })
+  );
+  beaconStem.position.y = 11;
+  destinationBeacon.add(beaconStem);
+  destinationRing = new THREE.Mesh(
+    new THREE.TorusGeometry(5.2, 0.48, 10, 44),
+    new THREE.MeshBasicMaterial({ color: 0xffc34f })
+  );
+  destinationRing.rotation.x = Math.PI / 2;
+  destinationRing.position.y = 0.7;
+  destinationBeacon.add(destinationRing);
+  const beaconCap = new THREE.Mesh(
+    new THREE.ConeGeometry(1.05, 2.6, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffd36d })
+  );
+  beaconCap.position.y = 23.3;
+  destinationBeacon.add(beaconCap);
+  const beaconLight = new THREE.PointLight(0xffc34f, 42, 65);
+  beaconLight.position.y = 6;
+  destinationBeacon.add(beaconLight);
+  navigationGroup.add(destinationBeacon);
+  scene.add(navigationGroup);
+}
+
+const mapView = new WorldMapView({
+  onRouteChange: routeData => buildNavigationObjects(routeData),
+  onStatus: message => { toast.textContent = message; },
+  onGuidance: guidance => {
+    const panel = document.querySelector('#nav-guidance');
+    panel.hidden = !guidance;
+    if (!guidance) return;
+    document.querySelector('#nav-arrow').textContent = guidance.arrow || '↑';
+    document.querySelector('#nav-instruction').textContent = guidance.instruction || 'Follow the route';
+    document.querySelector('#nav-details').textContent = guidance.details || '';
+    document.querySelector('#nav-kicker').textContent = guidance.arrived
+      ? 'DESTINATION REACHED'
+      : (guidance.offRoute ? 'NAVIGATION WARNING' : 'UPCOMING MANEUVER');
+    panel.classList.toggle('is-warning', Boolean(guidance.offRoute));
+    panel.classList.toggle('is-arrived', Boolean(guidance.arrived));
+  }
+});
 
 let speed = 0;
 let heading = 0;
@@ -226,6 +334,10 @@ function animate() {
   camera.position.lerp(desired, 0.085);
   camera.lookAt(target.clone().add(new THREE.Vector3(0, 1.0, 0)));
   ring.rotation.z += dt * 0.7;
+  if (destinationRing) destinationRing.rotation.z += dt * 0.85;
+  if (destinationBeacon) {
+    destinationBeacon.children[0].position.y = 11 + Math.sin(performance.now() * 0.0015) * 1.2;
+  }
   checkpoint.position.y = Math.sin(performance.now() * 0.0018) * 0.22;
   renderer.render(scene, camera);
   drawMinimap();
