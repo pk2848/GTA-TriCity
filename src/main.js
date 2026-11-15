@@ -217,6 +217,9 @@ const vehicleGarage = new VehicleGarage({
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
     const kind = profile.physics?.vehicleType || profile.proceduralType || 'car';
     vehicleAudio.setVehicleType(profile.audioType || (kind === 'motorcycle' ? 'motorcycle' : kind === 'helicopter' ? 'helicopter' : kind === 'boat' ? 'boat' : 'car'));
+    // Hide the parked display only while the player is using the helipad aircraft.
+    // All other garage selections leave the helicopter parked in the world.
+    helipad.setParkedHelicopterVisible(kind !== 'helicopter');
 
     if (kind === 'helicopter') {
       vehiclePhysics.reset();
@@ -789,6 +792,7 @@ function exitHelicopter() {
   playerPedestrian.position.set(vehicle.position.x + 4.2, 0.05, vehicle.position.z + 1.5);
   pedestrianHeading = helicopterFlight.yaw;
   setWalkingMode(true);
+  helipad.setParkedHelicopterVisible(true);
   document.querySelector('#flight-status').hidden = true;
   toast.textContent = 'Helicopter parked · Walk around the landing area or select another vehicle in the garage.';
 }
@@ -1103,6 +1107,14 @@ function updateHelicopterFlight(dt) {
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, targetRoll, 4.2, dt);
   }
 
+  // Keep the static display helicopter on the helipad whenever the flyable
+  // player aircraft is away from the pad. Hide it near touchdown to avoid overlap.
+  const padDistanceBeforeMove = Math.hypot(
+    vehicle.position.x - helipad.position.x,
+    vehicle.position.z - helipad.position.z
+  );
+  helipad.setParkedHelicopterVisible(padDistanceBeforeMove > helipad.landingRadius + 8);
+
   // Integrate in world space, with a hard ground clamp and an altitude ceiling.
   vehicle.position.addScaledVector(helicopterFlight.velocity, dt);
   vehicle.position.y += helicopterFlight.verticalSpeed * dt;
@@ -1360,6 +1372,7 @@ function animate() {
   });
   // This also mounts the player avatar when a motorcycle is selected.
   vehicleGarage.update(dt);
+  helipad.update(dt);
   updateInteractionHint();
   collisionCooldown = Math.max(0, collisionCooldown - dt);
   if (!impactFeedback.hidden) {
