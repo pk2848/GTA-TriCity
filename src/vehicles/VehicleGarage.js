@@ -269,20 +269,26 @@ export class VehicleGarage {
       const center = bounds.getCenter(new THREE.Vector3());
       const size = bounds.getSize(new THREE.Vector3());
 
-      // Every vehicle asset must be Y-up with its length aligned to local -Z,
-      // matching the Cannon chassis and OSM road-following heading.
-      if (size.z < size.y * 1.45 || size.z < size.x * 1.45) {
+      // Cars use a strict length/width/height ratio. Photogrammetry motorcycles
+      // may include scan spill beyond the tyres, so validate the forward/vertical
+      // axes without rejecting them for a wide scan footprint.
+      const isMotorcycle = profile.physics?.vehicleType === 'motorcycle';
+      const axesInvalid = isMotorcycle
+        ? (size.z < size.y * 1.35 || size.z < size.x * 1.0)
+        : (size.z < size.y * 1.45 || size.z < size.x * 1.45);
+      if (axesInvalid) {
         throw new Error(
           `Vehicle axes are not road-aligned after manifest rotation. ` +
-          `Expected length on Z and height on Y; got X=${size.x.toFixed(2)}m, ` +
+          `Expected Y-up and the nose along local -Z; got X=${size.x.toFixed(2)}m, ` +
           `Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ` +
           `Fix the rotation in public/models/vehicles/manifest.json.`
         );
       }
 
       console.info(
-        `[GTA-TriCity] ${profile.displayName} aligned dimensions: ` +
-        `${size.x.toFixed(2)}m wide × ${size.z.toFixed(2)}m long × ${size.y.toFixed(2)}m high`
+        `[GTA-TriCity] ${profile.displayName} aligned bounds: ` +
+        `X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m` +
+        (isMotorcycle ? ' (motorcycle scan bounds; not a clean tyre-to-tyre measurement)' : '')
       );
 
       const minY = bounds.min.y;
