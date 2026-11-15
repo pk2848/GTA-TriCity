@@ -5,6 +5,8 @@ import { TrafficSystem } from './world/TrafficSystem.js';
 import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import { createCP67Mall } from './world/CP67Mall.js';
 import { createGGDSDCollege } from './world/GGDSDCollege.js';
+import { createPanjabUniversity } from './world/PanjabUniversity.js';
+import { createSukhnaLake } from './world/SukhnaLake.js';
 import { createCP67Interior } from './world/CP67Interior.js';
 import { VehicleGarage } from './vehicles/VehicleGarage.js';
 import { createHelipad } from './world/Helipad.js';
@@ -114,6 +116,8 @@ for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshB
 const vehiclePhysics = new VehiclePhysics();
 const cp67Mall = createCP67Mall(scene);
 const ggdsdCollege = createGGDSDCollege(scene);
+const panjabUniversity = createPanjabUniversity(scene);
+const sukhnaLake = createSukhnaLake(scene);
 const helipad = createHelipad(scene);
 const boatMarina = createBoatMarina(scene);
 const helicopterFlight = {
@@ -127,6 +131,7 @@ const cp67Interior = createCP67Interior(scene);
 cp67Interior.group.position.y = 0.9;
 vehiclePhysics.addBuildingObstacles(cp67Mall.obstacles, 'cp67-mall');
 vehiclePhysics.addBuildingObstacles(ggdsdCollege.obstacles, 'ggdsd-college');
+vehiclePhysics.addBuildingObstacles(panjabUniversity.obstacles, 'panjab-university');
 vehiclePhysics.syncVisuals(vehicle, wheels);
 
 function createPlayerPedestrian() {
@@ -922,9 +927,12 @@ document.querySelector('#start').addEventListener('click', () => {
 document.querySelector('#retry-map').addEventListener('click', () => streamer.retryCurrent());
 
 function areaName() {
-  const player = gameMode === 'walking' ? playerPedestrian.position : vehicle.position;
+  const player = activeWorldPosition();
   const x = player.x, z = player.z;
   if (Math.hypot(x - ggdsdCollege.center.x, z - ggdsdCollege.center.z) < 190) return 'GGDSD COLLEGE · SECTOR 32-C';
+  if (Math.hypot(x - panjabUniversity.northCenter.x, z - panjabUniversity.northCenter.z) < 1150) return 'PANJAB UNIVERSITY · SECTOR 14';
+  if (Math.hypot(x - panjabUniversity.southCenter.x, z - panjabUniversity.southCenter.z) < 620) return 'PANJAB UNIVERSITY · SECTOR 25';
+  if (Math.hypot(x - sukhnaLake.center.x, z - sukhnaLake.center.z) < 1750) return 'SUKHNA LAKE · SECTOR 1';
   if (Math.abs(x) < 900 && z > -650 && z < 1050) return 'CP67 MALL · SECTOR 67';
   if (x > 3200) return 'CHANDIGARH · SECTOR 17 SIDE';
   if (x < -1400) return 'MOHALI · WEST SIDE';
