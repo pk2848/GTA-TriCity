@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 // Local metric origin: Sector 17, Chandigarh. One Three.js unit represents one metre.
-export const CITY_ORIGIN = Object.freeze({ lat: 30.7415, lon: 76.7820 });
+// CP67 Mall, Sector 67, Mohali (OSM node 13147982801).
+export const CITY_ORIGIN = Object.freeze({ lat: 30.67697, lon: 76.72403 });
 export const TILE_DEGREES = 0.018;
 const METRES_PER_LAT_DEGREE = 110540;
 const METRES_PER_LON_DEGREE = 111320 * Math.cos(CITY_ORIGIN.lat * Math.PI / 180);
@@ -438,6 +439,12 @@ export class OSMStreamer {
       if (isBuilding) {
         const outerRings = rings;
         for (const outerRing of outerRings) {
+          const mallCenter = polygonCentroid(outerRing);
+          // The bespoke CP67 landmark replaces the coarse OSM outline in this footprint.
+          if (Math.abs(mallCenter.x) < 72 && mallCenter.z > -64 && mallCenter.z < 17) {
+            this.seen.add(idKey);
+            continue;
+          }
           const shape = makeShape(outerRing);
           if (!shape) continue;
           if (element.type === 'relation') {
