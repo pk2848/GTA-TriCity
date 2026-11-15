@@ -12,6 +12,8 @@ FILES
 - public/models/vehicles/2015-dodge-challenger-rt.glb
 - public/models/vehicles/bike_black.glb (original 26 MB uploaded scan; optimized derivative not currently installed)
 
+The CP67 Light Utility Helicopter is procedural (`src/vehicles/HelicopterModel.js`) and is not a binary file in this folder. The CP67 helipad is created by `src/world/Helipad.js`.
+
 ASSET / LICENCE NOTES
 - Pagani Zonda Cinque: supplied by the project owner in this conversation. The GLB does not contain embedded author/licence metadata; distribution rights have not been independently verified.
 - 1970 Dodge Charger R/T Fast & Furious Edition: supplied by the project owner in this conversation. The GLB does not contain embedded author/licence metadata; distribution rights have not been independently verified.
