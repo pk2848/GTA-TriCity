@@ -119,7 +119,8 @@
     {
       "file": "bike-black.glb",
       "bytes": 588456,
-      "source": "User upload: bike_black.glb; optimized for GTA-TriCity"
+      "sha256": "a243216ddcf11d2179a7e90966ec4dca04177b8507c94aab61e7de0537403d12",
+      "source": "User upload bike_black.glb; cropped and optimized for GTA-TriCity"
     }
   ],
   "howToAddMoreVehicles": {
