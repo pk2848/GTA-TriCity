@@ -1,46 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-export const VEHICLE_CATALOG = [
-  {
-    id: 'pagani-zonda-cinque',
-    brand: 'Pagani',
-    model: 'Zonda Cinque',
-    displayName: 'Pagani Zonda Cinque',
-    file: `${import.meta.env.BASE_URL}models/vehicles/pagani-zonda-cinque.glb`,
-    scale: 1,
-    rotation: [0, Math.PI, 0],
-    wheelPattern: null,
-    wheelRadius: 0.36,
-    physics: { width: 2.09, length: 4.43, wheelbase: 2.73, trackWidth: 1.76, engineMultiplier: 1.18, maxSpeed: 39, nitroMaxSpeed: 50 }
-  },
-  {
-    id: 'dodge-charger-1970',
-    brand: 'Dodge',
-    model: 'Charger R/T (1970) · Fast & Furious',
-    displayName: '1970 Dodge Charger R/T',
-    file: `${import.meta.env.BASE_URL}models/vehicles/1970-dodge-charger-rt.glb`,
-    scale: 1,
-    // Source scene is Z-up with its nose along +Y; convert to Y-up, then face -Z.
-    rotation: [-Math.PI / 2, Math.PI, 0],
-    wheelPattern: /^Wheel1A_(LF|RF|LR|RR)$/,
-    wheelRadius: 0.39,
-    physics: { width: 1.99, length: 5.27, wheelbase: 2.95, trackWidth: 1.61, engineMultiplier: 0.96, maxSpeed: 34, nitroMaxSpeed: 43 }
-  },
-  {
-    id: 'dodge-challenger-2015',
-    brand: 'Dodge',
-    model: 'Challenger R/T (2015) · Tuned + Armor',
-    displayName: '2015 Dodge Challenger R/T',
-    file: `${import.meta.env.BASE_URL}models/vehicles/2015-dodge-challenger-rt.glb`,
-    // This Sketchfab GLB is authored at centimetre scale: multiply by 100 to get metres.
-    scale: 100,
-    rotation: [0, Math.PI, 0],
-    wheelPattern: /^3DWheel (Front|Rear) [LR]_/,
-    wheelRadius: 0.38,
-    physics: { width: 2.18, length: 5.27, wheelbase: 2.95, trackWidth: 1.78, engineMultiplier: 1.04, maxSpeed: 37, nitroMaxSpeed: 47 }
-  }
-];
+const ASSET_BASE = import.meta.env.BASE_URL || '/';
+const MANIFEST_URL = `${ASSET_BASE}models/vehicles/manifest.json`;
 
 function disposeModel(root) {
   if (!root) return;
@@ -64,45 +26,73 @@ function disposeModel(root) {
   materials.forEach((material) => material.dispose());
 }
 
-function getWheelNames(pattern, root) {
-  if (!pattern) return [];
-  const found = [];
-  root.traverse((object) => {
-    if (object.name && pattern.test(object.name)) found.push(object);
-  });
-  return found.slice(0, 4);
-}
-
-function createWheelPivots(assetRoot, profile) {
-  const objects = getWheelNames(profile.wheelPattern, assetRoot);
-  const pivots = [];
-  for (const wheelObject of objects) {
-    assetRoot.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(wheelObject);
-    if (bounds.isEmpty()) continue;
-    const centerWorld = bounds.getCenter(new THREE.Vector3());
-    const centerLocal = assetRoot.worldToLocal(centerWorld.clone());
-
-    const pivot = new THREE.Group();
-    pivot.name = `wheel-pivot-${wheelObject.name}`;
-    pivot.position.copy(centerLocal);
-    assetRoot.add(pivot);
-    // Reparent while preserving the wheel's world transform, so its origin is at the axle.
-    pivot.attach(wheelObject);
-    pivots.push({
-      pivot,
-      front: /Front|_L[F]|_R[F]/i.test(wheelObject.name)
-    });
-  }
-  return pivots;
-}
-
 function removeEmbeddedCameras(root) {
   const cameras = [];
   root.traverse((object) => {
     if (object.isCamera) cameras.push(object);
   });
   cameras.forEach((camera) => camera.parent?.remove(camera));
+}
+
+function normalizeProfile(entry) {
+  const fileName = String(entry.file || entry.filename || '').split('/').pop();
+  if (!fileName || !fileName.toLowerCase().endsWith('.glb')) {
+    throw new Error(`Vehicle entry "${entry.id || entry.model || 'unknown'}" needs a .glb file name.`);
+  }
+  const wheelGroupPattern = entry.wheelGroupPattern
+    ? new RegExp(entry.wheelGroupPattern, 'i')
+    : null;
+  return {
+    ...entry,
+    id: String(entry.id || fileName.replace(/\.glb$/i, '').toLowerCase()),
+    brand: String(entry.brand || 'Other'),
+    model: String(entry.model || fileName.replace(/\.glb$/i, '')),
+    displayName: String(entry.displayName || `${entry.brand || 'Vehicle'} ${entry.model || fileName}`),
+    file: `${ASSET_BASE}models/vehicles/${fileName}`,
+    scale: Number(entry.scale) || 1,
+    rotation: Array.isArray(entry.rotation) && entry.rotation.length === 3
+      ? entry.rotation.map(Number)
+      : [0, 0, 0],
+    wheelGroupPattern,
+    wheelRadius: Number(entry.wheelRadius) || 0.38,
+    physics: entry.physics || {}
+  };
+}
+
+function createWheelPivots(assetRoot, profile) {
+  if (!profile.wheelGroupPattern) return [];
+
+  const groups = new Map();
+  assetRoot.traverse((object) => {
+    if (!object.isMesh || !object.name) return;
+    const match = object.name.match(profile.wheelGroupPattern);
+    if (!match) return;
+    const groupKey = match[1] || match[0];
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(object);
+  });
+
+  const pivots = [];
+  for (const [groupKey, objects] of groups) {
+    assetRoot.updateMatrixWorld(true);
+    const bounds = new THREE.Box3();
+    for (const object of objects) bounds.union(new THREE.Box3().setFromObject(object));
+    if (bounds.isEmpty()) continue;
+
+    const centerLocal = assetRoot.worldToLocal(bounds.getCenter(new THREE.Vector3()));
+    const pivot = new THREE.Group();
+    pivot.name = `wheel-pivot-${groupKey}`;
+    pivot.position.copy(centerLocal);
+    assetRoot.add(pivot);
+
+    // Move all tyre/rim pieces for this wheel together and preserve their world transforms.
+    for (const object of objects) pivot.attach(object);
+    pivots.push({
+      pivot,
+      front: /LF|RF|FRONT/i.test(groupKey)
+    });
+  }
+  return pivots;
 }
 
 export class VehicleGarage {
@@ -115,6 +105,7 @@ export class VehicleGarage {
     wheelVisuals = [],
     nitroFlames = null,
     retryButton = null,
+    countElement = null,
     canSelect = () => true,
     onSelected = () => {}
   }) {
@@ -126,29 +117,39 @@ export class VehicleGarage {
     this.wheelVisuals = wheelVisuals;
     this.nitroFlames = nitroFlames;
     this.retryButton = retryButton;
+    this.countElement = countElement;
     this.canSelect = canSelect;
     this.onSelected = onSelected;
     this.loader = new GLTFLoader();
+    this.catalog = [];
     this.activeId = null;
     this.activeSlot = null;
     this.activeWheels = [];
     this.requestId = 0;
     this.loading = false;
 
+    // No procedural player-car is rendered. Only a GLB listed in the public manifest
+    // can make the player vehicle visible.
+    this.vehicle.visible = false;
+    this.fallbackParts.forEach((part) => { part.visible = false; });
+    this.wheelVisuals.forEach((wheel) => { wheel.visible = false; });
+    if (this.nitroFlames) this.nitroFlames.visible = false;
+
     if (this.selector) {
+      this.selector.disabled = true;
+      this.selector.replaceChildren(new Option('Loading uploaded vehicles…', ''));
       this.selector.addEventListener('change', () => {
         this.selectVehicle(this.selector.value);
       });
-      this.selector.value = VEHICLE_CATALOG[0].id;
     }
     if (this.retryButton) {
       this.retryButton.addEventListener('click', () => {
-        const selected = this.selector?.value || this.activeId || VEHICLE_CATALOG[0].id;
-        this.selectVehicle(selected, { force: true });
+        const selected = this.selector?.value || this.activeId;
+        if (selected) this.selectVehicle(selected, { force: true });
       });
     }
 
-    this.selectVehicle(VEHICLE_CATALOG[0].id, { initial: true });
+    this.initialize();
   }
 
   setStatus(message, state = 'idle', detail = '') {
@@ -159,8 +160,59 @@ export class VehicleGarage {
     this.statusElement.setAttribute('aria-label', detail ? `${message}. ${detail}` : message);
   }
 
+  buildSelector() {
+    if (!this.selector) return;
+    this.selector.replaceChildren();
+    const brands = new Map();
+    for (const profile of this.catalog) {
+      if (!brands.has(profile.brand)) brands.set(profile.brand, []);
+      brands.get(profile.brand).push(profile);
+    }
+    for (const [brand, profiles] of brands) {
+      const group = document.createElement('optgroup');
+      group.label = brand.toUpperCase();
+      for (const profile of profiles) {
+        const option = document.createElement('option');
+        option.value = profile.id;
+        option.textContent = profile.model;
+        group.appendChild(option);
+      }
+      this.selector.appendChild(group);
+    }
+    this.selector.disabled = this.catalog.length === 0;
+    if (this.countElement) this.countElement.textContent = `${this.catalog.length} VEHICLES`;
+  }
+
+  async initialize() {
+    this.setStatus('READING UPLOADED VEHICLE ASSETS…', 'loading');
+    try {
+      const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Vehicle manifest request failed: HTTP ${response.status}`);
+      const manifest = await response.json();
+      if (!Array.isArray(manifest.vehicles) || manifest.vehicles.length === 0) {
+        throw new Error('manifest.json has no vehicles array entries.');
+      }
+      this.catalog = manifest.vehicles.map(normalizeProfile);
+      this.buildSelector();
+      const defaultId = manifest.defaultVehicle && this.catalog.some((item) => item.id === manifest.defaultVehicle)
+        ? manifest.defaultVehicle
+        : this.catalog[0].id;
+      if (this.selector) this.selector.value = defaultId;
+      await this.selectVehicle(defaultId, { initial: true });
+    } catch (error) {
+      console.error('[GTA-TriCity] Vehicle manifest failed to load', error);
+      this.vehicle.visible = false;
+      this.setStatus('VEHICLE ASSET LIST FAILED', 'error', error?.message || String(error));
+      if (this.selector) this.selector.disabled = true;
+      if (this.retryButton) {
+        this.retryButton.textContent = 'CHECK VEHICLE MANIFEST';
+        this.retryButton.disabled = true;
+      }
+    }
+  }
+
   async selectVehicle(id, { initial = false, force = false } = {}) {
-    const profile = VEHICLE_CATALOG.find((item) => item.id === id);
+    const profile = this.catalog.find((item) => item.id === id);
     if (!profile || this.loading) return;
     if (!initial && !this.canSelect()) {
       if (this.selector) this.selector.value = this.activeId || id;
@@ -208,8 +260,6 @@ export class VehicleGarage {
       if (bounds.isEmpty()) throw new Error('The GLB contains no visible mesh geometry.');
       const center = bounds.getCenter(new THREE.Vector3());
       const minY = bounds.min.y;
-
-      // Put each model on the same ground plane and centre it on the physics chassis.
       assetRoot.position.set(-center.x, 0.055 - minY, -center.z);
       const wheelPivots = createWheelPivots(assetRoot, profile);
 
@@ -218,60 +268,74 @@ export class VehicleGarage {
       slot.add(assetRoot);
       this.vehicle.add(slot);
 
-      if (this.activeSlot) {
-        this.vehicle.remove(this.activeSlot);
-        disposeModel(this.activeSlot);
-      }
-
+      const oldSlot = this.activeSlot;
       this.activeSlot = slot;
       this.activeWheels = wheelPivots;
       this.activeId = profile.id;
-      this.physics?.setVehicleProfile?.(profile.physics);
+      this.physics?.setVehicleProfile?.({
+        ...profile.physics,
+        wheelRadius: profile.wheelRadius
+      });
 
-      // Switch away from the placeholder only after the new GLB has loaded successfully.
+      if (oldSlot) {
+        this.vehicle.remove(oldSlot);
+        disposeModel(oldSlot);
+      }
+
+      this.vehicle.visible = true;
       this.fallbackParts.forEach((part) => { part.visible = false; });
       this.wheelVisuals.forEach((wheel) => { wheel.visible = false; });
       if (this.nitroFlames) this.nitroFlames.visible = false;
-      if (this.selector) this.selector.value = profile.id;
+      if (this.selector) {
+        this.selector.value = profile.id;
+        this.selector.disabled = false;
+      }
       this.vehicle.userData.assetLoaded = true;
       this.vehicle.userData.assetName = profile.displayName;
       this.setStatus(`READY · ${profile.brand.toUpperCase()} ${profile.model.toUpperCase()}`, 'ready');
-      if (this.retryButton) this.retryButton.textContent = 'RELOAD SELECTED MODEL';
+      if (this.retryButton) {
+        this.retryButton.textContent = 'RELOAD SELECTED MODEL';
+        this.retryButton.disabled = false;
+      }
       this.onSelected(profile);
     } catch (error) {
       console.error(`[GTA-TriCity] Failed to load ${profile.displayName}`, error);
-      if (this.selector) this.selector.value = this.activeId || VEHICLE_CATALOG[0].id;
+      if (this.selector) {
+        this.selector.value = this.activeId || profile.id;
+        this.selector.disabled = false;
+      }
       const fallbackName = this.activeId
-        ? VEHICLE_CATALOG.find((item) => item.id === this.activeId)?.displayName
-        : 'procedural starter vehicle';
-      const message = error?.message || String(error);
-      this.setStatus(`LOAD FAILED · ${fallbackName?.toUpperCase() || 'STARTER CAR'}`, 'error', message);
-      if (this.retryButton) this.retryButton.textContent = 'RETRY MODEL LOAD';
-      if (!this.activeSlot) {
-        this.fallbackParts.forEach((part) => { part.visible = true; });
-        this.wheelVisuals.forEach((wheel) => { wheel.visible = true; });
+        ? this.catalog.find((item) => item.id === this.activeId)?.displayName
+        : 'no uploaded player car available';
+      const message = error?.message || error?.target?.statusText || String(error);
+      this.setStatus(
+        `LOAD FAILED · ${fallbackName?.toUpperCase() || 'NO PLAYER CAR'}`,
+        'error',
+        `Asset: ${profile.file} · Error: ${message}`
+      );
+      this.vehicle.visible = Boolean(this.activeSlot);
+      if (this.retryButton) {
+        this.retryButton.textContent = 'RETRY MODEL LOAD';
+        this.retryButton.disabled = false;
       }
     } finally {
-      if (request === this.requestId) {
-        this.loading = false;
-        if (this.selector) this.selector.disabled = false;
-        if (this.retryButton) this.retryButton.disabled = false;
-      }
+      if (request === this.requestId && this.selector) this.selector.disabled = false;
     }
   }
 
   update(deltaTime) {
     if (!this.activeWheels.length || !this.physics) return;
-    const radius = VEHICLE_CATALOG.find((item) => item.id === this.activeId)?.wheelRadius || 0.38;
+    const profile = this.catalog.find((item) => item.id === this.activeId);
+    const radius = profile?.wheelRadius || 0.38;
     const roll = -this.physics.speedMps * deltaTime / radius;
     const steer = this.physics.steering || 0;
     for (const wheel of this.activeWheels) {
       wheel.pivot.rotation.x += roll;
-      wheel.pivot.rotation.y = wheel.front ? steer * 0.42 : 0;
+      wheel.pivot.rotation.y = wheel.front ? steer : 0;
     }
   }
 
   getActiveProfile() {
-    return VEHICLE_CATALOG.find((item) => item.id === this.activeId) || null;
+    return this.catalog.find((item) => item.id === this.activeId) || null;
   }
 }
