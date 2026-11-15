@@ -241,7 +241,7 @@ const vehicleGarage = new VehicleGarage({
       document.querySelector('#vehicle-status').style.display = 'none';
       document.querySelector('#flight-status').hidden = false;
       document.querySelector('#controls-help').innerHTML =
-        'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>YAW</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
+        'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>TURN LEFT / RIGHT</i> &nbsp; Q / E <i>STRAFE LEFT / RIGHT</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>AUTO LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
       toast.textContent = 'HELICOPTER READY · Hold SHIFT to lift off. W to fly forward, A/D to turn.';
       cameraDistance = 24;
       return;
