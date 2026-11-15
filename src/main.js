@@ -182,10 +182,11 @@ const vehicleGarage = new VehicleGarage({
   selector: document.querySelector('#car-select'),
   statusElement: document.querySelector('#car-select-status'),
   retryButton: document.querySelector('#car-retry'),
+  countElement: document.querySelector('#garage-count'),
   fallbackParts: vehicle.children.filter((child) => child !== nitroFlames),
   wheelVisuals: wheels,
   nitroFlames,
-  // While on foot the player's car is parked, so allow the garage to replace it.
+  // Only uploaded GLB assets become visible player cars; no procedural vehicle fallback.
   canSelect: () => gameMode === 'walking' || vehiclePhysics.getSpeedKmh() < 1.0,
   onSelected: (profile) => {
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
@@ -464,8 +465,8 @@ function activeWorldPosition() {
 function setWalkingMode(enabled) {
   gameMode = enabled ? 'walking' : 'vehicle';
   playerPedestrian.visible = enabled;
-  vehicle.visible = true;
-  wheels.forEach(wheel => { wheel.visible = true; });
+  vehicle.visible = Boolean(vehicle.userData.assetLoaded);
+  wheels.forEach(wheel => { wheel.visible = false; });
   document.querySelector('#vehicle-status').style.display = enabled ? 'none' : '';
   nitroActive = false;
   nitroFlames.visible = false;
