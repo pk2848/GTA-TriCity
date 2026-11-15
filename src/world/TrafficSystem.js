@@ -189,7 +189,7 @@ export class TrafficSystem{
     const object=new THREE.Group();object.name=`traffic-${modelId}`;object.visible=false;
     const progress=Math.random()*Math.max(2,length-16);
     const agent={object,modelId,roadId:road.id,points,length,progress,direction,speed:4.2+Math.random()*3.6,targetSpeed:5.8+Math.random()*4.5,collisionCooldown:0,oneway:road.oneway,respawnTimer:0,pauseTimer:0};
-    const p=samplePath(points,progress);object.position.set(p.x,0,z=p.z);object.rotation.y=p.heading;this.scene.add(object);this.attachTrafficModel(agent);this.cars.push(agent);
+    const p=samplePath(points,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.attachTrafficModel(agent);this.cars.push(agent);
    }
   }
   if(urban&&this.pedestrians.length<PEDESTRIAN_LIMIT){
