@@ -105,6 +105,22 @@
         0.16
       ],
       "riderLean": 0.16
+    },
+    {
+      "id": "cp67-light-helicopter",
+      "brand": "Aircraft",
+      "model": "Light Utility Helicopter",
+      "displayName": "CP67 Light Utility Helicopter",
+      "proceduralType": "helicopter",
+      "scale": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "physics": {
+        "vehicleType": "helicopter"
+      }
     }
   ],
   "assetChecksums": [
