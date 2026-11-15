@@ -101,8 +101,13 @@ function stableHash(value) {
   for (let i = 0; i < String(value).length; i++) h = Math.imul(h ^ String(value).charCodeAt(i), 16777619);
   return h >>> 0;
 }
+function validLine(points) {
+  return Array.isArray(points) && points.length >= 2 && points.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+}
 function validRing(ring) {
-  return Array.isArray(ring) && ring.length >= 4 && ring.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+  if (!Array.isArray(ring) || ring.length < 4 || !ring.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon))) return false;
+  const first = ring[0], last = ring[ring.length - 1];
+  return Math.hypot(first.lat - last.lat, first.lon - last.lon) < 0.00005;
 }
 function parseMetres(value) {
   const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
@@ -578,6 +583,10 @@ export class OSMStreamer {
       let rings = [];
       if (element.type === 'relation' && Array.isArray(element.members)) {
         rings = element.members.filter(member => member.role === 'outer' && validRing(member.geometry)).map(member => member.geometry);
+      } else if (tags.highway && validLine(element.geometry)) {
+        // Roads are open LineStrings; do not require their first and last node
+        // to meet as we do for building/park polygon rings.
+        rings = [element.geometry];
       } else if (validRing(element.geometry)) {
         rings = [element.geometry];
       }
