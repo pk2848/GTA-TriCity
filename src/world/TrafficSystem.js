@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-const DEFAULT_CAR_LIMIT=5, DEFAULT_PEDESTRIAN_LIMIT=20, JOIN_RADIUS=19;
+const DEFAULT_CAR_LIMIT=3, DEFAULT_PEDESTRIAN_LIMIT=8, JOIN_RADIUS=19;
 const DEFAULT_TRAFFIC_IDS=['pagani-zonda-cinque','dodge-charger-1970','dodge-challenger-2015'];
 // Use one shared uploaded girl-character model for a subset of ambient pedestrians.
 // It is loaded once and cloned with shared geometry/materials to keep GPU memory bounded.
