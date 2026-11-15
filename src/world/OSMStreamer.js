@@ -211,7 +211,7 @@ export class OSMStreamer {
 
   // Hide distant, already-loaded city chunks instead of rendering every chunk
   // the player has ever visited. Their geometry remains cached for quick return.
-  updateVisibility(x, z, radius = 1800) {
+  updateVisibility(x, z, radius = 950) {
     const radiusSq = radius * radius;
     for (const tile of this.tiles.values()) {
       const dx = x - tile.centerX;
@@ -335,7 +335,7 @@ export class OSMStreamer {
       );
       const playerDx = tileCenter.x - this.playerWorld.x;
       const playerDz = tileCenter.z - this.playerWorld.z;
-      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 1800 * 1800;
+      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 950 * 950;
       this.tiles.set(tile.key, {
         group,
         bounds,
@@ -374,7 +374,7 @@ export class OSMStreamer {
     let labelCount = 0;
 
     const addLabel = (name, x, z, category) => {
-      if (!name || labelCount >= 22) return;
+      if (!name || labelCount >= 12) return;
       labels.push(createLabel(name, x, z, category));
       labelCount++;
     };
@@ -564,7 +564,7 @@ export class OSMStreamer {
           }
           const winding = signedArea >= 0 ? 1 : -1;
           const floorCount = Math.min(16, Math.max(1, Math.floor(height / 3.15)));
-          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 5000; edge++) {
+          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 1800; edge++) {
             const a = facadePoints[edge], b = facadePoints[edge + 1];
             const dx = b.x - a.x, dz = b.z - a.z;
             const edgeLength = Math.hypot(dx, dz);
@@ -574,10 +574,10 @@ export class OSMStreamer {
             const nz = (-dx / edgeLength) * winding;
             const yaw = Math.atan2(nx, nz);
             const paneWidth = Math.min(1.28, edgeLength / (count + 1) * 0.68);
-            for (let floor = 0; floor < floorCount && windowMatrices.length < 5000; floor++) {
+            for (let floor = 0; floor < floorCount && windowMatrices.length < 1800; floor++) {
               const y = minHeight + 1.55 + floor * 3.05;
               if (y + 0.55 > minHeight + height) continue;
-              for (let pane = 0; pane < count && windowMatrices.length < 5000; pane++) {
+              for (let pane = 0; pane < count && windowMatrices.length < 1800; pane++) {
                 const t = (pane + 1) / (count + 1);
                 windowMatrices.push({
                   x: a.x + dx * t + nx * 0.075,
