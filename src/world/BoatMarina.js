@@ -47,7 +47,7 @@ export function createBoatMarina(scene) {
   // Timber pier on the north bank, with bollards and warm approach lights.
   const pier = new THREE.Group();
   pier.name = 'marina-pier';
-  pier.position.set(0, -0.16, 51);
+  pier.position.set(0, -0.16, 45);
   group.add(pier);
   const deck = new THREE.Mesh(new THREE.BoxGeometry(28, 0.42, 12), timber);
   deck.position.y = 0;
@@ -102,7 +102,7 @@ export function createBoatMarina(scene) {
   sign.rotation.y = Math.PI;
   group.add(sign);
 
-  const dockPosition = new THREE.Vector3(190, 0.05, 271);
+  const dockPosition = new THREE.Vector3(190, 0.05, 265);
   const boatPosition = new THREE.Vector3(190, 0.03, 218);
   return {
     group,
