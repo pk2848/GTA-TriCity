@@ -206,8 +206,6 @@ export function createGGDSDCollege(scene) {
   // Approximate campus boundary: the institution reports a 16.5-acre campus.
   // This is a site-scale reconstruction, not a surveyed cadastral boundary.
   plane(root, 250, 250, MAT.grass, 0, 0.006, 0, 'ggdsd-campus-landscape');
-  box(root, 242, 0.22, 242, MAT.creamDark, 0, 0.02, 0, 'ggdsd-campus-plinth');
-  plane(root, 232, 232, MAT.grass, 0, 0.15, 0, 'ggdsd-campus-inner-lawn');
 
   // Main circulation loop and paved central courtyard.
   addPaverPath(root, 0, 0, 190, 7.5, 0);
