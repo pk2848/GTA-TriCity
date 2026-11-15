@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const CAR_LIMIT=36, PEDESTRIAN_LIMIT=72, JOIN_RADIUS=19;
+const CAR_LIMIT=12, PEDESTRIAN_LIMIT=72, JOIN_RADIUS=19;
+const DEFAULT_TRAFFIC_IDS=['pagani-zonda-cinque','dodge-charger-1970','dodge-challenger-2015'];
 const CAR_COLORS=[0xb83f35,0xd5d8d5,0x243f68,0x87877f,0x252b2e,0xc5a45d,0x557353,0x814c73,0x4d7788];
 const PEOPLE_COLORS=[0x315f91,0x8d493e,0x536846,0xb18a45,0x55515f,0x8b6b58,0x3e7774,0x9b6d8c];
 const shared={
@@ -53,40 +55,6 @@ function nearestRoad(point,roads,max=32){
  }
  return best;
 }
-function makeTrafficCar(color,variant){
- const g=new THREE.Group();g.name='traffic-'+variant;
- const body=new THREE.MeshStandardMaterial({color,metalness:.2,roughness:.43}),roof=body.clone();
- const w=variant==='auto-rickshaw'?1.42:variant==='SUV'?2.02:1.86;
- const l=variant==='auto-rickshaw'?2.8:variant==='SUV'?4.3:variant==='sedan'?4.45:3.85;
- if(variant==='auto-rickshaw'){
-  box(g,w,.82,l,body,0,.92,0);box(g,w*.92,.12,l*.72,shared.trim,0,1.42,-.02);
-  box(g,w*.82,.62,l*.55,shared.glass,0,1.25,-.1);box(g,w*.88,.12,l*.62,roof,0,1.77,-.05);
- }else{
-  box(g,w,.64,l,body,0,.76,0);
-  const cab=variant==='SUV'?2.35:variant==='sedan'?2:1.85;
-  box(g,w*.84,variant==='SUV'?.9:.72,cab,shared.glass,0,1.48,-.08);
-  box(g,w*.88,.13,cab*.66,roof,0,1.96,-.12);
-  box(g,w*.97,.18,.12,shared.trim,0,.57,-l/2-.04);
-  box(g,w*.97,.18,.12,shared.trim,0,.57,l/2+.04);
-  for(const side of [-1,1]){
-   box(g,.08,.6,cab*.72,shared.trim,side*w*.43,1.5,.02);
-   box(g,.06,.13,l*.56,shared.chrome,side*(w/2+.015),.9,0);
-   box(g,.13,.13,.26,shared.trim,side*(w/2+.07),1.45,-cab*.35);
-  }
-  if(variant==='SUV'){box(g,w*.94,.14,.18,shared.trim,0,2.02,.92);box(g,w*.94,.14,.18,shared.trim,0,2.02,-1.05);}
- }
- box(g,variant==='auto-rickshaw'?.72:.76,.22,.07,shared.trim,0,.86,-l/2-.07);
- for(const side of [-1,1]){
-  const head=new THREE.Mesh(new THREE.BoxGeometry(.31,.15,.06),new THREE.MeshBasicMaterial({color:0xfff0c4}));head.position.set(side*w*.34,1.03,-l/2-.09);g.add(head);
-  const tail=new THREE.Mesh(new THREE.BoxGeometry(.28,.17,.06),new THREE.MeshBasicMaterial({color:0xd9342c}));tail.position.set(side*w*.34,.95,l/2+.075);g.add(tail);
- }
- const wheelPositions=variant==='auto-rickshaw'?[[-.53,-.8],[.53,-.8],[0,.93]]:[[-.94,-1.32],[.94,-1.32],[-.94,1.32],[.94,1.32]];
- for(const [x,z] of wheelPositions){
-  const tire=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,.22,12),shared.tire);tire.rotation.z=Math.PI/2;tire.position.set(x,.38,z);g.add(tire);
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.235,10),shared.chrome);hub.rotation.z=Math.PI/2;hub.position.copy(tire.position);g.add(hub);
- }
- g.userData.variant=variant;return g;
-}
 function makePedestrian(color,variant=0){
  const g=new THREE.Group();g.name='pedestrian-character';
  const shirt=new THREE.MeshStandardMaterial({color,roughness:.95});
@@ -129,7 +97,73 @@ export class TrafficSystem{
  constructor(scene,onCounts=()=>{},onEvent=()=>{}){
   this.scene=scene;this.onCounts=onCounts;this.onEvent=onEvent;
   this.registeredTiles=new Set();this.roads=new Map();this.cars=[];this.pedestrians=[];this.crossings=[];this.signals=[];this.elapsed=0;this.crossingObjects=[];
+  this.vehicleProfiles=[];this.vehicleTemplates=new Map();this.vehicleTemplateErrors=[];
+  this.vehicleLoader=new GLTFLoader();
+  this.trafficVehicleIds=[...DEFAULT_TRAFFIC_IDS];
+  this.loadUploadedTrafficVehicles();
   this.onCounts({cars:0,pedestrians:0,signals:0,crossings:0});
+ }
+
+ async loadUploadedTrafficVehicles(){
+  const base=import.meta.env.BASE_URL||'/';
+  try{
+   const response=await fetch(`${base}models/vehicles/manifest.json',{cache:'no-store'});
+   if(!response.ok)throw new Error(`Vehicle manifest HTTP ${response.status}`);
+   const manifest=await response.json();
+   this.vehicleProfiles=Array.isArray(manifest.vehicles)?manifest.vehicles:[];
+   this.trafficVehicleIds=this.vehicleProfiles.map(profile=>profile.id).filter(Boolean);
+   for(const profile of this.vehicleProfiles){
+    const file=String(profile.file||'').split('/').pop();
+    if(!file||!file.toLowerCase().endsWith('.glb'))continue;
+    try{
+     const gltf=await this.vehicleLoader.loadAsync(`${base}models/vehicles/${file}`);
+     const model=new THREE.Group();
+     model.name=`traffic-template-${profile.id}`;
+     const rotation=Array.isArray(profile.rotation)?profile.rotation:[0,0,0];
+     model.rotation.set(Number(rotation[0])||0,Number(rotation[1])||0,Number(rotation[2])||0);
+     model.scale.setScalar(Number(profile.scale)||1);
+     model.add(gltf.scene);
+     model.traverse(object=>{
+      if(!object.isMesh)return;
+      object.castShadow=false;
+      object.receiveShadow=false;
+      object.frustumCulled=true;
+     });
+     model.updateMatrixWorld(true);
+     let bounds=new THREE.Box3().setFromObject(model);
+     if(bounds.isEmpty())throw new Error('GLB has no visible mesh geometry');
+     const size=bounds.getSize(new THREE.Vector3());
+     const targetWidth=Number(profile.physics?.width)||size.x;
+     const targetLength=Number(profile.physics?.length)||size.z;
+     const fit=Math.min(targetWidth/Math.max(size.x,.001),targetLength/Math.max(size.z,.001));
+     model.scale.multiplyScalar(fit);
+     model.updateMatrixWorld(true);
+     bounds=new THREE.Box3().setFromObject(model);
+     const center=bounds.getCenter(new THREE.Vector3());
+     model.position.set(-center.x,-bounds.min.y,-center.z);
+     this.vehicleTemplates.set(profile.id,model);
+     // Replace the not-yet-loaded placeholder groups on cars already following roads.
+     for(const car of this.cars)if(car.modelId===profile.id)this.attachTrafficModel(car);
+    }catch(error){
+     this.vehicleTemplateErrors.push({id:profile.id,error});
+     console.warn('[GTA-TriCity] Traffic GLB failed to load:',profile.file,error);
+    }
+   }
+   this.emitCounts();
+  }catch(error){
+   console.error('[GTA-TriCity] Uploaded traffic manifest failed:',error);
+   this.vehicleTemplateErrors.push({id:'manifest',error});
+  }
+ }
+
+ attachTrafficModel(car){
+  const template=this.vehicleTemplates.get(car.modelId);
+  if(!template||!car.object)return false;
+  car.object.clear();
+  car.object.add(template.clone(true));
+  car.object.visible=true;
+  car.object.userData.vehicleModelId=car.modelId;
+  return true;
  }
  addRoads(roads,tileKey,features=[]){
   this.registeredTiles.add(tileKey);
@@ -150,11 +184,12 @@ export class TrafficSystem{
     if(this.cars.length>=CAR_LIMIT)break;
     const base=direction===1?road.points:[...road.points].reverse(),points=offsetPath(base,-road.width*.16),length=lengthOf(points);
     if(length<45)continue;
-    const pool=road.type==='service'?['hatchback','auto-rickshaw','sedan']:['hatchback','sedan','SUV','auto-rickshaw','van'];
-    const variant=pool[Math.floor(Math.random()*pool.length)],object=makeTrafficCar(CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)],variant);
+    const ids=this.trafficVehicleIds.length?this.trafficVehicleIds:DEFAULT_TRAFFIC_IDS;
+    const modelId=ids[Math.floor(Math.random()*ids.length)];
+    const object=new THREE.Group();object.name=`traffic-${modelId}`;object.visible=false;
     const progress=Math.random()*Math.max(2,length-16);
-    const agent={object,roadId:road.id,points,length,progress,direction,speed:4.2+Math.random()*3.6,targetSpeed:5.8+Math.random()*4.5,collisionCooldown:0,oneway:road.oneway,variant,respawnTimer:0,pauseTimer:0};
-    const p=samplePath(points,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.cars.push(agent);
+    const agent={object,modelId,roadId:road.id,points,length,progress,direction,speed:4.2+Math.random()*3.6,targetSpeed:5.8+Math.random()*4.5,collisionCooldown:0,oneway:road.oneway,respawnTimer:0,pauseTimer:0};
+    const p=samplePath(points,progress);object.position.set(p.x,0,z=p.z);object.rotation.y=p.heading;this.scene.add(object);this.attachTrafficModel(agent);this.cars.push(agent);
    }
   }
   if(urban&&this.pedestrians.length<PEDESTRIAN_LIMIT){
