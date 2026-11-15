@@ -471,9 +471,11 @@ export function createCP67Mall(scene) {
   // Building-collision boxes are also sent to Cannon; the forecourt remains drivable.
   const obstacles = [
     // Perimeter walls collide; the occupied podium interior remains an open walkable volume.
-    { id: 'cp67-west-wall', x: -66.0, z: -22, width: 1.1, depth: 70, height: 18, minHeight: 0, yaw: 0 },
-    { id: 'cp67-east-wall', x: 66.0, z: -22, width: 1.1, depth: 70, height: 18, minHeight: 0, yaw: 0 },
-    { id: 'cp67-rear-wall', x: 0, z: -56.5, width: 132, depth: 1.1, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-west-wall', x: -66.0, z: -22, width: 2.6, depth: 70, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-east-wall', x: 66.0, z: -22, width: 2.6, depth: 70, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-rear-wall', x: 0, z: -56.5, width: 132, depth: 2.6, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-front-wall-west', x: -42, z: 13.2, width: 47, depth: 2.6, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-front-wall-east', x: 42, z: 13.2, width: 47, depth: 2.6, height: 18, minHeight: 0, yaw: 0 },
     { id: 'cp67-office-tower', x: 42, z: -26, width: 49, depth: 43, height: 32, minHeight: 18, yaw: 0 },
     { id: 'cp67-serviced-residence', x: -48, z: -27, width: 33, depth: 39, height: 36, minHeight: 18, yaw: 0 },
     { id: 'cp67-cinema-roof', x: -6, z: -27, width: 38, depth: 25, height: 12, minHeight: 18, yaw: 0 }
