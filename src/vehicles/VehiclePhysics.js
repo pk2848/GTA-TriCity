@@ -82,10 +82,14 @@ export class VehiclePhysics {
     this.steering = 0;
     this.speedMps = 0;
     this.heading = 0;
+    this.rolloverTimer = 0;
+    this.isUpsideDown = false;
     this.nitroMultiplier = 1;
     this.accumulator = 0;
     this.obstacleIds = new Set();
     this.obstacleBodies = [];
+    this.rolloverTimer = 0;
+    this.isUpsideDown = false;
     this.reset();
   }
 
@@ -145,6 +149,12 @@ export class VehiclePhysics {
       const drag = Math.min(0.035 * dt, 0.002);
       this.chassisBody.velocity.scale(1 - drag, this.chassisBody.velocity);
     }
+
+    const chassisUp = new CANNON.Vec3(0, 1, 0);
+    this.chassisBody.quaternion.vmult(chassisUp, chassisUp);
+    const rolled = chassisUp.y < 0.38 || this.chassisBody.position.y < -1;
+    this.rolloverTimer = rolled ? this.rolloverTimer + dt : Math.max(0, this.rolloverTimer - dt * 2);
+    this.isUpsideDown = this.rolloverTimer > 0.75;
   }
 
   syncVisuals(chassisObject, wheelObjects = []) {
@@ -195,6 +205,31 @@ export class VehiclePhysics {
       added++;
     }
     return added;
+  }
+
+  recoverUpright() {
+    const x = this.chassisBody.position.x;
+    const z = this.chassisBody.position.z;
+    const yaw = this.heading || 0;
+    this.chassisBody.position.set(x, 1.08, z);
+    this.chassisBody.quaternion.setFromEuler(0, yaw, 0);
+    this.chassisBody.velocity.set(0, 0, 0);
+    this.chassisBody.angularVelocity.set(0, 0, 0);
+    this.chassisBody.force.set(0, 0, 0);
+    this.chassisBody.torque.set(0, 0, 0);
+    this.chassisBody.wakeUp();
+    this.chassisBody.aabbNeedsUpdate = true;
+    this.chassisBody.updateAABB();
+    for (const wheel of this.raycastVehicle.wheelInfos) {
+      wheel.suspensionLength = wheel.suspensionRestLength;
+      wheel.suspensionRelativeVelocity = 0;
+      wheel.suspensionForce = 0;
+      wheel.isInContact = false;
+    }
+    this.rolloverTimer = 0;
+    this.isUpsideDown = false;
+    this.speedMps = 0;
+    this.heading = yaw;
   }
 
   applyImpact(intensity = 0.5, direction = 1) {
