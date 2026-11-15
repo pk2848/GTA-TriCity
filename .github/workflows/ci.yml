@@ -18,5 +18,7 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Inspect newly uploaded vehicle GLB metadata
+        run: node scripts/inspect-new-vehicle-assets.mjs
       - name: Build production assets
         run: npm run build
