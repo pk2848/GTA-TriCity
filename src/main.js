@@ -922,7 +922,9 @@ document.querySelector('#start').addEventListener('click', () => {
 document.querySelector('#retry-map').addEventListener('click', () => streamer.retryCurrent());
 
 function areaName() {
-  const x = vehicle.position.x, z = vehicle.position.z;
+  const player = gameMode === 'walking' ? playerPedestrian.position : vehicle.position;
+  const x = player.x, z = player.z;
+  if (Math.hypot(x - ggdsdCollege.center.x, z - ggdsdCollege.center.z) < 190) return 'GGDSD COLLEGE · SECTOR 32-C';
   if (Math.abs(x) < 900 && z > -650 && z < 1050) return 'CP67 MALL · SECTOR 67';
   if (x > 3200) return 'CHANDIGARH · SECTOR 17 SIDE';
   if (x < -1400) return 'MOHALI · WEST SIDE';
