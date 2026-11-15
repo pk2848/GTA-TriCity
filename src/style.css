@@ -123,3 +123,43 @@ body:has(.mall-floor-label:not([hidden])) #vehicle-status{display:none!important
 .flight-row strong{color:#f0d99f;font:700 13px 'Barlow Condensed';letter-spacing:.3px}
 .flight-keys{margin-top:8px;padding-top:7px;border-top:1px solid #d7bd7c33;color:#c8d3ca;font:7px/1.5 'DM Mono';letter-spacing:.4px}
 @media(max-width:700px){#flight-status{left:16px;bottom:54px;width:190px;padding:8px 10px}.flight-keys{font-size:6px}}
+
+/* Quick Play and fast-travel location picker */
+.quick-start{margin-top:19px;padding-top:13px;border-top:1px solid #ffffff24}
+.quick-start-heading{margin-bottom:9px;color:#d7bd80;font:8px 'DM Mono';letter-spacing:1.25px}
+.quick-start-grid,.quick-location-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.quick-start-grid button,.quick-location-grid button{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:11px 12px;border:1px solid #d7bd7c44;border-radius:3px;background:#172520;color:#f0e8d4;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
+.quick-start-grid button:hover,.quick-location-grid button:hover{background:#293d32;border-color:#d7bd7cbb;transform:translateY(-1px)}
+.quick-start-grid button b,.quick-location-grid button b{font:700 11px 'Barlow Condensed';letter-spacing:.8px}
+.quick-start-grid button small,.quick-location-grid button small{color:#aebbb0;font:8px 'DM Mono';line-height:1.45}
+.quick-start-grid button span,.quick-location-grid button span{margin-top:4px;color:#d7bd80;font:8px 'DM Mono';letter-spacing:.7px}
+#quick-location-open{margin-left:5px;padding:7px 9px;border:1px solid #d7bd7c66;border-radius:3px;background:#172720;color:#f1dfb3;font:8px 'DM Mono';letter-spacing:.65px;cursor:pointer;white-space:nowrap}
+#quick-location-open:hover{background:#2b4234;border-color:#d7bd7c}
+#quick-location-open kbd{margin-left:3px;color:#f1d48b}
+#quick-location-menu{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:20px;background:rgba(5,12,13,.76);backdrop-filter:blur(7px);pointer-events:auto}
+#quick-location-menu[hidden]{display:none!important}
+.quick-location-card{width:min(640px,100%);max-height:min(84vh,780px);overflow:auto;padding:24px;border:1px solid #d7bd7c66;border-radius:5px;background:#111d1b;box-shadow:0 25px 90px #000b;color:#f1e8d2;text-shadow:none}
+.quick-location-title{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.quick-location-title small{color:#d7bd80;font:8px 'DM Mono';letter-spacing:1.6px}
+.quick-location-title h2{margin:6px 0 0;font:800 30px/1 'Barlow Condensed';letter-spacing:1.1px}
+#quick-location-close{width:34px;height:34px;border:1px solid #ffffff33;border-radius:3px;background:#1c2b26;color:#f1e8d2;font:24px/1 'Barlow Condensed';cursor:pointer}
+.quick-location-card>p{margin:14px 0 18px;color:#aebbb0;font-size:12px;line-height:1.6}
+.quick-location-grid button{padding:15px;background:#172622}
+.quick-location-grid button b{font-size:13px}
+.quick-location-grid button small{font-size:9px}
+.quick-location-grid button span{font-size:9px}
+.quick-location-footnote{display:block;margin-top:15px;color:#82938a;font:8px/1.6 'DM Mono'}
+@media(max-width:760px){
+  .start-card{max-height:92vh;overflow:auto;padding:22px}
+  .quick-start-grid,.quick-location-grid{gap:6px}
+  .quick-start-grid button,.quick-location-grid button{padding:9px}
+  .quick-start-grid button b,.quick-location-grid button b{font-size:10px}
+  #quick-location-open{font-size:7px;padding:6px}
+  .quick-location-card{padding:16px}
+  .quick-location-title h2{font-size:25px}
+}
+@media(max-width:480px){
+  .quick-start-grid,.quick-location-grid{grid-template-columns:1fr}
+  .quick-start-grid button{padding:8px 10px}
+  .quick-location-card{max-height:88vh}
+}
