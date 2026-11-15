@@ -1,0 +1,19 @@
+{
+  "vehicles": [
+    {
+      "file": "public/models/vehicles/pagani-zonda-cinque.glb",
+      "bytes": 16747784,
+      "sha256": "0a9514f211c8c007ddb1950f9fcc792bb50e3f1ec8e4ac34d918587aee10a039"
+    },
+    {
+      "file": "public/models/vehicles/1970-dodge-charger-rt.glb",
+      "bytes": 32946792,
+      "sha256": "8026abb6fcadfa431f9d5b0932896589883fce786be87778c1475214c6789fe2"
+    },
+    {
+      "file": "public/models/vehicles/2015-dodge-challenger-rt.glb",
+      "bytes": 14853732,
+      "sha256": "322da508fb717e1fa9d288b56f1fb021e6b1cea28b908da5e5900e0f77d24826"
+    }
+  ]
+}
