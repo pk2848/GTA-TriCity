@@ -468,6 +468,27 @@ export function createCP67Mall(scene) {
     addBox(facade, 0.75, 0.14, 0.32, M.gold, x + 0.52, 0.5, 13.42);
   }
 
+  // The four-side-open site also has active glazed elevations along the return streets.
+  for (const side of [-1, 1]) {
+    const sideX = side * 65.35;
+    addBox(facade, 0.25, 4.2, 64, glazing, sideX, 3.35, -22);
+    addBox(facade, 0.34, 0.28, 66, stone, side * 65.25, 5.65, -22);
+    addBox(facade, 0.34, 0.24, 66, stoneDark, side * 65.25, 1.0, -22);
+    for (let z = -53; z <= 8; z += 4.1) {
+      addBox(facade, 0.42, 4.3, 0.34, stone, side * 65.22, 3.35, z);
+      addBox(facade, 0.12, 4.2, 0.34, mullion, side * 65.02, 3.35, z + 1.7);
+      addBox(facade, 0.12, 0.12, 3.6, M.silver, side * 65.0, 2.4, z + 1.8);
+    }
+    addSign(facade, 'CP67', 'RETAIL · OFFICES', side * 65.02, 8.0, -22, 13, 1.65, side < 0 ? Math.PI/2 : -Math.PI/2);
+  }
+
+  // Fine podium return bands tie the street-facing sides to the main elevation.
+  for (const side of [-1, 1]) {
+    for (let y = 1.0; y <= 16; y += 2.2) {
+      addBox(facade, 0.3, 0.055, 69, M.silver, side * 65.2, y, -22);
+    }
+  }
+
   // Building-collision boxes are also sent to Cannon; the forecourt remains drivable.
   const obstacles = [
     // Perimeter walls collide; the occupied podium interior remains an open walkable volume.
