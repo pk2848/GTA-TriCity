@@ -274,30 +274,41 @@ export class VehicleGarage {
       });
 
       assetRoot.updateMatrixWorld(true);
-      const bounds = new THREE.Box3().setFromObject(assetRoot);
+      let bounds = new THREE.Box3().setFromObject(assetRoot);
       if (bounds.isEmpty()) throw new Error('The GLB contains no visible mesh geometry.');
-      const center = bounds.getCenter(new THREE.Vector3());
-      const size = bounds.getSize(new THREE.Vector3());
+      let size = bounds.getSize(new THREE.Vector3());
 
-      // Cars use a strict length/width/height ratio. Photogrammetry motorcycles
-      // may include scan spill beyond the tyres, so validate the forward/vertical
-      // axes without rejecting them for a wide scan footprint.
+      // Some supplied vehicle scans are authored with the long axis on X.
+      // Preserve the manifest's up-axis correction, then try yaw-only alignment
+      // so the longest horizontal dimension points down the game's -Z road axis.
       const isMotorcycle = profile.physics?.vehicleType === 'motorcycle';
-      const axesInvalid = isMotorcycle
-        ? (
-            size.x < 0.55 || size.x > 1.3 ||
-            size.y < 0.95 || size.y > 1.7 ||
-            size.z < 1.55 || size.z > 2.55
-          )
-        : (size.z < size.y * 1.45 || size.z < size.x * 1.45);
-      if (axesInvalid) {
+      const validAxes = (dimensions) => isMotorcycle
+        ? (dimensions.x >= 0.55 && dimensions.x <= 1.3 &&
+           dimensions.y >= 0.95 && dimensions.y <= 1.7 &&
+           dimensions.z >= 1.55 && dimensions.z <= 2.55)
+        : (dimensions.z >= dimensions.y * 1.45 && dimensions.z >= dimensions.x * 1.45);
+      if (!validAxes(size) && !isMotorcycle) {
+        const baseYaw = profile.rotation[1];
+        for (const yawOffset of [Math.PI / 2, -Math.PI / 2, Math.PI]) {
+          assetRoot.rotation.y = baseYaw + yawOffset;
+          assetRoot.updateMatrixWorld(true);
+          const candidateBounds = new THREE.Box3().setFromObject(assetRoot);
+          const candidateSize = candidateBounds.getSize(new THREE.Vector3());
+          if (validAxes(candidateSize)) {
+            bounds = candidateBounds;
+            size = candidateSize;
+            console.warn(`[GTA-TriCity] Auto-corrected ${profile.displayName} yaw by ${Math.round(yawOffset * 180 / Math.PI)} degrees.`);
+            break;
+          }
+        }
+      }
+      if (!validAxes(size)) {
         const bikeHint = isMotorcycle
-          ? 'The raw photogrammetry scan includes surrounding ground. Replace public/models/vehicles/bike_black.glb with the optimized 575 KB bike from GTA-TriCity-Bike-Optimized-Install.zip.'
-          : 'Fix the rotation in public/models/vehicles/manifest.json.';
+          ? 'Check the optimized bike GLB orientation and scale in public/models/vehicles/manifest.json.'
+          : 'The GLB dimensions do not match a road car after automatic yaw correction.';
         throw new Error(
-          `Vehicle dimensions are not game-ready after manifest scale/rotation. ` +
-          `Expected Y-up and nose along local -Z; got X=${size.x.toFixed(2)}m, ` +
-          `Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ${bikeHint}`
+          `Vehicle dimensions are not game-ready. Expected Y-up and nose along local -Z; ` +
+          `got X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ${bikeHint}`
         );
       }
 
