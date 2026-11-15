@@ -96,8 +96,15 @@
         "trackWidth": 0.28,
         "engineMultiplier": 0.72,
         "maxSpeed": 28,
-        "nitroMaxSpeed": 35
-      }
+        "nitroMaxSpeed": 35,
+        "mass": 260
+      },
+      "riderPosition": [
+        0,
+        0.34,
+        0.16
+      ],
+      "riderLean": 0.16
     }
   ],
   "assetChecksums": [
@@ -118,9 +125,9 @@
     },
     {
       "file": "bike_black.glb",
-      "bytes": 26420884,
-      "sha256": "a4526ce91e2fc970c8ee72ffb47dd0357d35219cdfafe88a91edab40fc111a0a",
-      "source": "User-uploaded public/models/vehicles/bike_black.glb; Sketchfab BIKE BLACK; CC BY 4.0"
+      "bytes": 588456,
+      "sha256": "a243216ddcf11d2179a7e90966ec4dca04177b8507c94aab61e7de0537403d12",
+      "source": "Optimized Black Bike GLB from original Sketchfab scan; 19.4k triangles; replace the original 26 MB file with GTA-TriCity-Bike-Optimized-Install.zip"
     }
   ],
   "howToAddMoreVehicles": {
