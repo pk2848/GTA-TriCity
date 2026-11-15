@@ -6,8 +6,12 @@ The player garage loads these GLB files on demand. It also contains a procedural
 - `1970-dodge-charger-rt.glb`
 - `2015-dodge-challenger-rt.glb`
 - `bike_black.glb`
+- `Model No-08.glb` — selectable generic road vehicle
+- `animated_civilian_helicopter.glb` — Aircraft category, animation clip played in-game
+- `animated_yacht.glb` — Watercraft category, animation clip played in-game
+- `helipad.glb` — loaded on the CP67 helipad
 
-Place the files in this folder by extracting the matching vehicle asset pack at the repository root. Keep the bike filename exactly `bike_black.glb` (underscore), matching `manifest.json`. A player vehicle is shown only after its GLB loads successfully; missing models are reported in the garage status. The helicopter is built from reusable Three.js meshes and appears when selected in the same garage.
+Place the files in this folder by extracting the matching vehicle asset pack at the repository root. Keep the bike filename exactly `bike_black.glb` (underscore), matching `manifest.json`. A player vehicle is shown only after its GLB loads successfully; missing models are reported in the garage status. Cars, bike, Model No-08, helicopter and yacht are all registered in `manifest.json` and loaded on demand by the same garage.
 
 ## Credits and rights
 
