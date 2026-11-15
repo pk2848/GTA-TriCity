@@ -385,22 +385,21 @@ function drawMinimap() {
 
   if (routeState?.worldPoints?.length > 1) {
     const points = routeState.worldPoints;
-    let nearestIndex = 0, nearestDistance = Infinity;
-    for (let i = 0; i < points.length - 1; i++) {
-      const a = points[i], b = points[i + 1];
-      const dx = b.x - a.x, dz = b.z - a.z;
-      const l2 = dx * dx + dz * dz || 1;
-      const t = THREE.MathUtils.clamp(((vehicle.position.x - a.x) * dx + (vehicle.position.z - a.z) * dz) / l2, 0, 1);
-      const d = Math.hypot(vehicle.position.x - (a.x + t * dx), vehicle.position.z - (a.z + t * dz));
-      if (d < nearestDistance) { nearestDistance = d; nearestIndex = i; }
-    }
+    const segmentIndex = THREE.MathUtils.clamp(routeState.segmentIndex || 0, 0, points.length - 2);
+    const segmentT = THREE.MathUtils.clamp(routeState.segmentT || 0, 0, 1);
+    const segmentA = points[segmentIndex], segmentB = points[segmentIndex + 1];
+    const routeStart = {
+      x: THREE.MathUtils.lerp(segmentA.x, segmentB.x, segmentT),
+      z: THREE.MathUtils.lerp(segmentA.z, segmentB.z, segmentT)
+    };
 
     const drawRoute = () => {
       ctx.beginPath();
-      for (let i = nearestIndex; i < points.length; i++) {
+      ctx.moveTo((routeStart.x - vehicle.position.x) * scale, (routeStart.z - vehicle.position.z) * scale);
+      for (let i = segmentIndex + 1; i < points.length; i++) {
         const x = (points[i].x - vehicle.position.x) * scale;
         const y = (points[i].z - vehicle.position.z) * scale;
-        if (i === nearestIndex) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        ctx.lineTo(x, y);
       }
     };
     ctx.save();
@@ -410,20 +409,21 @@ function drawMinimap() {
 
     // Screen-readable chevrons show route direction even when the 2D map is closed.
     let travelled = 0, nextArrowAt = 48;
-    for (let i = nearestIndex; i < points.length - 1; i++) {
-      const a = points[i], b = points[i + 1];
+    for (let i = segmentIndex; i < points.length - 1; i++) {
+      const a = i === segmentIndex ? routeStart : points[i];
+      const b = points[i + 1];
       const dx = b.x - a.x, dz = b.z - a.z;
       const segmentLength = Math.hypot(dx, dz);
       if (segmentLength < 1) continue;
-      if (travelled + segmentLength >= nextArrowAt) {
+      while (travelled + segmentLength >= nextArrowAt) {
         const t = THREE.MathUtils.clamp((nextArrowAt - travelled) / segmentLength, 0, 1);
         const x = (a.x + dx * t - vehicle.position.x) * scale;
         const y = (a.z + dz * t - vehicle.position.z) * scale;
         ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dz, dx));
         ctx.fillStyle = '#fff4d0'; ctx.strokeStyle = '#18211b'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath();
+        ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath();
         ctx.fill(); ctx.stroke(); ctx.restore();
-        nextArrowAt += 78;
+        nextArrowAt += 62;
       }
       travelled += segmentLength;
     }
