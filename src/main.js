@@ -116,7 +116,7 @@ const helipad = createHelipad(scene);
 const boatMarina = createBoatMarina(scene);
 const helicopterFlight = {
   velocity: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0,
-  verticalSpeed: 0, groundY: 0.32, landed: true, autoLanding: false
+  verticalSpeed: 0, groundY: 0.32, landed: true, autoLanding: false, modelYawOffset: 0
 };
 const boatFlight = { velocity: new THREE.Vector3(), yaw: 0, elapsed: 0 };
 let engineThrottle = 0;
@@ -222,6 +222,7 @@ const vehicleGarage = new VehicleGarage({
       vehiclePhysics.reset();
       helicopterFlight.velocity.set(0, 0, 0);
       helicopterFlight.yaw = 0;
+      helicopterFlight.modelYawOffset = Number(profile.rotation?.[1]) || 0;
       helicopterFlight.pitch = 0;
       helicopterFlight.roll = 0;
       helicopterFlight.verticalSpeed = 0;
@@ -240,7 +241,7 @@ const vehicleGarage = new VehicleGarage({
       document.querySelector('#vehicle-status').style.display = 'none';
       document.querySelector('#flight-status').hidden = false;
       document.querySelector('#controls-help').innerHTML =
-        'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>TURN</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
+        'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>YAW</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
       toast.textContent = 'HELICOPTER READY · Hold SHIFT to lift off. W to fly forward, A/D to turn.';
       cameraDistance = 24;
       return;
@@ -722,6 +723,7 @@ function enterVehicle() {
   const selectedType = vehicleGarage.getActiveProfile()?.physics?.vehicleType;
   if (selectedType === 'helicopter') {
     gameMode = 'helicopter';
+    helicopterFlight.modelYawOffset = Number(vehicleGarage.getActiveProfile()?.rotation?.[1]) || 0;
     document.querySelector('#vehicle-status').style.display = 'none';
     document.querySelector('#flight-status').hidden = false;
     controlsHelp.innerHTML = 'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>TURN</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
@@ -1033,11 +1035,12 @@ function updateHelicopterFlight(dt) {
 
   const groundY = helicopterFlight.groundY;
   const maxAltitude = 520;
-  const maxHorizontalSpeed = 34;
+  const maxHorizontalSpeed = 45;
+  const visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
   const forwardVector = new THREE.Vector3(0, 0, -1)
-    .applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
   const rightVector = new THREE.Vector3(1, 0, 0)
-    .applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
 
   if (helicopterFlight.autoLanding) {
     // F starts a stable, controlled descent at the current location.
@@ -1047,6 +1050,9 @@ function updateHelicopterFlight(dt) {
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, 0, 3.5, dt);
   } else {
     helicopterFlight.yaw += yawInput * 1.25 * dt;
+    const currentVisualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
+    forwardVector.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentVisualYaw);
+    rightVector.set(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentVisualYaw);
 
     // Collective: SHIFT climbs, CTRL descends. Releasing both holds altitude.
     if (climbInput) {
@@ -1064,7 +1070,7 @@ function updateHelicopterFlight(dt) {
     if (!helicopterFlight.landed || climbInput) {
       // W adds forward thrust. S is a proper air brake; holding it can gently
       // reverse only after the aircraft has come nearly to a stop.
-      if (forwardInput) helicopterFlight.velocity.addScaledVector(forwardVector, 9.0 * dt);
+      if (forwardInput) helicopterFlight.velocity.addScaledVector(forwardVector, 16.0 * dt);
       if (brakeInput) {
         helicopterFlight.velocity.multiplyScalar(Math.exp(-4.5 * dt));
         if (helicopterFlight.velocity.length() < 0.65) {
@@ -1075,7 +1081,7 @@ function updateHelicopterFlight(dt) {
       // Q/E provide lateral translation; A/D turn the nose left and right.
       if (strafeInput) helicopterFlight.velocity.addScaledVector(rightVector, strafeInput * 4.8 * dt);
 
-      const horizontalDrag = hoverInput ? 4.8 : 0.72;
+      const horizontalDrag = hoverInput ? 5.2 : 0.34;
       helicopterFlight.velocity.multiplyScalar(Math.exp(-horizontalDrag * dt));
       if (helicopterFlight.velocity.length() > maxHorizontalSpeed) {
         helicopterFlight.velocity.setLength(maxHorizontalSpeed);
@@ -1117,8 +1123,9 @@ function updateHelicopterFlight(dt) {
     'YXZ'
   ));
 
-  heading = helicopterFlight.yaw;
+  heading = visualYaw;
   const horizontalSpeed = Math.hypot(helicopterFlight.velocity.x, helicopterFlight.velocity.z);
+  const forwardSpeed = Math.max(0, helicopterFlight.velocity.dot(forwardVector));
   speed = Math.hypot(horizontalSpeed, helicopterFlight.verticalSpeed);
   document.querySelector('#speed').textContent = String(Math.round(speed * 3.6)).padStart(3, '0');
   document.querySelector('#area').textContent = 'AIRSPACE · ' + areaName();
@@ -1126,6 +1133,7 @@ function updateHelicopterFlight(dt) {
   document.querySelector('#flight-status').hidden = false;
   document.querySelector('#flight-altitude').textContent = `${Math.max(0, vehicle.position.y - groundY).toFixed(1)} m`;
   document.querySelector('#flight-vertical').textContent = `${helicopterFlight.verticalSpeed >= 0 ? '+' : ''}${helicopterFlight.verticalSpeed.toFixed(1)} m/s`;
+  document.querySelector('#flight-forward').textContent = `${(forwardSpeed * 3.6).toFixed(0)} km/h`;
   document.querySelector('#flight-ground').textContent = helicopterFlight.landed ? 'ON GROUND'
     : helicopterFlight.autoLanding ? 'AUTO LANDING'
     : vehicle.position.y <= groundY + 0.001 ? 'GROUND ROLL' : 'AIRBORNE';
