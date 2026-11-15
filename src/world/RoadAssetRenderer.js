@@ -80,11 +80,27 @@ export class RoadAssetRenderer {
     });
     if(!entries.length)throw new Error('American road GLB has no mesh parts');
 
-    const size=combinedBounds.getSize(new THREE.Vector3());
+    // Prefer flat, road-like mesh sections and exclude tall props if the source
+    // scene contains street furniture. If no flat section exists, keep the full asset.
+    const flatEntries=entries.filter(entry=>{
+      entry.geometry.computeBoundingBox();
+      const box=entry.geometry.boundingBox;
+      const dimensions=box.getSize(new THREE.Vector3());
+      const horizontal=Math.max(dimensions.x,dimensions.z);
+      return horizontal>2&&dimensions.y<=horizontal*0.18;
+    });
+    const selectedEntries=flatEntries.length?flatEntries:entries;
+    const selectedBounds=new THREE.Box3();
+    for(const entry of selectedEntries){
+      entry.geometry.computeBoundingBox();
+      selectedBounds.union(entry.geometry.boundingBox);
+    }
+
+    const size=selectedBounds.getSize(new THREE.Vector3());
     if(size.x<0.5||size.z<1.0)throw new Error(`Unexpected road segment dimensions X=${size.x.toFixed(2)} Y=${size.y.toFixed(2)} Z=${size.z.toFixed(2)}`);
-    const center=combinedBounds.getCenter(new THREE.Vector3());
-    const normalizeMatrix=new THREE.Matrix4().makeTranslation(-center.x,-combinedBounds.min.y,-center.z);
-    for(const entry of entries){
+    const center=selectedBounds.getCenter(new THREE.Vector3());
+    const normalizeMatrix=new THREE.Matrix4().makeTranslation(-center.x,-selectedBounds.min.y,-center.z);
+    for(const entry of selectedEntries){
       entry.geometry.applyMatrix4(normalizeMatrix);
       entry.geometry.computeBoundingSphere();
     }
@@ -92,8 +108,7 @@ export class RoadAssetRenderer {
     // Merge only geometries with the same material set; fall back safely for
     // source meshes with incompatible vertex attributes or material groups.
     const buckets=new Map();
-    const fallback=[];
-    for(const entry of entries){
+    for(const entry of selectedEntries){
       const materials=Array.isArray(entry.material)?entry.material:[entry.material];
       const key=materials.map(m=>m.uuid).join('|');
       if(!buckets.has(key))buckets.set(key,{material:entry.material,geometries:[]});
