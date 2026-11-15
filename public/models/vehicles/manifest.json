@@ -149,7 +149,12 @@
       ],
       "physics": {
         "vehicleType": "helicopter"
-      }
+      },
+      "forwardAxis": [
+        0,
+        0,
+        -1
+      ]
     },
     {
       "id": "animated-yacht",

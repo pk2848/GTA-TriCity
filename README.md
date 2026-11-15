@@ -84,6 +84,58 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.27 — helicopter forward axis and collective input
+
+- The civilian helicopter's visible nose axis is explicitly declared as local **-Z** in the vehicle manifest. W applies thrust along the transformed nose axis; S only brakes.
+- A/Left Arrow turns left; D/Right Arrow turns right. Q strafes left and E strafes right relative to the nose.
+- Shift lifts/climbs; Ctrl descends. Both left/right modifier keys and KeyboardEvent.key fallbacks are handled.
+- Browser default handling is prevented while flying, key state is cleared on blur, and a missed key-up cannot leave a collective control stuck.
+
+### Final helicopter controls
+- **W / Up Arrow** — forward, toward the cockpit/nose
+- **S / Down Arrow** — brake
+- **A / Left Arrow** — turn left
+- **D / Right Arrow** — turn right
+- **Q / E** — strafe left / right
+- **Shift** — lift / climb
+- **Ctrl** — descend
+- **Space** — stabilise / hover
+- **F** — start auto-landing; press again after stable touchdown to exit
+- **V** — focus garage; **C** — change camera; **M** — map
+
+## Build 0.26 — permanent parked helicopter at CP67
+
+- The uploaded `animated_civilian_helicopter.glb` is now loaded independently by the helipad world module and displayed as a parked aircraft at CP67 whenever another vehicle is selected.
+- The static display instance has its own animation mixer, so the uploaded rotor/idle animation continues without occupying the player's vehicle slot.
+- Selecting the flyable helicopter hides the parked display while the player is on or near the pad, preventing two models from overlapping. The parked helicopter reappears after the pilot flies away or exits after landing.
+- Selecting a car, bike or yacht does not remove the parked helicopter from the scene.
+
+## Build 0.25 — final helicopter control direction audit
+
+The imported civilian helicopter's visible nose is local +Z after its manifest rotation. Flight thrust and strafe now use that exact local basis rather than the car-oriented -Z basis. This corrects W so it accelerates toward the visible nose. The chase camera and minimap use the corresponding opposite heading to remain behind the aircraft. A/D yaw direction is mapped to intuitive left/right for the +Z-forward model. S is a brake only; it no longer generates reverse thrust.
+
+### Final helicopter key map
+- **W / Up Arrow** — fly forward along the visible nose
+- **S / Down Arrow** — brake horizontal movement
+- **A / Left Arrow** — turn left
+- **D / Right Arrow** — turn right
+- **Q** — strafe left
+- **E** — strafe right
+- **Left / Right Shift** — climb / take off
+- **Left / Right Ctrl** — descend
+- **Space** — stabilise / hover
+- **F** — start auto-landing; press again after touchdown to exit
+- **V** — focus the vehicle garage
+- **C** — switch camera view
+- **M** — open/close map
+
+## Build 0.24 — helicopter forward-axis correction
+
+- Helicopter forward and lateral vectors now include the uploaded GLB's manifest Y rotation, so W/Up applies thrust along the visible nose rather than the unrotated world -Z axis.
+- The chase camera and minimap heading follow the same visual nose heading.
+- Increased forward thrust response and reduced cruise drag so forward travel is clear and sustained.
+- Added a forward airspeed readout to distinguish horizontal movement from climb/descent speed.
+
 ## Build 0.23 — helicopter flight controls and safe landing
 
 The civilian helicopter now has a dedicated arcade flight controller. The previous landing check zeroed vertical speed while the aircraft was still within the helipad's landing radius, preventing take-off. The new controller separates lift, horizontal thrust, yaw, hover damping and ground contact.
