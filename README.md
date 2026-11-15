@@ -67,6 +67,19 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.16 — bike loading fix, integrated-GPU optimisation and camera follow
+
+- Fixes the Black Bike manifest filename to match the actual uploaded repository asset: `public/models/vehicles/bike_black.glb` (underscore). The asset is 26,420,884 bytes; SHA-256 is recorded in `public/models/vehicles/manifest.json`.
+- Motorcycle scans now use motorcycle-specific road-axis validation. The strict car width/length ratio is retained for cars, but scan-footprint width no longer rejects a two-wheeler whose dominant forward axis is local -Z.
+- Ambient AI car traffic excludes entries marked `physics.vehicleType: "motorcycle"` until a dedicated rider/two-wheel traffic system is implemented. This also avoids loading the 26 MB bike scan a second time into the traffic renderer.
+- Adds an integrated-GPU Performance graphics preset: antialiasing off, renderer pixel ratio capped at 0.85, real-time shadow maps disabled, traffic/pedestrian budgets reduced, and adaptive resolution downscales further if frame rate stays low. A Balanced preset is also available.
+- Adds a live frame-rate / draw-call / triangle readout in the garage graphics controls.
+- Reduces generic OSM window instance cap from 12,000 to 5,000 per tile and hides cached city chunks beyond 1.8 km from the player to reduce far-scene rendering.
+- The camera target height is now based on the vehicle's actual visual position, and the follow response tightens with speed. It does not increase the selected chase-camera distance while accelerating; mouse-wheel and C-key camera preset choices remain in control.
+
+### Black Bike asset note
+The repository now points to the uploaded original 26 MB photogrammetry GLB. It may contain more scan spill/ground geometry than the separately prepared 575 KB optimized bike asset pack. For the cleanest in-game silhouette and faster downloads, use the optimized `bike-black.glb` from the supplied bike asset pack instead of the raw scan, but keep the manifest filename and checksum consistent with whichever file you commit.
+
 ## Build 0.15 — Black Bike motorcycle asset
 
 - Adds `bike-black.glb` to `public/models/vehicles/` and registers it in the manifest-driven player garage under **Motorcycle → Black Bike**.
