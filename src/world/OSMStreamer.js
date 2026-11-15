@@ -198,7 +198,6 @@ export class OSMStreamer {
     this.totalBuildings = 0;
     this.totalSidewalks = 0;
     this.totalParks = 0;
-    this.seen = new Set();
     this.currentTile = { ix: 0, iy: 0 };
     this.playerWorld = { x: 0, z: 0 };
     this.disposed = false;
@@ -220,7 +219,7 @@ export class OSMStreamer {
 
   // Hide distant, already-loaded city chunks instead of rendering every chunk
   // the player has ever visited. Their geometry remains cached for quick return.
-  updateVisibility(x, z, radius = 950) {
+  updateVisibility(x, z, radius = 1650) {
     const radiusSq = radius * radius;
     for (const tile of this.tiles.values()) {
       const dx = x - tile.centerX;
@@ -351,10 +350,6 @@ export class OSMStreamer {
   async fetchTile(tile) {
     this.loading.add(tile.key);
     const bounds = tileBounds(tile.ix, tile.iy);
-    const previousSeen = this.seen;
-    // Tile geometry is committed only after a complete response, so a failed
-    // geometry build cannot poison the shared de-duplication set on retry.
-    this.seen = new Set(previousSeen);
     this.onStatus(`FETCHING ${tile.key.replace(':', ' / ')}…`);
     try {
       const data = await this.fetchData(this.buildQuery(bounds));
@@ -376,7 +371,7 @@ export class OSMStreamer {
       );
       const playerDx = tileCenter.x - this.playerWorld.x;
       const playerDz = tileCenter.z - this.playerWorld.z;
-      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 950 * 950;
+      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 1650 * 1650;
       this.tiles.set(tile.key, {
         group,
         bounds,
@@ -396,7 +391,6 @@ export class OSMStreamer {
       this.onStatus(`LOADED ${tile.key.replace(':', ' / ')} · ${result.roadCount} roads · ${result.buildingCount} buildings`);
       this.emitCounts();
     } catch (error) {
-      this.seen = previousSeen;
       const reason = error?.name === 'AbortError' ? 'request timed out' : (error?.message || 'network error');
       const attempt = (this.retryAttempts.get(tile.key) || 0) + 1;
       this.retryAttempts.set(tile.key, attempt);
@@ -417,6 +411,9 @@ export class OSMStreamer {
   }
 
   createTileGeometry(elements) {
+    // Deduplicate only inside this tile. A global set can suppress a road in
+    // a later tile after the earlier tile has been culled from the scene.
+    const tileSeen = new Set();
     const roads = new Map(), sidewalks = { positions: [], indices: [] }, curbs = { positions: [], indices: [] };
     const land = new Map(), buildings = new Map(), labels = [];
     const trafficRoads = [];
@@ -436,23 +433,23 @@ export class OSMStreamer {
     for (const element of elements) {
       const tags = element.tags || {};
       const idKey = `${element.type || 'way'}/${element.id}`;
-      if (this.seen.has(idKey)) continue;
+      if (tileSeen.has(idKey)) continue;
 
       // OSM point features feed traffic controls and pedestrian crossings as well as POI labels.
       if (element.type === 'node' && Number.isFinite(element.lat) && Number.isFinite(element.lon)) {
         const p = geoToWorld(element.lat, element.lon);
         if (tags.highway === 'traffic_signals') {
           trafficFeatures.push({ id: element.id, type: 'signal', x: p.x, z: p.z, direction: tags.direction || '' });
-          this.seen.add(idKey);
+          tileSeen.add(idKey);
         }
         if (tags.highway === 'crossing' || tags.crossing) {
           trafficFeatures.push({ id: element.id, type: 'crossing', x: p.x, z: p.z, crossing: tags.crossing || 'unmarked' });
-          this.seen.add(idKey);
+          tileSeen.add(idKey);
         }
         const important = tags.amenity || tags.tourism || tags.shop || tags.historic;
         if (tags.name && important) {
           addLabel(tags.name, p.x, p.z, 'poi');
-          this.seen.add(idKey);
+          tileSeen.add(idKey);
         }
         continue;
       }
@@ -468,7 +465,7 @@ export class OSMStreamer {
       if (tags.highway === 'crossing') {
         const p = polygonCentroid(rings[0]);
         trafficFeatures.push({ id: element.id, type: 'crossing', x: p.x, z: p.z, crossing: tags.crossing || 'marked' });
-        this.seen.add(idKey);
+        tileSeen.add(idKey);
         continue;
       }
 
@@ -518,7 +515,7 @@ export class OSMStreamer {
           const middle = points[Math.floor(points.length / 2)];
           addLabel(tags.name, middle.x, middle.z, 'road');
         }
-        this.seen.add(idKey);
+        tileSeen.add(idKey);
         continue;
       }
 
@@ -529,7 +526,7 @@ export class OSMStreamer {
           const mallCenter = polygonCentroid(outerRing);
           // The bespoke CP67 landmark replaces the coarse OSM outline in this footprint.
           if (Math.abs(mallCenter.x) < 72 && mallCenter.z > -64 && mallCenter.z < 17) {
-            this.seen.add(idKey);
+            tileSeen.add(idKey);
             continue;
           }
           const shape = makeShape(outerRing);
@@ -649,7 +646,7 @@ export class OSMStreamer {
           }
           buildingCount++;
         }
-        this.seen.add(idKey);
+        tileSeen.add(idKey);
         continue;
       }
 
@@ -673,7 +670,7 @@ export class OSMStreamer {
           }
           parkCount++;
         }
-        this.seen.add(idKey);
+        tileSeen.add(idKey);
       }
     }
 
