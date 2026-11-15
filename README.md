@@ -67,6 +67,25 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.17 — uploaded girl pedestrians and American road asset
+
+- Adds the uploaded Mita Ashley stylized T-pose GLB from `src/charachter/mita_ashley_-_anime_girl_-_3d_stylized_tpose.glb` as a roaming female pedestrian model.
+- The character GLB is fetched only after the first OSM pedestrian spawns. It is normalized to approximately 1.66 m tall, then shared via skeleton-safe clones on roughly one out of every three ambient pedestrians. Other pedestrians keep the lightweight procedural character to preserve variety and reduce draw/memory cost.
+- If the character GLB contains a walk/run clip, the NPC uses it. Otherwise, the system attempts a procedural bone walk using common upper-leg/arm bone names and applies a subtle body bob. The file name indicates a T-pose; uncommon bone names may require a Blender retarget/animation pass for a natural gait.
+- The second uploaded girl model, `src/charachter/anime_girl_hot_outfit__stylized_3d_character.glb`, remains in the repository but is not loaded in this build. It is about 85 MB; loading both large character files would add unnecessary download and GPU memory pressure on the integrated-GPU target.
+- Adds `src/world/RoadAssetRenderer.js` to load `src/other/american_road.glb` only after the first drivable OSM road tile is available.
+- The American road asset is prepared once, then rendered as shared `InstancedMesh` road sections along OSM road centerlines. Flat road-like submeshes are preferred; tall scene props are filtered out when possible. Long OSM ways are split into repeated sections to avoid stretching one road texture over long streets.
+- Original OSM road ribbons remain underneath the detailed road asset, preserving mapped intersections, junction geometry and a fallback if the uploaded road GLB fails. AI traffic and OSRM navigation continue to use OSM geometry, not the American road mesh.
+- The 102.8 MB road GLB is lazy-loaded after city roads are requested, not downloaded with the initial HTML. It is instanced with shared geometry/materials rather than duplicated for every street.
+- First-time road and character loading can still take time and temporarily raise CPU/memory use while GLTFLoader parses the large files.
+
+### Uploaded assets
+- `src/charachter/mita_ashley_-_anime_girl_-_3d_stylized_tpose.glb` — ambient girl pedestrian.
+- `src/charachter/anime_girl_hot_outfit__stylized_3d_character.glb` — retained for a future optional pedestrian variant; not loaded in Performance mode.
+- `src/other/american_road.glb` — instanced visual road surface overlay.
+
+The uploaded model files were provided by the project owner. Verify the original source licences before redistributing them in a public or commercial game.
+
 ## Build 0.16 — bike loading fix, integrated-GPU optimisation and camera follow
 
 - Fixes the Black Bike manifest filename to match the actual uploaded repository asset: `public/models/vehicles/bike_black.glb` (underscore). The asset is 26,420,884 bytes; SHA-256 is recorded in `public/models/vehicles/manifest.json`.
@@ -253,6 +272,7 @@ src/
     VehiclePhysics.js         # cannon-es raycast vehicle, suspension and collision bodies
   world/
     OSMStreamer.js            # OSM queries, projection, 3D geometry and obstacle data
+    RoadAssetRenderer.js      # Instanced uploaded American road surface over OSM centerlines
     WorldMapView.js           # Leaflet map, route calculation and navigation state
     TrafficSystem.js          # road-following traffic, signals, crossings and pedestrians
     CP67Mall.js               # detailed exterior shell, facade and forecourt
