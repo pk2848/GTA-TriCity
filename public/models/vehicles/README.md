@@ -5,9 +5,9 @@ The player garage loads these GLB files on demand:
 - `pagani-zonda-cinque.glb`
 - `1970-dodge-charger-rt.glb`
 - `2015-dodge-challenger-rt.glb`
-- `bike-black.glb`
+- `bike_black.glb`
 
-Place the files in this folder by extracting the matching vehicle asset pack at the repository root. A player vehicle is shown only after its GLB loads successfully; missing models are reported in the garage status.
+Place the files in this folder by extracting the matching vehicle asset pack at the repository root. Keep the bike filename exactly `bike_black.glb` (underscore), matching `manifest.json`. A player vehicle is shown only after its GLB loads successfully; missing models are reported in the garage status.
 
 ## Credits and rights
 
