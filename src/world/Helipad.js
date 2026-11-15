@@ -96,10 +96,52 @@ export function createHelipad(scene) {
   sign.rotation.y = -0.4;
   group.add(sign);
 
+  // A separate parked display instance keeps the uploaded helicopter visible
+  // at CP67 even while the player drives another vehicle. It is independent of
+  // the flyable helicopter loaded by the garage.
+  const loader = new GLTFLoader();
+  const parkedHelicopter = new THREE.Group();
+  parkedHelicopter.name = 'CP67-parked-helicopter';
+  parkedHelicopter.position.set(0, 0.32, 0);
+  group.add(parkedHelicopter);
+  let parkedHelicopterMixer = null;
+
+  loader.load(
+    `${import.meta.env.BASE_URL || '/'}models/vehicles/animated_civilian_helicopter.glb`,
+    (gltf) => {
+      const helicopterRoot = new THREE.Group();
+      helicopterRoot.name = 'CP67-static-helicopter-asset';
+      // Match the flyable aircraft's manifest rotation and scale.
+      helicopterRoot.rotation.set(0, Math.PI / 2, 0);
+      helicopterRoot.scale.setScalar(2);
+      gltf.scene.traverse((object) => {
+        if (object.isCamera) object.parent?.remove(object);
+        if (!object.isMesh) return;
+        object.castShadow = true;
+        object.receiveShadow = true;
+      });
+      helicopterRoot.add(gltf.scene);
+      helicopterRoot.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(helicopterRoot);
+      if (!bounds.isEmpty()) {
+        const center = bounds.getCenter(new THREE.Vector3());
+        helicopterRoot.position.set(-center.x, 0.055 - bounds.min.y, -center.z);
+      }
+      parkedHelicopter.add(helicopterRoot);
+
+      if (gltf.animations?.length) {
+        parkedHelicopterMixer = new THREE.AnimationMixer(gltf.scene);
+        gltf.animations.forEach((clip) => parkedHelicopterMixer.clipAction(clip).play());
+      }
+      console.info('[GTA-TriCity] Parked CP67 helicopter loaded independently of the player garage.');
+    },
+    undefined,
+    (error) => console.warn('[GTA-TriCity] Parked CP67 helicopter failed to load.', error)
+  );
+
   // Overlay the owner's uploaded helipad GLB as a flattened, textured ground
   // asset. The procedural markings remain underneath as a safe fallback.
   const assetUrl = `${import.meta.env.BASE_URL || '/'}models/vehicles/helipad.glb`;
-  const loader = new GLTFLoader();
   loader.load(assetUrl, (gltf) => {
     const asset = gltf.scene;
     asset.traverse((object) => {
@@ -136,6 +178,12 @@ export function createHelipad(scene) {
     group,
     position: new THREE.Vector3(position.x, 0.32, position.z),
     landingRadius: 13.5,
-    groundY: 0.32
+    groundY: 0.32,
+    setParkedHelicopterVisible(visible) {
+      parkedHelicopter.visible = Boolean(visible);
+    },
+    update(deltaTime) {
+      parkedHelicopterMixer?.update(deltaTime);
+    }
   };
 }
