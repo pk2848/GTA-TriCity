@@ -609,7 +609,7 @@ addEventListener('keydown', event => {
   if (event.code === 'KeyR' && gameMode === 'vehicle') resetVehicle();
   if (event.code === 'KeyF' && !event.repeat) interactF();
   if (event.code === 'KeyE' && !event.repeat && gameMode === 'walking') useMallElevator();
-  if (event.code === 'KeyV' && !event.repeat && (gameMode === 'vehicle' || gameMode === 'helicopter')) {
+  if (event.code === 'KeyV' && !event.repeat && ['vehicle', 'helicopter', 'boat'].includes(gameMode)) {
     event.preventDefault();
     document.querySelector('#car-select')?.focus();
   }
@@ -666,7 +666,7 @@ function setWalkingMode(enabled) {
   }
   vehicle.visible = !enabled && Boolean(vehicle.userData.assetLoaded);
   wheels.forEach(wheel => { wheel.visible = false; });
-  document.querySelector('#vehicle-status').style.display = enabled || gameMode === 'helicopter' ? 'none' : '';
+  document.querySelector('#vehicle-status').style.display = enabled || gameMode === 'helicopter' || gameMode === 'boat' ? 'none' : '';
   nitroActive = false;
   nitroFlames.visible = false;
   nitroGlow.intensity = 0;
@@ -708,11 +708,19 @@ function enterVehicle() {
   pedestrianFloor = 0;
   mallFloorLabel.hidden = true;
   setWalkingMode(false);
-  if (vehicleGarage.getActiveProfile()?.proceduralType === 'helicopter') {
+  const selectedType = vehicleGarage.getActiveProfile()?.physics?.vehicleType;
+  if (selectedType === 'helicopter') {
     gameMode = 'helicopter';
     document.querySelector('#vehicle-status').style.display = 'none';
-    controlsHelp.innerHTML = 'W / S <i>FORWARD / BACK</i> &nbsp; A / D <i>BANK</i> &nbsp; Q / E <i>YAW</i> &nbsp; SHIFT <i>ASCEND</i> &nbsp; CTRL <i>DESCEND</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i>';
+    controlsHelp.innerHTML = 'W / S <i>FORWARD / BACK</i> &nbsp; A / D <i>BANK</i> &nbsp; Q / E <i>YAW</i> &nbsp; SHIFT <i>ASCEND</i> &nbsp; CTRL <i>DESCEND</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
     toast.textContent = 'Back in the helicopter · Check rotor clearance before taking off.';
+    return;
+  }
+  if (selectedType === 'boat') {
+    gameMode = 'boat';
+    document.querySelector('#vehicle-status').style.display = 'none';
+    controlsHelp.innerHTML = 'W / S <i>ACCELERATE / REVERSE</i> &nbsp; A / D <i>TURN</i> &nbsp; SPACE <i>COAST</i> &nbsp; F <i>EXIT AT DOCK</i> &nbsp; V <i>GARAGE</i>';
+    toast.textContent = 'Back aboard the yacht · Return to the marina pier to exit.';
     return;
   }
   speed = vehiclePhysics.speedMps;
@@ -770,9 +778,28 @@ function exitHelicopter() {
   toast.textContent = 'Helicopter parked · Walk around the CP67 helipad or select another vehicle in the garage.';
 }
 
+function exitBoat() {
+  const dockDistance = Math.hypot(
+    vehicle.position.x - boatMarina.dockPosition.x,
+    vehicle.position.z - boatMarina.dockPosition.z
+  );
+  if (dockDistance > boatMarina.dockRadius || boatFlight.velocity.length() > 2.2) {
+    toast.textContent = 'Return slowly to the TRICITY MARINA pier before leaving the yacht.';
+    return;
+  }
+  playerPedestrian.position.set(boatMarina.dockPosition.x, 0.05, boatMarina.dockPosition.z + 5.2);
+  pedestrianHeading = boatFlight.yaw;
+  setWalkingMode(true);
+  toast.textContent = 'Yacht moored · Walk along the marina pier or select another vehicle in the garage.';
+}
+
 function interactF() {
   if (gameMode === 'helicopter') {
     exitHelicopter();
+    return;
+  }
+  if (gameMode === 'boat') {
+    exitBoat();
     return;
   }
   if (gameMode === 'vehicle') {
@@ -805,6 +832,11 @@ function updateInteractionHint() {
     interactionHint.textContent = helicopterFlight.landed && nearPad
       ? 'F  ·  EXIT HELICOPTER'
       : 'LAND ON CP67 HELIPAD  ·  F TO EXIT';
+  } else if (gameMode === 'boat') {
+    const nearDock = Math.hypot(vehicle.position.x - boatMarina.dockPosition.x, vehicle.position.z - boatMarina.dockPosition.z) <= boatMarina.dockRadius;
+    interactionHint.textContent = nearDock && boatFlight.velocity.length() < 2.2
+      ? 'F  ·  MOOR YACHT / EXIT'
+      : 'RETURN TO TRICITY MARINA PIER';
   } else if (gameMode === 'vehicle') {
     interactionHint.textContent = vehiclePhysics.isUpsideDown
       ? 'F  ·  RECOVER VEHICLE'
@@ -846,6 +878,7 @@ renderer.domElement.addEventListener('wheel', event => {
 
 document.querySelector('#start').addEventListener('click', () => {
   started = true;
+  vehicleAudio.start();
   document.querySelector('#start-screen').style.display = 'none';
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
   toast.textContent = `Loading roads and building footprints near ${CITY_ORIGIN.lat.toFixed(4)}, ${CITY_ORIGIN.lon.toFixed(4)}…`;
@@ -980,6 +1013,7 @@ function updateHelicopterFlight(dt) {
   const bank = Number(Boolean(keys.KeyD || keys.ArrowRight)) - Number(Boolean(keys.KeyA || keys.ArrowLeft));
   const yawInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
   const vertical = Number(Boolean(keys.ShiftLeft || keys.ShiftRight)) - Number(Boolean(keys.ControlLeft || keys.ControlRight));
+  engineThrottle = Math.max(Math.abs(forward), Math.abs(vertical));
 
   helicopterFlight.yaw += yawInput * dt * 0.82;
   const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
@@ -1024,17 +1058,71 @@ function updateHelicopterFlight(dt) {
   }
 }
 
+function updateBoatMovement(dt) {
+  const forward = Number(Boolean(keys.KeyW || keys.ArrowUp)) - Number(Boolean(keys.KeyS || keys.ArrowDown));
+  const turn = Number(Boolean(keys.KeyA || keys.ArrowLeft)) - Number(Boolean(keys.KeyD || keys.ArrowRight));
+  engineThrottle = Math.abs(forward);
+  boatFlight.yaw += turn * dt * (0.82 + Math.min(0.55, boatFlight.velocity.length() * 0.035));
+  const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), boatFlight.yaw);
+  boatFlight.velocity.addScaledVector(forwardVector, forward * 5.2 * dt);
+  boatFlight.velocity.multiplyScalar(Math.exp(-0.34 * dt));
+  if (boatFlight.velocity.length() > 14) boatFlight.velocity.setLength(14);
+
+  vehicle.position.addScaledVector(boatFlight.velocity, dt);
+  const relativeX = vehicle.position.x - boatMarina.group.position.x;
+  const relativeZ = vehicle.position.z - boatMarina.group.position.z;
+  const bounds = boatMarina.waterBounds;
+  if (relativeX < bounds.minX + 4 || relativeX > bounds.maxX - 4) {
+    vehicle.position.x = boatMarina.group.position.x + THREE.MathUtils.clamp(relativeX, bounds.minX + 4, bounds.maxX - 4);
+    boatFlight.velocity.x *= -0.22;
+  }
+  if (relativeZ < bounds.minZ + 4 || relativeZ > bounds.maxZ - 4) {
+    vehicle.position.z = boatMarina.group.position.z + THREE.MathUtils.clamp(relativeZ, bounds.minZ + 4, bounds.maxZ - 4);
+    boatFlight.velocity.z *= -0.22;
+  }
+
+  boatFlight.elapsed += dt;
+  vehicle.position.y = boatMarina.groundY + Math.sin(boatFlight.elapsed * 1.55) * 0.055;
+  const speedFactor = Math.min(1, boatFlight.velocity.length() / 11);
+  const yawRate = turn * speedFactor;
+  vehicle.quaternion.setFromEuler(new THREE.Euler(
+    -forward * speedFactor * 0.035,
+    boatFlight.yaw,
+    -yawRate * 0.08,
+    'YXZ'
+  ));
+
+  speed = boatFlight.velocity.length();
+  heading = boatFlight.yaw;
+  document.querySelector('#speed').textContent = String(Math.round(speed * 3.6)).padStart(3, '0');
+  document.querySelector('#area').textContent = 'TRICITY MARINA · MOHALI';
+  document.querySelector('#vehicle-status').style.display = 'none';
+  nitroActive = false;
+  nitroFlames.visible = false;
+  nitroGlow.intensity = 0;
+  rolloverHint.hidden = true;
+
+  mapCheckElapsed += dt;
+  if (mapCheckElapsed > 2.0) {
+    streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
+    mapCheckElapsed = 0;
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
   if (started && !mapView.isOpen && gameMode === 'helicopter') {
     updateHelicopterFlight(dt);
+  } else if (started && !mapView.isOpen && gameMode === 'boat') {
+    updateBoatMovement(dt);
   } else if (started && !mapView.isOpen && gameMode === 'vehicle') {
     const forward = keys.KeyW || keys.ArrowUp;
     const reverse = keys.KeyS || keys.ArrowDown;
     const left = keys.KeyA || keys.ArrowLeft;
     const right = keys.KeyD || keys.ArrowRight;
     const steer = (left ? 1 : 0) - (right ? 1 : 0);
+    engineThrottle = forward ? 1 : reverse ? -1 : 0;
 
     // Cannon RaycastVehicle now owns engine force, braking, grip and suspension.
     nitroActive = Boolean(keys.KeyN && nitroFuel > 0 && forward);
@@ -1101,6 +1189,7 @@ function animate() {
     conditionValue.textContent = `${Math.round(vehicleCondition)}%`;
     conditionValue.style.color = vehicleCondition < 35 ? '#e98269' : '#dce5d8';
   } else if (started && !mapView.isOpen && gameMode === 'walking') {
+    engineThrottle = 0;
     const forward = keys.KeyW || keys.ArrowUp;
     const reverse = keys.KeyS || keys.ArrowDown;
     const left = keys.KeyA || keys.ArrowLeft;
@@ -1164,10 +1253,19 @@ function animate() {
       }
     }
   } else {
+    engineThrottle = 0;
     nitroActive = false;
     nitroFlames.visible = false;
     nitroGlow.intensity = 0;
   }
+  vehicleAudio.update({
+    speed: gameMode === 'helicopter' ? helicopterFlight.velocity.length()
+      : gameMode === 'boat' ? boatFlight.velocity.length()
+      : gameMode === 'vehicle' ? vehiclePhysics.speedMps : 0,
+    throttle: engineThrottle,
+    active: ['vehicle', 'helicopter', 'boat'].includes(gameMode),
+    nitro: nitroActive
+  });
   // This also mounts the player avatar when a motorcycle is selected.
   vehicleGarage.update(dt);
   updateInteractionHint();
@@ -1211,9 +1309,12 @@ function animate() {
       playerPosition.z + forwardZ * 18
     );
   } else {
-    const distance = gameMode === 'walking' ? 7.2 : gameMode === 'helicopter' ? Math.max(20, cameraDistance) : cameraDistance;
+    const distance = gameMode === 'walking' ? 7.2
+      : gameMode === 'helicopter' ? Math.max(20, cameraDistance)
+      : gameMode === 'boat' ? Math.max(16, cameraDistance) : cameraDistance;
     const height = gameMode === 'walking' ? 2.6 + cameraPitch * 6.5
       : gameMode === 'helicopter' ? 8.5 + cameraPitch * 7.5
+      : gameMode === 'boat' ? 6.2 + cameraPitch * 6.5
       : preset.height + cameraPitch * 12;
     const yaw = playerHeading + cameraYaw;
     const side = gameMode === 'walking' ? 0 : (preset.side || 0);
@@ -1237,7 +1338,7 @@ function animate() {
   }
   // Use delta-time smoothing with a faster response as vehicle speed rises.
   // The selected preset / mouse-wheel distance stays fixed; only follow lag changes.
-  const followSpeed = gameMode === 'vehicle' || gameMode === 'helicopter'
+  const followSpeed = gameMode === 'vehicle' || gameMode === 'helicopter' || gameMode === 'boat'
     ? 22 + Math.min(18, Math.abs(speed) * 0.55)
     : 16;
   const followAlpha = 1 - Math.exp(-followSpeed * dt);
