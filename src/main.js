@@ -11,8 +11,9 @@ import './style.css';
 
 const root = document.querySelector('#game');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x91a6a6);
-scene.fog = new THREE.FogExp2(0x91a6a6, 0.00042);
+scene.background = new THREE.Color(0x8fa6b5);
+// Keep distant city detail clear; the old dense grey-green fog washed out the scene.
+scene.fog = new THREE.FogExp2(0x8fa6b5, 0.00016);
 const camera = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 3500);
 // Integrated-GPU friendly defaults: lower internal resolution, no MSAA and no
 // real-time shadow-map pass. Quality can be raised from the in-game graphics menu.
@@ -24,11 +25,12 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.domElement.id = 'world';
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 0.55));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 0.85));
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 root.appendChild(renderer.domElement);
 
@@ -240,8 +242,9 @@ const streamer = new OSMStreamer(scene,
 const graphicsSelect = document.querySelector('#graphics-quality');
 const graphicsStatus = document.querySelector('#graphics-status');
 const GRAPHICS_PROFILES = {
-  performance: { label: 'PERFORMANCE', pixelRatio: 0.55, minCars: 2, maxPedestrians: 5 },
-  balanced: { label: 'BALANCED', pixelRatio: 0.72, minCars: 3, maxPedestrians: 8 }
+  performance: { label: 'PERFORMANCE', pixelRatio: 0.65, minCars: 2, maxPedestrians: 5, shadows: false },
+  balanced: { label: 'BALANCED', pixelRatio: 0.85, minCars: 3, maxPedestrians: 8, shadows: false },
+  quality: { label: 'HIGH QUALITY', pixelRatio: 1.0, minCars: 4, maxPedestrians: 10, shadows: true }
 };
 let graphicsMode = 'performance';
 let resolutionScale = 1;
@@ -265,9 +268,11 @@ function applyGraphicsQuality(mode) {
   highFpsSeconds = 0;
   const profile = GRAPHICS_PROFILES[graphicsMode];
 
-  // Keep costly real-time shadow rendering off on both presets.
-  renderer.shadowMap.enabled = false;
-  sun.castShadow = false;
+  // Real-time soft shadows are enabled only in High Quality to protect FPS on integrated GPUs.
+  renderer.shadowMap.enabled = Boolean(profile.shadows);
+  renderer.shadowMap.autoUpdate = Boolean(profile.shadows);
+  sun.castShadow = Boolean(profile.shadows);
+  if (profile.shadows) renderer.shadowMap.needsUpdate = true;
   applyRenderResolution();
   trafficSystem.setQuality({
     cars: profile.minCars,
@@ -280,7 +285,7 @@ function applyGraphicsQuality(mode) {
 if (graphicsSelect) {
   graphicsSelect.addEventListener('change', () => applyGraphicsQuality(graphicsSelect.value));
 }
-applyGraphicsQuality('performance');
+applyGraphicsQuality('balanced');
 
 function updatePerformanceReadout() {
   fpsFrames++;
