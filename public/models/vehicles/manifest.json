@@ -73,6 +73,31 @@
         "maxSpeed": 35,
         "nitroMaxSpeed": 44
       }
+    },
+    {
+      "id": "black-bike",
+      "brand": "Motorcycle",
+      "model": "Black Bike",
+      "displayName": "Black Bike",
+      "file": "bike-black.glb",
+      "scale": 0.05,
+      "rotation": [
+        0,
+        3.141592653589793,
+        0
+      ],
+      "wheelRadius": 0.31,
+      "physics": {
+        "vehicleType": "motorcycle",
+        "width": 0.82,
+        "length": 2,
+        "height": 1.33,
+        "wheelbase": 1.38,
+        "trackWidth": 0.28,
+        "engineMultiplier": 0.72,
+        "maxSpeed": 28,
+        "nitroMaxSpeed": 35
+      }
     }
   ],
   "assetChecksums": [
@@ -90,6 +115,11 @@
       "file": "2015-dodge-challenger-rt.glb",
       "bytes": 14853732,
       "sha256": "322da508fb717e1fa9d288b56f1fb021e6b1cea28b908da5e5900e0f77d24826"
+    },
+    {
+      "file": "bike-black.glb",
+      "bytes": 588456,
+      "source": "User upload: bike_black.glb; optimized for GTA-TriCity"
     }
   ],
   "howToAddMoreVehicles": {
