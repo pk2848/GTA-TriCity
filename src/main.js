@@ -348,17 +348,105 @@ function drawMinimap() {
   const ctx = minimapContext;
   ctx.clearRect(0, 0, 180, 180);
   ctx.fillStyle = '#182621'; ctx.fillRect(0, 0, 180, 180);
+  const routeState = mapView.getMinimapState();
+  const scale = 0.23; // roughly 700 metres across the circular radar at this zoom
   ctx.save();
-  ctx.translate(90, 90); ctx.rotate(-heading);
-  // A subdued orientation grid; actual OSM geometry is visible in the 3D world.
-  ctx.strokeStyle = '#536359'; ctx.lineWidth = 1;
-  for (let p = -90; p <= 90; p += 22.5) {
+  ctx.beginPath(); ctx.arc(90, 90, 82, 0, Math.PI * 2); ctx.clip();
+  ctx.translate(90, 90);
+  // Heading-up orientation: the vehicle's nose always points to the top of the radar.
+  ctx.rotate(heading);
+  ctx.strokeStyle = '#405249'; ctx.lineWidth = 1;
+  for (let p = -180; p <= 180; p += 22.5) {
     ctx.beginPath(); ctx.moveTo(p, -90); ctx.lineTo(p, 90); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-90, p); ctx.lineTo(90, p); ctx.stroke();
   }
+
+  if (routeState?.worldPoints?.length > 1) {
+    const points = routeState.worldPoints;
+    let nearestIndex = 0, nearestDistance = Infinity;
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const l2 = dx * dx + dz * dz || 1;
+      const t = THREE.MathUtils.clamp(((vehicle.position.x - a.x) * dx + (vehicle.position.z - a.z) * dz) / l2, 0, 1);
+      const d = Math.hypot(vehicle.position.x - (a.x + t * dx), vehicle.position.z - (a.z + t * dz));
+      if (d < nearestDistance) { nearestDistance = d; nearestIndex = i; }
+    }
+
+    const drawRoute = () => {
+      ctx.beginPath();
+      for (let i = nearestIndex; i < points.length; i++) {
+        const x = (points[i].x - vehicle.position.x) * scale;
+        const y = (points[i].z - vehicle.position.z) * scale;
+        if (i === nearestIndex) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+    };
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    drawRoute(); ctx.strokeStyle = '#111b17'; ctx.lineWidth = 8; ctx.stroke();
+    drawRoute(); ctx.strokeStyle = routeState.offRoute ? '#e06d53' : '#f2b63f'; ctx.lineWidth = 4; ctx.stroke();
+
+    // Screen-readable chevrons show route direction even when the 2D map is closed.
+    let travelled = 0, nextArrowAt = 48;
+    for (let i = nearestIndex; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const segmentLength = Math.hypot(dx, dz);
+      if (segmentLength < 1) continue;
+      if (travelled + segmentLength >= nextArrowAt) {
+        const t = THREE.MathUtils.clamp((nextArrowAt - travelled) / segmentLength, 0, 1);
+        const x = (a.x + dx * t - vehicle.position.x) * scale;
+        const y = (a.z + dz * t - vehicle.position.z) * scale;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dz, dx));
+        ctx.fillStyle = '#fff4d0'; ctx.strokeStyle = '#18211b'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath();
+        ctx.fill(); ctx.stroke(); ctx.restore();
+        nextArrowAt += 78;
+      }
+      travelled += segmentLength;
+    }
+    const next = routeState.nextStep;
+    if (next) {
+      const x = (next.x - vehicle.position.x) * scale;
+      const y = (next.z - vehicle.position.z) * scale;
+      if (Math.hypot(x, y) < 76) {
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#a66b18'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#18211b'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(routeState.arrow || '↑', x, y + 0.5);
+      }
+    }
+    const dest = routeState.destination;
+    if (dest) {
+      const x = (dest.x - vehicle.position.x) * scale;
+      const y = (dest.z - vehicle.position.z) * scale;
+      if (Math.hypot(x, y) < 80) {
+        ctx.fillStyle = '#f2b63f'; ctx.strokeStyle = '#18211b'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
   ctx.restore();
-  ctx.fillStyle = '#f4d17c'; ctx.beginPath(); ctx.moveTo(90, 79); ctx.lineTo(83, 98); ctx.lineTo(97, 98); ctx.closePath(); ctx.fill();
+
+  // Player heading marker.
+  ctx.fillStyle = '#f4d17c'; ctx.strokeStyle = '#15211b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(90, 78); ctx.lineTo(82, 99); ctx.lineTo(90, 95); ctx.lineTo(98, 99); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.strokeStyle = '#d7bd7c'; ctx.beginPath(); ctx.arc(90, 90, 5, 0, Math.PI * 2); ctx.stroke();
+
+  const navLabel = document.querySelector('#minimap-nav');
+  if (routeState) {
+    const distance = Number.isFinite(routeState.distanceToTurn)
+      ? (routeState.distanceToTurn >= 1000 ? `${(routeState.distanceToTurn / 1000).toFixed(1)}km` : `${Math.round(routeState.distanceToTurn)}m`)
+      : '';
+    const status = routeState.arrived ? 'ARRIVED' : routeState.offRoute ? 'OFF ROUTE' : `${routeState.arrow} ${routeState.instruction}`;
+    navLabel.textContent = distance && !routeState.arrived ? `${status} · ${distance}` : status;
+    navLabel.classList.toggle('is-warning', routeState.offRoute);
+    navLabel.classList.toggle('is-arrived', routeState.arrived);
+  } else {
+    navLabel.textContent = 'NO ACTIVE ROUTE';
+    navLabel.classList.remove('is-warning', 'is-arrived');
+  }
 }
 
 const clock = new THREE.Clock();
