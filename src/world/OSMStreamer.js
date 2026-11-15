@@ -195,6 +195,7 @@ export class OSMStreamer {
     this.totalParks = 0;
     this.seen = new Set();
     this.currentTile = { ix: 0, iy: 0 };
+    this.playerWorld = { x: 0, z: 0 };
   }
 
   requestAtWorld(x, z, force = false) {
@@ -202,6 +203,7 @@ export class OSMStreamer {
     const ix = Math.floor((lon - CITY_ORIGIN.lon) / TILE_DEGREES + 0.5);
     const iy = Math.floor((lat - CITY_ORIGIN.lat) / TILE_DEGREES + 0.5);
     this.currentTile = { ix, iy };
+    this.playerWorld = { x, z };
     this.updateVisibility(x, z);
     this.requestTile(ix, iy, force);
     this.prefetchAt(lat, lon, ix, iy);
@@ -326,9 +328,9 @@ export class OSMStreamer {
         (bounds.south + bounds.north) / 2,
         (bounds.west + bounds.east) / 2
       );
-      const dx = tileCenter.x - this.currentTile.ix * TILE_DEGREES * METRES_PER_LON_DEGREE;
-      const dz = tileCenter.z + this.currentTile.iy * TILE_DEGREES * METRES_PER_LAT_DEGREE;
-      group.visible = Math.hypot(dx, dz) <= 1800;
+      const playerDx = tileCenter.x - this.playerWorld.x;
+      const playerDz = tileCenter.z - this.playerWorld.z;
+      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 1800 * 1800;
       this.tiles.set(tile.key, {
         group,
         bounds,
