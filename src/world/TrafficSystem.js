@@ -111,7 +111,6 @@ export class TrafficSystem{
   this.girlPedestrianTemplate=null;this.girlPedestrianAnimations=[];
   this.girlPedestrianLoading=false;this.girlPedestrianError=null;
   this.loadUploadedTrafficVehicles();
-  this.loadGirlPedestrianModel();
   this.onCounts({cars:0,pedestrians:0,signals:0,crossings:0});
  }
 
@@ -154,8 +153,11 @@ export class TrafficSystem{
    normalized.scale.setScalar(scale);
    normalized.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
    // Most glTF character exports face +Z; this makes the model face the game's -Z forward axis.
-   normalized.rotation.y=Math.PI;
-   normalized.add(source);
+   const facing=new THREE.Group();
+   facing.name='girl-character-forward-correction';
+   facing.rotation.y=Math.PI;
+   facing.add(source);
+   normalized.add(facing);
    normalized.traverse(object=>{
     if(!object.isMesh)return;
     object.castShadow=false;
@@ -387,6 +389,8 @@ export class TrafficSystem{
     const object=makePedestrian(PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)],personIndex),progress=Math.random()*length;
     const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0,mixer:null,hasWalkAnimation:false,walkRig:null,isUploadedGirl:false};
     const p=samplePath(path,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.pedestrians.push(person);
+    // Defer the 64 MB character download until the first OSM pedestrian actually spawns.
+    if(personIndex===0&&!this.girlPedestrianTemplate&&!this.girlPedestrianLoading)this.loadGirlPedestrianModel();
     if(personIndex%3===0&&this.girlPedestrianTemplate)this.replacePedestrianWithGirl(person);
    }
   }
