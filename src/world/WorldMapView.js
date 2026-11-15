@@ -456,7 +456,9 @@ export class WorldMapView {
     };
     this.onGuidance(this.latestGuidance);
     if (this.isOpen && this.routeSummary) {
-      this.routeSummary.textContent = `${formatDistance(remainingDistance)} remaining · ${formatDuration(remainingDuration)} · ${offRoute ? 'Off route' : 'Follow highlighted line'}`;
+      this.routeSummary.textContent = offRoute
+        ? `OFF ROUTE · ${formatDistance(nearestDistance)} from route · Return to the highlighted road`
+        : `NEXT: ${instruction.arrow} ${instruction.text} in ${formatDistance(distanceToTurn)} · ${formatDistance(remainingDistance)} left · ${formatDuration(remainingDuration)}`;
     }
   }
 
