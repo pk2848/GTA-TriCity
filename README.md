@@ -76,11 +76,11 @@ npm run dev
 - Ambient NPCs and traffic agents are visually culled when far from the player. The uploaded Mita Ashley model is used for one roaming NPC rather than every third NPC; other walkers stay lightweight procedural characters.
 - Adds a player rider mount for the motorcycle. When the player drives the Black Bike, the existing player avatar appears at the bike seat with arms reaching toward the handlebar, knees/legs bent toward the pegs, and subtle turn lean. On foot or in cars, the rider mount is hidden and the normal walking avatar pose is restored.
 - Motorcycle chassis mass is set from the bike profile (260 kg), with motorcycle-sized collision bounds and contact positions.
-- The bike manifest expects a game-ready model around 0.8 m wide × 1.33 m high × 2.0 m long at scale 0.05. The original uploaded photogrammetry scan is 26 MB and includes surrounding ground; the garage now reports an actionable error if that raw scan is used instead of the optimized 575 KB bike replacement.
+- The bike manifest currently points to the original uploaded photogrammetry scan (26,420,884 bytes), which includes surrounding scan geometry. The garage loads it with a dimension warning rather than rejecting it. The separate optimized 575 KB derivative is not installed in this folder yet.
 
 ### Required Black Bike binary replacement
 
-The GitHub branch still contains the original 26 MB `public/models/vehicles/bike_black.glb`. Replace it with the optimized GLB in `GTA-TriCity-Bike-Optimized-Install.zip` (same destination path and filename). The optimized model is about 19.4k triangles and has the dimensions expected by the rider/physics profile. Then commit the replaced binary:
+The GitHub branch currently contains the original 26 MB `public/models/vehicles/bike_black.glb`. A separate optimized GLB derivative (about 19.4k triangles) is not currently installed. The garage keeps the manifest filename so the original bike remains selectable until the optimized asset is added. Then commit the replaced binary:
 
 ```bash
 git add public/models/vehicles/bike_black.glb
