@@ -242,7 +242,8 @@ const vehicleGarage = new VehicleGarage({
     if (kind === 'boat') {
       vehiclePhysics.reset();
       boatFlight.velocity.set(0, 0, 0);
-      boatFlight.yaw = 0;
+      // Point the yacht toward the marina pier on its initial launch.
+      boatFlight.yaw = Math.PI;
       boatFlight.elapsed = 0;
       vehicle.position.copy(boatMarina.boatPosition);
       vehicle.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), boatFlight.yaw);
