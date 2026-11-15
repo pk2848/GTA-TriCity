@@ -28,6 +28,7 @@ export class RoadAssetRenderer {
     );
     record={group,roads:drivable,meshes:[]};
     this.tiles.set(tileKey,record);
+    if(!drivable.length)return group;
     if(this.template)this.populateTile(record);
     else if(!this.loading&&!this.failed)this.loadAsset();
     return group;
