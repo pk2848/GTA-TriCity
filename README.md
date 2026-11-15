@@ -46,11 +46,25 @@ npm run dev
 - **Space:** brake.
 - **N (hold while accelerating):** nitro; consumes a finite tank and recharges after release.
 - **Shift (hold):** secondary engine boost.
+- **F:** recover an overturned vehicle at its current location.
 - **R:** reset the car to the CP67 Mall drop-off plaza, repair condition and refill nitro.
 - **Hold and drag left mouse on the 3D canvas:** orbit the camera.
 - **Mouse wheel on the 3D canvas:** zoom the follow camera.
 - **M:** open/close the detailed city map.
 - **Esc:** close the detailed city map.
+
+## Build 0.8 — vehicle recovery and route guidance correction
+
+- Adds rollover detection to the Cannon vehicle controller. When the chassis stays tipped, the HUD displays **VEHICLE OVERTURNED · PRESS F TO RECOVER**.
+- Press **F** to stand the vehicle upright at its current location, retain its heading, clear linear/angular velocity, refresh suspension state and continue driving. Press **R** to respawn at CP67 Mall instead.
+- Throttle and boost are suppressed while the car is overturned.
+- Corrects map direction-arrow rotation so northbound and eastbound route arrows point in the proper screen direction.
+- Navigation progress is measured along the route polyline instead of straight-line distance to the next turn, reducing premature instruction skipping at parallel streets and junctions.
+- The circular minimap starts the remaining route at the vehicle's projected route position, draws future direction chevrons and displays the next manoeuvre with distance to turn.
+- The full-screen map toolbar displays the current next manoeuvre, distance to turn, remaining distance and ETA.
+- The 3D street route includes repeated direction chevrons along the highlighted road path.
+
+Route quality still depends on the routing service and mapped road network. The circular minimap is a compact forward view of the remaining route, not a full city-scale overview; use the full map for distant destinations. If no route is active, the minimap displays “NO ACTIVE ROUTE”. If the player leaves the road network, navigation shows the distance back to the highlighted route.
 
 ## Build 0.7 — CP67 Mall and navigation update
 
