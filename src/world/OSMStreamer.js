@@ -280,9 +280,15 @@ export class OSMStreamer {
     const [ix, iy] = key.split(':').map(Number);
     const base = import.meta.env.BASE_URL || '/';
     const response = await fetch(`${base}maps/tricity-offline/${ix}_${iy}.json`, { cache: 'force-cache' });
-    if (!response.ok) throw new Error(`Offline map tile ${key} is missing (HTTP ${response.status}). Rebuild the offline pack.`);
+    if (!response.ok) {
+      console.warn(`[GTA-TriCity] Offline pack lists ${key}, but its tile file is missing; trying the browser cache/network.`);
+      return null;
+    }
     const data = await response.json();
-    if (!Array.isArray(data.elements)) throw new Error(`Offline map tile ${key} is invalid.`);
+    if (!Array.isArray(data.elements)) {
+      console.warn(`[GTA-TriCity] Offline pack tile ${key} is invalid; trying the browser cache/network.`);
+      return null;
+    }
     return data;
   }
 
@@ -453,26 +459,18 @@ export class OSMStreamer {
         // Browser IndexedDB keeps tiles from places already visited so returning
         // to them is immediate, even after a browser/game restart.
         const cached = await readPersistentTile(tile.key);
-        const cacheAge = cached ? Date.now() - cached.savedAt : Infinity;
-        const cacheIsFresh = cached && cacheAge <= TILE_CACHE_MAX_AGE_MS;
-        if (cacheIsFresh || (cached && navigator.onLine === false)) {
+        // Prefer a saved tile immediately, even when it is older than the
+        // refresh window. A fast slightly-stale city is better than a blank
+        // road while a public Overpass endpoint is timing out.
+        if (cached?.data) {
           data = cached.data;
           source = 'SAVED MAP';
         } else if (navigator.onLine !== false) {
-          try {
-            data = await this.fetchData(this.buildQuery(bounds));
-            source = 'LIVE MAP';
-            // Cache the raw OSM response asynchronously; map rendering must not
-            // wait for IndexedDB quota or filesystem latency.
-            writePersistentTile(tile.key, data);
-          } catch (networkError) {
-            if (!cached?.data) throw networkError;
-            data = cached.data;
-            source = 'SAVED MAP · NETWORK UNAVAILABLE';
-          }
-        } else if (cached?.data) {
-          data = cached.data;
-          source = 'SAVED MAP';
+          data = await this.fetchData(this.buildQuery(bounds));
+          source = 'LIVE MAP';
+          // Cache the raw OSM response asynchronously; map rendering must not
+          // wait for IndexedDB quota or filesystem latency.
+          writePersistentTile(tile.key, data);
         } else {
           throw new Error('No offline data for this area. Connect once or install the full Tricity offline pack.');
         }
