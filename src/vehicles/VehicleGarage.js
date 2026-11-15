@@ -139,6 +139,7 @@ export class VehicleGarage {
     this.activeSlot = null;
     this.activeWheels = [];
     this.activeRotorGroups = [];
+    this.activeMixer = null;
     this.requestId = 0;
     this.loading = false;
     this.pendingSelection = null;
@@ -260,6 +261,10 @@ export class VehicleGarage {
         disposeModel(gltf.scene);
         return;
       }
+      const nextMixer = Array.isArray(gltf.animations) && gltf.animations.length
+        ? new THREE.AnimationMixer(gltf.scene)
+        : null;
+      if (nextMixer) gltf.animations.forEach((clip) => nextMixer.clipAction(clip).play());
 
       const assetRoot = new THREE.Group();
       assetRoot.name = `vehicle-asset-${profile.id}`;
@@ -288,13 +293,15 @@ export class VehicleGarage {
       // Preserve the manifest's up-axis correction, then try yaw-only alignment
       // so the longest horizontal dimension points down the game's -Z road axis.
       const isMotorcycle = profile.physics?.vehicleType === 'motorcycle';
+      const isAircraft = profile.physics?.vehicleType === 'helicopter';
+      const isBoat = profile.physics?.vehicleType === 'boat';
       const isProcedural = Boolean(profile.proceduralType);
       const validAxes = (dimensions) => isMotorcycle
         ? (dimensions.x >= 0.55 && dimensions.x <= 1.3 &&
            dimensions.y >= 0.95 && dimensions.y <= 1.7 &&
            dimensions.z >= 1.55 && dimensions.z <= 2.55)
         : (dimensions.z >= dimensions.y * 1.45 && dimensions.z >= dimensions.x * 1.45);
-      if (!isProcedural && !validAxes(size) && !isMotorcycle) {
+      if (!isProcedural && !isAircraft && !isBoat && !validAxes(size) && !isMotorcycle) {
         // Try alternate yaw directions, but never leave the model on a failed
         // trial rotation. A valid downloaded GLB should still be displayable
         // even when its authored dimensions are unusual.
@@ -322,7 +329,7 @@ export class VehicleGarage {
         }
       }
 
-      if (!isProcedural && !validAxes(size)) {
+      if (!isProcedural && !isAircraft && !isBoat && !validAxes(size)) {
         console.warn(
           `[GTA-TriCity] ${profile.displayName} dimension warning: ` +
           `X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ` +
@@ -351,9 +358,11 @@ export class VehicleGarage {
       const oldSlot = this.activeSlot;
       this.activeSlot = slot;
       this.activeWheels = wheelPivots;
+      const oldMixer = this.activeMixer;
+      this.activeMixer = nextMixer;
       this.activeRotorGroups = gltf.scene.userData.rotorGroups || [];
       this.activeId = profile.id;
-      if (profile.proceduralType !== 'helicopter') {
+      if (profile.physics?.vehicleType !== 'helicopter' && profile.physics?.vehicleType !== 'boat') {
         this.physics?.setVehicleProfile?.({
           ...profile.physics,
           wheelRadius: profile.wheelRadius
@@ -364,6 +373,7 @@ export class VehicleGarage {
         this.vehicle.remove(oldSlot);
         disposeModel(oldSlot);
       }
+      if (oldMixer) oldMixer.stopAllAction();
 
       this.vehicle.visible = true;
       this.fallbackParts.forEach((part) => { part.visible = false; });
@@ -456,6 +466,7 @@ export class VehicleGarage {
   }
 
   update(deltaTime) {
+    this.activeMixer?.update(deltaTime);
     for (const rotor of this.activeRotorGroups) {
       if (rotor?.object && rotor.axis) rotor.object.rotation[rotor.axis] += deltaTime * rotor.speed;
     }
