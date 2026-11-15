@@ -84,6 +84,13 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.24 — helicopter forward-axis correction
+
+- Helicopter forward and lateral vectors now include the uploaded GLB's manifest Y rotation, so W/Up applies thrust along the visible nose rather than the unrotated world -Z axis.
+- The chase camera and minimap heading follow the same visual nose heading.
+- Increased forward thrust response and reduced cruise drag so forward travel is clear and sustained.
+- Added a forward airspeed readout to distinguish horizontal movement from climb/descent speed.
+
 ## Build 0.23 — helicopter flight controls and safe landing
 
 The civilian helicopter now has a dedicated arcade flight controller. The previous landing check zeroed vertical speed while the aircraft was still within the helipad's landing radius, preventing take-off. The new controller separates lift, horizontal thrust, yaw, hover damping and ground contact.
