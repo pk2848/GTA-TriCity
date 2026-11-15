@@ -215,11 +215,14 @@ export function createCP67Mall(scene) {
   addBox(root, 168, 0.2, 1.1, M.pavingLight, 0, 0.12, 51);
   addBox(root, 168, 0.2, 1.1, M.pavingLight, 0, 0.12, 112);
 
-  // Main retail podium: two retail levels plus restaurant/F&B and entertainment decks.
-  addBox(root, 132, 18, 70, M.concrete, 0, 9, -22, 'CP67-retail-podium');
-  addBox(root, 133, 0.7, 71, M.warmStone, 0, 18.1, -22);
-  addBox(root, 134, 0.9, 72, M.charcoal, 0, 0.45, -22);
-  addBox(root, 134, 0.42, 72, M.metal, 0, 18.55, -22);
+  // Retail podium shell is built as slabs and perimeter walls rather than one solid box.
+  // This keeps the inside volume available for the walkable CP67 interior scene.
+  addBox(root, 134, 0.9, 72, M.charcoal, 0, 0.45, -22, 'CP67-ground-floor-structure');
+  addBox(root, 134, 0.42, 72, M.metal, 0, 18.55, -22, 'CP67-podium-roof-cap');
+  addBox(root, 1.1, 18, 70, M.concrete, -66.0, 9.0, -22, 'CP67-west-podium-wall');
+  addBox(root, 1.1, 18, 70, M.concrete, 66.0, 9.0, -22, 'CP67-east-podium-wall');
+  addBox(root, 132, 18, 1.1, M.concrete, 0, 9.0, -56.5, 'CP67-rear-podium-wall');
+  addBox(root, 134, 0.65, 72, M.warmStone, 0, 18.1, -22);
 
   // Ground-floor high-street storefronts, individually framed and lit.
   const shopCount = 20;
@@ -365,9 +368,112 @@ export function createCP67Mall(scene) {
   accent.position.set(0, 16.6, 13.34);
   root.add(accent);
 
+  // High-detail photographic-reference facade pass. The real building has a long retail
+  // podium, a pale CP67 logo tower, broad blue-grey glazing and taller gridded office blocks.
+  const facade = new THREE.Group();
+  facade.name = 'CP67-realistic-frontage-detail';
+  root.add(facade);
+
+  const stone = new THREE.MeshStandardMaterial({ color: 0xc9c1b2, roughness: 0.72, metalness: 0.06 });
+  const stoneDark = new THREE.MeshStandardMaterial({ color: 0x5e554b, roughness: 0.82 });
+  const mullion = new THREE.MeshStandardMaterial({ color: 0x4b5b61, metalness: 0.72, roughness: 0.24 });
+  const glazing = new THREE.MeshPhysicalMaterial({ color: 0x668b9a, metalness: 0.2, roughness: 0.16, transparent: true, opacity: 0.78 });
+  const signageBack = new THREE.MeshStandardMaterial({ color: 0x172229, roughness: 0.64 });
+
+  // Continuous upper retail curtain wall that reads as a long glass strip from Airport Road.
+  addBox(facade, 124, 4.1, 0.24, glazing, 0, 11.2, 13.5, 'CP67-upper-retail-glazing');
+  for (let x = -61; x <= 61; x += 3.2) {
+    addBox(facade, 0.095, 4.3, 0.32, mullion, x, 11.2, 13.48);
+  }
+  addBox(facade, 128, 0.34, 0.62, stone, 0, 13.52, 13.35);
+  addBox(facade, 128, 0.25, 0.48, stoneDark, 0, 8.62, 13.32);
+  addBox(facade, 128, 0.22, 0.5, stone, 0, 15.95, 13.32);
+
+  // Vertical pale cladding piers and horizontal reveal joints mimic the mall's stone banding.
+  for (let x = -62; x <= 62; x += 8) {
+    addBox(facade, 0.42, 7.8, 0.46, stone, x, 4.3, 13.34);
+    addBox(facade, 0.08, 7.6, 0.5, mullion, x + 0.24, 4.3, 13.32);
+  }
+  for (let y = 1.2; y <= 7.4; y += 1.2) {
+    addBox(facade, 126, 0.055, 0.22, M.silver, 0, y, 13.34);
+  }
+
+  // Signage panels are deliberately individually named and placed like a real high-street facade.
+  const tenantSigns = [
+    ['PVR','7 SCREEN CINEMAS',-51,'#1d222b'],
+    ['LIFESTYLE','FASHION · HOME',-36,'#772f36'],
+    ['HOME CENTRE','HOME FURNISHING',-20,'#644d38'],
+    ['MAX','FASHION',-5,'#b22d32'],
+    ['TRENDS','FASHION',10,'#303d43'],
+    ['CROMA','ELECTRONICS',25,'#24465c'],
+    ['M&S','MARKS & SPENCER',40,'#343a40'],
+    ['CAFÉS','DINING',55,'#57372c']
+  ];
+  tenantSigns.forEach(([title,sub,x,color]) => {
+    addBox(facade, 13.5, 2.0, 0.22, signageBack, x, 7.65, 13.62);
+    addSign(facade, title, sub, 12.8, 1.55, x, 7.65, 13.5, 0, color);
+  });
+
+  // The distinctive light-stone CP67 logo tower at the left/middle of the elevation.
+  const logoTower = new THREE.Group();
+  logoTower.position.set(-39, 25.3, 7.2);
+  facade.add(logoTower);
+  addBox(logoTower, 24, 17.8, 6.6, stone, 0, 0, 0, 'CP67-feature-logo-tower');
+  addBox(logoTower, 23.3, 0.35, 0.28, M.silver, 0, 8.55, 3.36);
+  addBox(logoTower, 23.3, 0.35, 0.28, M.silver, 0, -8.55, 3.36);
+  // Fine diagonal joints make the pale cladding less like a plain cartoon box.
+  for (let x = -10.5; x <= 10.5; x += 2.1) {
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.035, 17.2, 0.06), M.silver);
+    seam.position.set(x, 0, 3.34);
+    seam.rotation.z = (x / 10.5) * 0.035;
+    logoTower.add(seam);
+  }
+  for (let y = -7.5; y <= 7.5; y += 2.5) addBox(logoTower, 23, 0.035, 0.06, M.silver, 0, y, 3.35);
+  addSign(logoTower, 'CP67', 'UNITY GROUP · HOMELAND', 14.2, 3.3, 0, 5.35, 3.43, 0, '#d4cbb9');
+  addBox(logoTower, 16.8, 5.0, 0.14, signageBack, 0, -2.05, 3.43);
+  addBox(logoTower, 15.8, 4.1, 0.08, M.darkStone, 0, -2.05, 3.55);
+
+  // Blue-grey glazed office/atrium bar behind the CP67 logo feature.
+  const glassBar = new THREE.Group();
+  glassBar.position.set(-4, 28.0, -11.0);
+  facade.add(glassBar);
+  addBox(glassBar, 54, 22, 15, glazing, 0, 0, 0, 'CP67-glass-office-volume');
+  addBox(glassBar, 54.5, 0.55, 15.5, stone, 0, 11.1, 0);
+  addBox(glassBar, 54.5, 0.55, 15.5, stone, 0, -11.1, 0);
+  for (let x = -25; x <= 25; x += 2.55) {
+    addBox(glassBar, 0.13, 21.5, 15.2, mullion, x, 0, 0);
+  }
+  for (let y = -9; y <= 9; y += 2.9) {
+    addBox(glassBar, 54, 0.12, 15.2, mullion, 0, y, 0);
+  }
+  addSign(glassBar, 'CP67', 'OFFICES · RETAIL', 12, 2.6, 0, -6.3, 7.58, 0, '#263b46');
+
+  // More realistic office-tower sunshades, window bands and roof parapets.
+  for (let y = 0; y <= 8; y++) {
+    addBox(office, 50.8, 0.16, 44.6, M.silver, 0, y * 3.9 + 3.0, 0);
+  }
+  for (let x = -22; x <= 22; x += 4.0) {
+    addBox(office, 0.11, 32, 0.2, mullion, x, 16, 22.25);
+  }
+  addBox(office, 51.6, 0.62, 45.2, stoneDark, 0, 32.55, 0);
+
+  // Roofline mechanical screens and a long high-level fascia visible from the road.
+  addBox(facade, 88, 0.42, 0.7, stoneDark, 14, 18.9, 13.18);
+  addBox(facade, 72, 0.22, 0.5, M.silver, 14, 19.18, 13.22);
+  addSign(facade, 'CP67', 'MOHALI · SECTOR 67', 15, 2.6, 13, 20.5, 13.12, 0, '#1e3039');
+
+  // Extra glass-fronted shops with clear entrances and deeper shadow reveals.
+  for (let x = -60; x <= 60; x += 6.0) {
+    addBox(facade, 0.12, 4.6, 0.38, mullion, x, 3.0, 13.55);
+    addBox(facade, 0.75, 0.14, 0.32, M.gold, x + 0.52, 0.5, 13.42);
+  }
+
   // Building-collision boxes are also sent to Cannon; the forecourt remains drivable.
   const obstacles = [
-    { id: 'cp67-podium', x: 0, z: -22, width: 130, depth: 68, height: 18, minHeight: 0, yaw: 0 },
+    // Perimeter walls collide; the occupied podium interior remains an open walkable volume.
+    { id: 'cp67-west-wall', x: -66.0, z: -22, width: 1.1, depth: 70, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-east-wall', x: 66.0, z: -22, width: 1.1, depth: 70, height: 18, minHeight: 0, yaw: 0 },
+    { id: 'cp67-rear-wall', x: 0, z: -56.5, width: 132, depth: 1.1, height: 18, minHeight: 0, yaw: 0 },
     { id: 'cp67-office-tower', x: 42, z: -26, width: 49, depth: 43, height: 32, minHeight: 18, yaw: 0 },
     { id: 'cp67-serviced-residence', x: -48, z: -27, width: 33, depth: 39, height: 36, minHeight: 18, yaw: 0 },
     { id: 'cp67-cinema-roof', x: -6, z: -27, width: 38, depth: 25, height: 12, minHeight: 18, yaw: 0 }
