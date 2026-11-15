@@ -194,7 +194,7 @@ export class VehiclePhysics {
     for (let i = 0; i < 4; i++) this.raycastVehicle.setBrake(serviceBrake, i);
 
     // Fixed-step integration keeps suspension behaviour stable across frame rates.
-    this.world.step(FIXED_STEP, dt, 4);
+    this.world.step(FIXED_STEP, dt, 8);
 
     const forward = new CANNON.Vec3(0, 0, -1);
     this.chassisBody.quaternion.vmult(forward, forward);
@@ -252,16 +252,22 @@ export class VehiclePhysics {
   syncVisuals(chassisObject, wheelObjects = []) {
     const offset = new CANNON.Vec3();
     this.chassisBody.quaternion.vmult(MODEL_ORIGIN_OFFSET, offset);
+    // Render the interpolated Cannon pose, not the last 60 Hz physics pose.
+    // The game can render at 120+ FPS; using body.position directly makes the
+    // vehicle visibly step/judder between physics ticks.
+    const renderPosition = this.chassisBody.interpolatedPosition || this.chassisBody.position;
+    const renderQuaternion = this.chassisBody.interpolatedQuaternion || this.chassisBody.quaternion;
+    renderQuaternion.vmult(MODEL_ORIGIN_OFFSET, offset);
     chassisObject.position.set(
-      this.chassisBody.position.x - offset.x,
-      this.chassisBody.position.y - offset.y,
-      this.chassisBody.position.z - offset.z
+      renderPosition.x - offset.x,
+      renderPosition.y - offset.y,
+      renderPosition.z - offset.z
     );
     chassisObject.quaternion.set(
-      this.chassisBody.quaternion.x,
-      this.chassisBody.quaternion.y,
-      this.chassisBody.quaternion.z,
-      this.chassisBody.quaternion.w
+      renderQuaternion.x,
+      renderQuaternion.y,
+      renderQuaternion.z,
+      renderQuaternion.w
     );
 
     for (let i = 0; i < Math.min(wheelObjects.length, this.raycastVehicle.wheelInfos.length); i++) {
