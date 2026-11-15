@@ -79,8 +79,8 @@ function makeSignTexture(title, subtitle = '', accent = '#d6b66f') {
   texture.anisotropy = 4;
   return texture;
 }
-function addSign(parent, title, subtitle, width, height, x, y, z, rotationY = 0) {
-  const texture = makeSignTexture(title, subtitle);
+function addSign(parent, title, subtitle, width, height, x, y, z, rotationY = 0, accent = '#d6b66f') {
+  const texture = makeSignTexture(title, subtitle, accent);
   const material = new THREE.MeshStandardMaterial({ map: texture, emissive: 0x23201a, emissiveMap: texture, emissiveIntensity: 0.42, roughness: 0.5 });
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
   sign.position.set(x, y, z);
