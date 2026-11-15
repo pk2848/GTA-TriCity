@@ -203,7 +203,7 @@ export function createGGDSDCollege(scene) {
   root.position.set(anchor.x, 0, anchor.z);
   scene.add(root);
 
-  // Approximate campus boundary: the institution reports a 16.5-acre campus.
+  // Approximate site envelope around the mapped college feature.
   // This is a site-scale reconstruction, not a surveyed cadastral boundary.
   plane(root, 250, 250, MAT.grass, 0, 0.006, 0, 'ggdsd-campus-landscape');
 
