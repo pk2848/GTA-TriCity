@@ -443,7 +443,7 @@ function setWalkingMode(enabled) {
   gameMode = enabled ? 'walking' : 'vehicle';
   playerPedestrian.visible = enabled;
   vehicle.visible = true;
-  wheels.forEach(wheel => { wheel.visible = !enabled; });
+  wheels.forEach(wheel => { wheel.visible = true; });
   document.querySelector('#vehicle-status').style.display = enabled ? 'none' : '';
   nitroActive = false;
   nitroFlames.visible = false;
@@ -830,6 +830,13 @@ function animate() {
       ? 0.9 + pedestrianFloor * cp67Interior.floorHeight
       : 0.05;
     playerPedestrian.rotation.y = pedestrianHeading;
+    // Keep ambient traffic and pedestrians animated while the player explores on foot.
+    trafficSystem.update(dt, {
+      x: playerPedestrian.position.x,
+      z: playerPedestrian.position.z,
+      heading: pedestrianHeading,
+      speed: 0
+    });
     pedestrianWalkPhase += dt * (moving ? (walkSpeed > WALK_SPEED ? 11 : 7.5) : 0);
     const limbs = playerPedestrian.userData.limbs;
     const stride = moving ? Math.sin(pedestrianWalkPhase) * 0.48 : 0;
