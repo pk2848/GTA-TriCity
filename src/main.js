@@ -1004,7 +1004,13 @@ async function startQuickPlay(locationId = 'cp67') {
   nitroFlames.visible = false;
   nitroGlow.intensity = 0;
   rolloverHint.hidden = true;
-  vehicleAudio.setVehicleType(vehicleGarage.getActiveProfile()?.audioType || 'car');
+  const activeVehicle = vehicleGarage.getActiveProfile();
+  const vehicleKind = activeVehicle?.physics?.vehicleType || activeVehicle?.proceduralType || 'car';
+  vehicleAudio.setVehicleType(activeVehicle?.audioType || (
+    vehicleKind === 'motorcycle' ? 'motorcycle'
+      : vehicleKind === 'helicopter' ? 'helicopter'
+      : vehicleKind === 'boat' ? 'boat' : 'car'
+  ));
   vehicleAudio.start();
 
   started = true;
