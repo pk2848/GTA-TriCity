@@ -53,6 +53,10 @@ function normalizeProfile(entry) {
     rotation: Array.isArray(entry.rotation) && entry.rotation.length === 3
       ? entry.rotation.map(Number)
       : [0, 0, 0],
+    riderPosition: Array.isArray(entry.riderPosition) && entry.riderPosition.length === 3
+      ? entry.riderPosition.map(Number)
+      : [0, 0.35, 0.12],
+    riderLean: Number(entry.riderLean) || 0.14,
     wheelGroupPattern,
     wheelRadius: Number(entry.wheelRadius) || 0.38,
     physics: entry.physics || {}
@@ -106,6 +110,8 @@ export class VehicleGarage {
     nitroFlames = null,
     retryButton = null,
     countElement = null,
+    rider = null,
+    isDriving = () => false,
     canSelect = () => true,
     onSelected = () => {}
   }) {
@@ -118,6 +124,10 @@ export class VehicleGarage {
     this.nitroFlames = nitroFlames;
     this.retryButton = retryButton;
     this.countElement = countElement;
+    this.rider = rider;
+    this.isDriving = isDriving;
+    this.riderPoseApplied = false;
+    this._riderOffset = new THREE.Vector3();
     this.canSelect = canSelect;
     this.onSelected = onSelected;
     this.loader = new GLTFLoader();
@@ -364,16 +374,58 @@ export class VehicleGarage {
     }
   }
 
-  update(deltaTime) {
-    if (!this.activeWheels.length || !this.physics) return;
-    const profile = this.catalog.find((item) => item.id === this.activeId);
-    const radius = profile?.wheelRadius || 0.38;
-    const roll = -this.physics.speedMps * deltaTime / radius;
-    const steer = this.physics.steering || 0;
-    for (const wheel of this.activeWheels) {
-      wheel.pivot.rotation.x += roll;
-      wheel.pivot.rotation.y = wheel.front ? steer : 0;
+  applyRiderPose() {
+    if (!this.rider || this.riderPoseApplied) return;
+    const limbs = this.rider.userData.limbs;
+    if (limbs) {
+      // Arms reach the handlebars; knees bend toward the foot pegs.
+      limbs.arms.forEach(arm => { arm.rotation.set(1.18, 0, 0); });
+      limbs.legs.forEach(leg => { leg.rotation.set(0.72, 0, 0); });
     }
+    this.riderPoseApplied = true;
+  }
+
+  resetRiderPose() {
+    if (!this.rider) return;
+    const limbs = this.rider.userData.limbs;
+    if (limbs) {
+      limbs.arms.forEach(arm => { arm.rotation.set(0, 0, 0); });
+      limbs.legs.forEach(leg => { leg.rotation.set(0, 0, 0); });
+    }
+    this.riderPoseApplied = false;
+  }
+
+  syncRider() {
+    if (!this.rider || !this.isDriving()) return;
+    const profile = this.getActiveProfile();
+    const isMotorcycle = profile?.physics?.vehicleType === 'motorcycle';
+    if (!isMotorcycle) {
+      this.rider.visible = false;
+      this.resetRiderPose();
+      return;
+    }
+
+    this.applyRiderPose();
+    const offset = profile.riderPosition || [0, 0.35, 0.12];
+    this._riderOffset.set(offset[0], offset[1], offset[2]).applyQuaternion(this.vehicle.quaternion);
+    this.rider.position.copy(this.vehicle.position).add(this._riderOffset);
+    this.rider.quaternion.copy(this.vehicle.quaternion);
+    this.rider.rotateX(profile.riderLean || 0.14);
+    this.rider.visible = true;
+  }
+
+  update(deltaTime) {
+    if (this.activeWheels.length && this.physics) {
+      const profile = this.catalog.find((item) => item.id === this.activeId);
+      const radius = profile?.wheelRadius || 0.38;
+      const roll = -this.physics.speedMps * deltaTime / radius;
+      const steer = this.physics.steering || 0;
+      for (const wheel of this.activeWheels) {
+        wheel.pivot.rotation.x += roll;
+        wheel.pivot.rotation.y = wheel.front ? steer : 0;
+      }
+    }
+    this.syncRider();
   }
 
   getActiveProfile() {
