@@ -116,7 +116,8 @@ const helipad = createHelipad(scene);
 const boatMarina = createBoatMarina(scene);
 const helicopterFlight = {
   velocity: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0,
-  verticalSpeed: 0, groundY: 0.32, landed: true, autoLanding: false, modelYawOffset: 0
+  verticalSpeed: 0, groundY: 0.32, landed: true, autoLanding: false, modelYawOffset: 0,
+  localForwardAxis: new THREE.Vector3(0, 0, -1)
 };
 const boatFlight = { velocity: new THREE.Vector3(), yaw: 0, elapsed: 0 };
 let engineThrottle = 0;
@@ -226,6 +227,7 @@ const vehicleGarage = new VehicleGarage({
       helicopterFlight.velocity.set(0, 0, 0);
       helicopterFlight.yaw = 0;
       helicopterFlight.modelYawOffset = Number(profile.rotation?.[1]) || 0;
+      helicopterFlight.localForwardAxis.set(...(profile.forwardAxis || [0, 0, -1])).normalize();
       helicopterFlight.pitch = 0;
       helicopterFlight.roll = 0;
       helicopterFlight.verticalSpeed = 0;
@@ -619,7 +621,10 @@ addEventListener('keydown', event => {
   if (event.code === 'Escape' && mapView.isOpen) { mapView.close(); return; }
   if (mapView.isOpen) return;
   keys[event.code] = true;
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code) ||
+      (gameMode === 'helicopter' && ['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight'].includes(event.code))) event.preventDefault();
+  if (event.key === 'Control') keys.Control = true;
+  if (event.key === 'Shift') keys.Shift = true;
   if (event.code === 'KeyR' && gameMode === 'vehicle') resetVehicle();
   if (event.code === 'KeyF' && !event.repeat) interactF();
   if (event.code === 'KeyE' && !event.repeat && gameMode === 'walking') useMallElevator();
@@ -636,7 +641,14 @@ addEventListener('keydown', event => {
     event.preventDefault();
   }
 });
-addEventListener('keyup', event => { keys[event.code] = false; });
+addEventListener('keyup', event => {
+  keys[event.code] = false;
+  if (event.key === 'Control') keys.Control = false;
+  if (event.key === 'Shift') keys.Shift = false;
+});
+addEventListener('blur', () => {
+  Object.keys(keys).forEach((key) => { keys[key] = false; });
+});
 function recoverVehicle() {
   vehiclePhysics.recoverUpright();
   vehiclePhysics.syncVisuals(vehicle, wheels);
@@ -726,7 +738,9 @@ function enterVehicle() {
   const selectedType = vehicleGarage.getActiveProfile()?.physics?.vehicleType;
   if (selectedType === 'helicopter') {
     gameMode = 'helicopter';
-    helicopterFlight.modelYawOffset = Number(vehicleGarage.getActiveProfile()?.rotation?.[1]) || 0;
+    const activeHelicopterProfile = vehicleGarage.getActiveProfile();
+    helicopterFlight.modelYawOffset = Number(activeHelicopterProfile?.rotation?.[1]) || 0;
+    helicopterFlight.localForwardAxis.set(...(activeHelicopterProfile?.forwardAxis || [0, 0, -1])).normalize();
     document.querySelector('#vehicle-status').style.display = 'none';
     document.querySelector('#flight-status').hidden = false;
     controlsHelp.innerHTML = 'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>TURN</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
@@ -1033,21 +1047,24 @@ function updateHelicopterFlight(dt) {
   // Positive Three.js yaw turns this +Z-forward model left; map A to left and D to right.
   const yawInput = Number(Boolean(keys.KeyA || keys.ArrowLeft)) - Number(Boolean(keys.KeyD || keys.ArrowRight));
   const strafeInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
-  const climbInput = Number(Boolean(keys.ShiftLeft || keys.ShiftRight));
-  const descendInput = Number(Boolean(keys.ControlLeft || keys.ControlRight));
+  const climbInput = Number(Boolean(keys.ShiftLeft || keys.ShiftRight || keys.Shift));
+  const descendInput = Number(Boolean(keys.ControlLeft || keys.ControlRight || keys.Control));
   const hoverInput = Boolean(keys.Space);
   engineThrottle = Math.max(forwardInput, climbInput, descendInput);
 
   const groundY = helicopterFlight.groundY;
   const maxAltitude = 520;
   const maxHorizontalSpeed = 45;
-  // This uploaded GLB's cockpit/nose faces local +Z after its manifest rotation.
-  // Build both directions from that same local basis so W/E always match the mesh.
+  // Use the GLB's explicitly declared nose axis, transformed by the
+  // same yaw as the visible model. The supplied helicopter's nose is local -Z.
   let visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
-  const forwardVector = new THREE.Vector3(0, 0, 1)
-    .applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
-  const rightVector = new THREE.Vector3(-1, 0, 0)
-    .applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  const forwardVector = helicopterFlight.localForwardAxis.clone()
+    .applyAxisAngle(worldUp, visualYaw)
+    .normalize();
+  const rightVector = new THREE.Vector3()
+    .crossVectors(forwardVector, worldUp)
+    .normalize();
 
   if (helicopterFlight.autoLanding) {
     // F starts a stable, controlled descent at the current location.
@@ -1058,8 +1075,10 @@ function updateHelicopterFlight(dt) {
   } else {
     helicopterFlight.yaw += yawInput * 1.25 * dt;
     visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
-    forwardVector.set(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
-    rightVector.set(-1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
+    forwardVector.copy(helicopterFlight.localForwardAxis)
+      .applyAxisAngle(worldUp, visualYaw)
+      .normalize();
+    rightVector.crossVectors(forwardVector, worldUp).normalize();
 
     // Collective: SHIFT climbs, CTRL descends. Releasing both holds altitude.
     if (climbInput) {
@@ -1101,7 +1120,7 @@ function updateHelicopterFlight(dt) {
     }
 
     // The nose is local +Z, so positive X pitch tilts it down into forward flight.
-    const targetPitch = THREE.MathUtils.clamp(forwardInput * 0.24 - brakeInput * 0.10, -0.18, 0.32);
+    const targetPitch = THREE.MathUtils.clamp(-forwardInput * 0.24 + brakeInput * 0.10, -0.32, 0.18);
     const targetRoll = THREE.MathUtils.clamp(-strafeInput * 0.20, -0.28, 0.28);
     helicopterFlight.pitch = THREE.MathUtils.damp(helicopterFlight.pitch, targetPitch, 3.8, dt);
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, targetRoll, 4.2, dt);
