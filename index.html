@@ -10,7 +10,7 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.7</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.8</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
     <div class="map-panel">
@@ -19,6 +19,7 @@
       <div id="traffic-count">AI traffic · 0 cars · 0 pedestrians</div>
       <button id="retry-map" type="button">RETRY CURRENT AREA ↻</button>
     </div>
+    <div id="rollover-hint" class="rollover-hint" hidden>VEHICLE OVERTURNED · PRESS F TO RECOVER</div>
     <div id="vehicle-status">
       <div class="vehicle-row"><span>NITRO <kbd>N</kbd></span><strong id="nitro-value">100%</strong></div>
       <div class="nitro-track"><span id="nitro-fill"></span></div>
@@ -28,7 +29,7 @@
       <strong id="impact-title">IMPACT</strong>
       <span id="impact-copy">Vehicle collision</span>
     </div>
-    <div class="help">W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; SHIFT <i>BOOST</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></div>
+    <div class="help">W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></div>
   </div>
   <div id="crosshair">+</div>
   <section id="nav-guidance" class="nav-guidance" hidden aria-live="polite">
@@ -67,7 +68,7 @@
 
   <div id="start-screen">
     <div class="start-card">
-      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.7</div>
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.8</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
       <p>Start outside CP67 Mall in Mohali. Explore a detailed custom mall landmark, real mapped streets, mouse-orbit driving, destination routing, vehicle suspension, simulated traffic and pedestrians.</p>
       <div class="start-meta"><span>CP67 MALL · SECTOR 67, MOHALI</span><span>3D + PHYSICS + CITY AI</span></div>
