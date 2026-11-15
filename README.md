@@ -66,6 +66,31 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.10 — multi-brand player garage
+
+- Adds a top-right **Player Garage** selector grouped by brand: Pagani and Dodge.
+- Available models: Pagani Zonda Cinque, 1970 Dodge Charger R/T Fast & Furious Edition, and 2015 Dodge Challenger R/T Tuned with Armor.
+- GLB models are loaded on demand; only the selected car is retained in memory, and the previous model's GPU resources are disposed when switching.
+- The Dodge models receive source-coordinate correction and scale normalization. The 2015 Challenger GLB is scaled from centimetre units; the 1970 Charger is converted from its Z-up source orientation.
+- The game keeps the procedural starter car visible if the selected GLB is missing or fails to load.
+- Vehicle collision dimensions, wheelbase, track width and basic performance profile are updated with the selected model.
+- The Dodge GLBs include discoverable wheel groups and receive wheel spin/steering pivots where those groups are available. The Zonda's combined wheel geometry remains visually static unless its source model is re-authored with wheel pivots.
+
+### Install the uploaded vehicle models
+
+The GLB files are binary assets and are supplied in a separate ZIP. Extract the ZIP into the repository root, merging its `public/models/vehicles/` folder:
+
+```text
+public/models/vehicles/
+  pagani-zonda-cinque.glb
+  1970-dodge-charger-rt.glb
+  2015-dodge-challenger-rt.glb
+```
+
+Then run `npm run dev`. The garage displays a load error and keeps the procedural car if the corresponding GLB is not present. The repo contains `public/models/vehicles/README.md` with the asset credits and rights notes.
+
+The 2015 Dodge Challenger GLB's embedded metadata attributes it to DisneyCars / Sketchfab under CC BY 4.0; attribution is recorded in the asset README. The Zonda and 1970 Charger files were supplied by the project owner without embedded licence metadata, so their redistribution/commercial rights still need to be verified.
+
 ## Build 0.9 — CP67 visual and walkable-interior pass
 
 ### Exterior
