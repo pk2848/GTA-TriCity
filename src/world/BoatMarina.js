@@ -103,7 +103,7 @@ export function createBoatMarina(scene) {
   group.add(sign);
 
   const dockPosition = new THREE.Vector3(190, 0.05, 271);
-  const boatPosition = new THREE.Vector3(190, 0.13, 218);
+  const boatPosition = new THREE.Vector3(190, 0.03, 218);
   return {
     group,
     waterMesh,
@@ -111,6 +111,6 @@ export function createBoatMarina(scene) {
     dockPosition,
     waterBounds: { minX: -61, maxX: 61, minZ: -38, maxZ: 38 },
     dockRadius: 16,
-    groundY: 0.13
+    groundY: 0.03
   };
 }
