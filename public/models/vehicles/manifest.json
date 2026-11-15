@@ -125,9 +125,8 @@
     },
     {
       "file": "bike_black.glb",
-      "bytes": 588456,
-      "sha256": "a243216ddcf11d2179a7e90966ec4dca04177b8507c94aab61e7de0537403d12",
-      "source": "Optimized Black Bike GLB from original Sketchfab scan; 19.4k triangles; replace the original 26 MB file with GTA-TriCity-Bike-Optimized-Install.zip"
+      "bytes": 26420884,
+      "source": "Original uploaded 26 MB photogrammetry scan currently present in the repository; includes surrounding scan geometry. The separate optimized 575 KB derivative is not installed."
     }
   ],
   "howToAddMoreVehicles": {
