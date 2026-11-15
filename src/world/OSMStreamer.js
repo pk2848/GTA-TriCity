@@ -14,6 +14,57 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter'
 ];
 
+const TILE_CACHE_DB = 'tricity-osm-tiles-v1';
+const TILE_CACHE_STORE = 'tiles';
+const TILE_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+let tileCacheDbPromise = null;
+
+function openTileCacheDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  if (tileCacheDbPromise) return tileCacheDbPromise;
+  tileCacheDbPromise = new Promise((resolve) => {
+    const request = indexedDB.open(TILE_CACHE_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(TILE_CACHE_STORE)) {
+        db.createObjectStore(TILE_CACHE_STORE, { keyPath: 'key' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+  return tileCacheDbPromise;
+}
+
+function readPersistentTile(key) {
+  return openTileCacheDb().then(db => new Promise(resolve => {
+    if (!db) return resolve(null);
+    try {
+      const request = db.transaction(TILE_CACHE_STORE, 'readonly').objectStore(TILE_CACHE_STORE).get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  }));
+}
+
+function writePersistentTile(key, data) {
+  return openTileCacheDb().then(db => new Promise(resolve => {
+    if (!db) return resolve(false);
+    try {
+      const transaction = db.transaction(TILE_CACHE_STORE, 'readwrite');
+      transaction.objectStore(TILE_CACHE_STORE).put({ key, savedAt: Date.now(), data });
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => resolve(false);
+      transaction.onabort = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  }));
+}
+
 const roadWidths = {
   motorway: 15, trunk: 13, primary: 11, secondary: 9,
   tertiary: 7, unclassified: 5.5, residential: 5.5,
@@ -201,6 +252,33 @@ export class OSMStreamer {
     this.currentTile = { ix: 0, iy: 0 };
     this.playerWorld = { x: 0, z: 0 };
     this.disposed = false;
+    this.offlineManifestPromise = this.loadOfflineManifest();
+  }
+
+  async loadOfflineManifest() {
+    try {
+      const base = import.meta.env.BASE_URL || '/';
+      const response = await fetch(`${base}maps/tricity-offline/manifest.json`, { cache: 'force-cache' });
+      if (!response.ok) return null;
+      const manifest = await response.json();
+      return manifest?.format === 'tricity-osm-offline-v1' && Array.isArray(manifest.tiles)
+        ? manifest
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchOfflinePackTile(key) {
+    const manifest = await this.offlineManifestPromise;
+    if (!manifest || !manifest.tiles.includes(key)) return null;
+    const [ix, iy] = key.split(':').map(Number);
+    const base = import.meta.env.BASE_URL || '/';
+    const response = await fetch(`${base}maps/tricity-offline/${ix}_${iy}.json`, { cache: 'force-cache' });
+    if (!response.ok) throw new Error(`Offline map tile ${key} is missing (HTTP ${response.status}). Rebuild the offline pack.`);
+    const data = await response.json();
+    if (!Array.isArray(data.elements)) throw new Error(`Offline map tile ${key} is invalid.`);
+    return data;
   }
 
   requestAtWorld(x, z, force = false) {
@@ -357,9 +435,45 @@ export class OSMStreamer {
   async fetchTile(tile) {
     this.loading.add(tile.key);
     const bounds = tileBounds(tile.ix, tile.iy);
-    this.onStatus(`FETCHING ${tile.key.replace(':', ' / ')}…`);
+    this.onStatus(`LOADING ${tile.key.replace(':', ' / ')}…`);
     try {
-      const data = await this.fetchData(this.buildQuery(bounds));
+      let data = null;
+      let source = '';
+
+      // A prebuilt Tricity pack is local static JSON and works without Internet.
+      data = await this.fetchOfflinePackTile(tile.key);
+      if (data) {
+        source = 'OFFLINE MAP';
+      } else {
+        // Browser IndexedDB keeps tiles from places already visited so returning
+        // to them is immediate, even after a browser/game restart.
+        const cached = await readPersistentTile(tile.key);
+        const cacheAge = cached ? Date.now() - cached.savedAt : Infinity;
+        const cacheIsFresh = cached && cacheAge <= TILE_CACHE_MAX_AGE_MS;
+        if (cacheIsFresh || (cached && navigator.onLine === false)) {
+          data = cached.data;
+          source = 'SAVED MAP';
+        } else if (navigator.onLine !== false) {
+          try {
+            data = await this.fetchData(this.buildQuery(bounds));
+            source = 'LIVE MAP';
+            // Cache the raw OSM response asynchronously; map rendering must not
+            // wait for IndexedDB quota or filesystem latency.
+            writePersistentTile(tile.key, data);
+          } catch (networkError) {
+            if (!cached?.data) throw networkError;
+            data = cached.data;
+            source = 'SAVED MAP · NETWORK UNAVAILABLE';
+          }
+        } else if (cached?.data) {
+          data = cached.data;
+          source = 'SAVED MAP';
+        } else {
+          throw new Error('No offline data for this area. Connect once or install the full Tricity offline pack.');
+        }
+      }
+
+      this.onStatus(`${source} · ${tile.key.replace(':', ' / ')}`);
       const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
       const roadAssetGroup = (result.trafficRoads.length || result.trafficFeatures.length)
         ? this.onRoads(result.trafficRoads, tile.key, result.trafficFeatures)
