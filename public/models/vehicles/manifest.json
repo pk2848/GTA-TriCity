@@ -107,23 +107,84 @@
       "riderLean": 0.16
     },
     {
-      "id": "cp67-light-helicopter",
-      "brand": "Aircraft",
-      "model": "Light Utility Helicopter",
-      "displayName": "CP67 Light Utility Helicopter",
-      "proceduralType": "helicopter",
-      "scale": 1,
+      "id": "model-no-08",
+      "brand": "Other",
+      "model": "Model No-08",
+      "displayName": "Model No-08 Vehicle",
+      "file": "Model No-08.glb",
+      "scale": 4,
       "rotation": [
         0,
+        3.141592653589793,
+        0
+      ],
+      "wheelRadius": 0.36,
+      "physics": {
+        "width": 1.84,
+        "length": 4,
+        "height": 2.34,
+        "wheelbase": 2.48,
+        "trackWidth": 1.52,
+        "engineMultiplier": 0.9,
+        "maxSpeed": 31,
+        "nitroMaxSpeed": 39,
+        "mass": 1450
+      }
+    },
+    {
+      "id": "civilian-helicopter",
+      "brand": "Aircraft",
+      "model": "Civilian Helicopter",
+      "displayName": "Animated Civilian Helicopter",
+      "file": "animated_civilian_helicopter.glb",
+      "scale": 2,
+      "rotation": [
         0,
+        1.5707963267948966,
         0
       ],
       "physics": {
         "vehicleType": "helicopter"
       }
+    },
+    {
+      "id": "animated-yacht",
+      "brand": "Watercraft",
+      "model": "Animated Yacht",
+      "displayName": "Animated Yacht",
+      "file": "animated_yacht.glb",
+      "scale": 2,
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "physics": {
+        "vehicleType": "boat"
+      }
     }
   ],
   "assetChecksums": [
+    {
+      "file": "Model No-08.glb",
+      "bytes": 3005464,
+      "source": "User-uploaded GLB; mesh metadata identifies Model No-08."
+    },
+    {
+      "file": "animated_civilian_helicopter.glb",
+      "bytes": 15362980,
+      "source": "User-uploaded Sketchfab model by assetfactory, Animated civilian Helicopter; Sketchfab Standard licence."
+    },
+    {
+      "file": "animated_yacht.glb",
+      "bytes": 5588216,
+      "source": "User-uploaded Sketchfab model by assetfactory, Animated Yacht; Sketchfab Standard licence."
+    },
+    {
+      "file": "helipad.glb",
+      "bytes": 610624,
+      "source": "User-uploaded Sketchfab model by srockzv, Helipad; CC BY 4.0."
+    },
     {
       "file": "pagani-zonda-cinque.glb",
       "bytes": 16747784,
@@ -148,7 +209,8 @@
   "howToAddMoreVehicles": {
     "steps": [
       "Copy the new .glb into public/models/vehicles/",
-      "Add one entry to the vehicles array with id, brand, model, displayName, file, scale, rotation, wheelRadius and physics",
+      "Add an entry to the vehicles array with id, brand, model, displayName, file, scale, rotation and physics",
+      "Use physics.vehicleType='motorcycle', 'helicopter' or 'boat' for the relevant controls and sound profile",
       "Refresh the game; the top-right garage reads this manifest automatically"
     ],
     "note": "The model itself must have a Y-up game orientation after the supplied rotation. Add wheelGroupPattern only when the GLB has separately named wheel meshes."
