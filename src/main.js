@@ -578,7 +578,7 @@ addEventListener('keydown', event => {
   if (event.code === 'KeyR' && gameMode === 'vehicle') resetVehicle();
   if (event.code === 'KeyF' && !event.repeat) interactF();
   if (event.code === 'KeyE' && !event.repeat && gameMode === 'walking') useMallElevator();
-  if (event.code === 'KeyV' && !event.repeat && gameMode === 'vehicle') {
+  if (event.code === 'KeyV' && !event.repeat && (gameMode === 'vehicle' || gameMode === 'helicopter')) {
     event.preventDefault();
     document.querySelector('#car-select')?.focus();
   }
