@@ -37,9 +37,9 @@ const sun = new THREE.DirectionalLight(0xffe6c3, 2.35);
 sun.position.set(-500, 900, 340);
 sun.castShadow = false;
 sun.shadow.mapSize.set(512, 512);
-sun.shadow.camera.left = -900; sun.shadow.camera.right = 900;
-sun.shadow.camera.top = 900; sun.shadow.camera.bottom = -900;
-sun.shadow.camera.far = 2200;
+sun.shadow.camera.left = -240; sun.shadow.camera.right = 240;
+sun.shadow.camera.top = 240; sun.shadow.camera.bottom = -240;
+sun.shadow.camera.far = 600;
 scene.add(sun);
 
 const world = new THREE.Group();
@@ -239,7 +239,7 @@ const GRAPHICS_PROFILES = {
 };
 let graphicsMode = 'performance';
 let resolutionScale = 1;
-let fpsAccumulator = 0;
+let fpsWindowStart = performance.now();
 let fpsFrames = 0;
 let lowFpsSeconds = 0;
 let highFpsSeconds = 0;
@@ -276,15 +276,15 @@ if (graphicsSelect) {
 }
 applyGraphicsQuality('performance');
 
-function updatePerformanceReadout(dt) {
-  fpsAccumulator += dt;
+function updatePerformanceReadout() {
   fpsFrames++;
-  if (fpsAccumulator < 1) return;
+  const now = performance.now();
+  const sampleDuration = (now - fpsWindowStart) / 1000;
+  if (sampleDuration < 1) return;
 
-  lastFps = fpsFrames / fpsAccumulator;
-  const sampleDuration = fpsAccumulator;
-  fpsAccumulator = 0;
+  lastFps = fpsFrames / sampleDuration;
   fpsFrames = 0;
+  fpsWindowStart = now;
 
   if (lastFps < 34) {
     lowFpsSeconds += sampleDuration;
@@ -1080,7 +1080,7 @@ function animate() {
   }
   checkpoint.position.y = Math.sin(performance.now() * 0.0018) * 0.22;
   renderer.render(scene, camera);
-  updatePerformanceReadout(dt);
+  updatePerformanceReadout();
 }
 
 addEventListener('resize', () => {
