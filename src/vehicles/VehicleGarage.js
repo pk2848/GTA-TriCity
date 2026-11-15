@@ -127,6 +127,7 @@ export class VehicleGarage {
     this.activeWheels = [];
     this.requestId = 0;
     this.loading = false;
+    this.pendingSelection = null;
 
     // No procedural player-car is rendered. Only a GLB listed in the public manifest
     // can make the player vehicle visible.
@@ -213,7 +214,14 @@ export class VehicleGarage {
 
   async selectVehicle(id, { initial = false, force = false } = {}) {
     const profile = this.catalog.find((item) => item.id === id);
-    if (!profile || this.loading) return;
+    if (!profile) return;
+    if (this.loading) {
+      // Keep the selector interactive while a large GLB loads. The last chosen
+      // vehicle is queued and loaded immediately after the current request ends.
+      this.pendingSelection = id;
+      this.setStatus(`QUEUED · ${profile.brand.toUpperCase()} ${profile.model.toUpperCase()}`, 'loading');
+      return;
+    }
     if (!initial && !this.canSelect()) {
       if (this.selector) this.selector.value = this.activeId || id;
       this.setStatus('STOP THE VEHICLE BEFORE SWITCHING', 'warning');
@@ -223,7 +231,7 @@ export class VehicleGarage {
 
     const request = ++this.requestId;
     this.loading = true;
-    if (this.selector) this.selector.disabled = true;
+    if (this.selector) this.selector.disabled = false;
     if (this.retryButton) {
       this.retryButton.disabled = true;
       this.retryButton.textContent = 'LOADING MODEL…';
@@ -319,7 +327,16 @@ export class VehicleGarage {
         this.retryButton.disabled = false;
       }
     } finally {
-      if (request === this.requestId && this.selector) this.selector.disabled = false;
+      if (request === this.requestId) {
+        this.loading = false;
+        if (this.selector) this.selector.disabled = false;
+        if (this.retryButton) this.retryButton.disabled = false;
+        const queuedId = this.pendingSelection;
+        this.pendingSelection = null;
+        if (queuedId && queuedId !== this.activeId) {
+          queueMicrotask(() => this.selectVehicle(queuedId));
+        }
+      }
     }
   }
 
