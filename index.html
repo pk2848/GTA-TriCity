@@ -10,7 +10,7 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.8</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.9</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
     <div class="map-panel">
@@ -29,7 +29,9 @@
       <strong id="impact-title">IMPACT</strong>
       <span id="impact-copy">Vehicle collision</span>
     </div>
-    <div class="help">W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></div>
+    <div id="interaction-hint" class="interaction-hint" hidden></div>
+    <div id="mall-floor-label" class="mall-floor-label" hidden>CP67 · GROUND FLOOR</div>
+    <div class="help"><span id="controls-help">W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></span></div>
   </div>
   <div id="crosshair">+</div>
   <section id="nav-guidance" class="nav-guidance" hidden aria-live="polite">
@@ -68,9 +70,9 @@
 
   <div id="start-screen">
     <div class="start-card">
-      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.8</div>
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.9</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
-      <p>Start outside CP67 Mall in Mohali. Explore a detailed custom mall landmark, real mapped streets, mouse-orbit driving, destination routing, vehicle suspension, simulated traffic and pedestrians.</p>
+      <p>Start at CP67 Mall, Mohali. Drive through the city, leave your vehicle, walk into a multi-level CP67 reconstruction, explore shops, atrium, escalators, food court and PVR cinema.</p>
       <div class="start-meta"><span>CP67 MALL · SECTOR 67, MOHALI</span><span>3D + PHYSICS + CITY AI</span></div>
       <button id="start" type="button">ENTER THE CITY <span>→</span></button>
       <small>Desktop recommended · Internet connection required for live map data. Map detail depends on OpenStreetMap coverage.</small>
