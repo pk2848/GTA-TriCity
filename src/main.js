@@ -255,6 +255,7 @@ const vehicleGarage = new VehicleGarage({
       vehicle.position.copy(boatMarina.boatPosition);
       vehicle.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), boatFlight.yaw);
       vehicle.visible = true;
+      document.querySelector('#flight-status').hidden = true;
       playerPedestrian.visible = false;
       vehicleGarage.resetRiderPose();
       wheels.forEach((wheel) => { wheel.visible = false; });
