@@ -146,7 +146,7 @@ function addStoreRow(parent,floor,z,side,names) {
   });
 }
 function addFoodStall(parent,x,z,name,accent,levelY=0) {
-  const baseY=levelY+2.1;
+  const baseY=levelY+1.85;
   box(parent,7,3.7,3.3,MAT.wallWarm,x,baseY,z);
   box(parent,6.55,1.7,0.12,MAT.dark,x,baseY+0.5,z+1.68);
   box(parent,6.7,0.24,0.28,MAT.gold,x,baseY+1.55,z+1.65);
@@ -233,6 +233,7 @@ export function createCP67Interior(scene) {
       for(let row=0;row<3;row++){
         for(let col=0;col<5;col++){
           const x=-34+col*17,z=-12+row*10;
+          cylinder(root,0.14,0.2,0.78,MAT.darkMetal,x,y+0.43,z,12);
           cylinder(root,0.62,0.62,0.12,MAT.darkMetal,x,y+0.82,z,16);
           cylinder(root,0.52,0.52,0.16,MAT.woodLight,x,y+0.94,z,16);
           for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
