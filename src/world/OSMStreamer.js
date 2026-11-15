@@ -89,6 +89,15 @@ export function geoToWorld(lat, lon) {
 export function worldToGeo(x, z) {
   return { lat: CITY_ORIGIN.lat - z / METRES_PER_LAT_DEGREE, lon: CITY_ORIGIN.lon + x / METRES_PER_LON_DEGREE };
 }
+
+// The bespoke GGDSD campus reconstruction replaces coarse OSM building and
+// land-use geometry inside the college grounds. Keep mapped roads and POIs.
+const GGDSD_COLLEGE_CENTER = geoToWorld(30.70402, 76.77231);
+const GGDSD_CAMPUS_HALF_EXTENT = 128;
+function isInsideGGDSDCampus(point) {
+  return Math.abs(point.x - GGDSD_COLLEGE_CENTER.x) <= GGDSD_CAMPUS_HALF_EXTENT &&
+    Math.abs(point.z - GGDSD_COLLEGE_CENTER.z) <= GGDSD_CAMPUS_HALF_EXTENT;
+}
 function tileBounds(ix, iy) {
   const west = CITY_ORIGIN.lon + (ix - 0.5) * TILE_DEGREES;
   const south = CITY_ORIGIN.lat + (iy - 0.5) * TILE_DEGREES;
@@ -651,8 +660,10 @@ export class OSMStreamer {
         const outerRings = rings;
         for (const outerRing of outerRings) {
           const mallCenter = polygonCentroid(outerRing);
-          // The bespoke CP67 landmark replaces the coarse OSM outline in this footprint.
-          if (Math.abs(mallCenter.x) < 72 && mallCenter.z > -64 && mallCenter.z < 17) {
+          // Bespoke landmark models replace the coarse OSM buildings within their
+          // respective mapped footprints. Keep surrounding streets and POI nodes.
+          const inCP67 = Math.abs(mallCenter.x) < 72 && mallCenter.z > -64 && mallCenter.z < 17;
+          if (inCP67 || isInsideGGDSDCampus(mallCenter)) {
             tileSeen.add(idKey);
             continue;
           }
@@ -782,6 +793,7 @@ export class OSMStreamer {
       const isPark = tags.leisure === 'park' || tags.leisure === 'garden' || tags.leisure === 'playground' || tags.landuse === 'grass' || tags.landuse === 'meadow' || tags.landuse === 'recreation_ground';
       if (isWater || isWood || isPark) {
         for (const ring of rings) {
+          if (isInsideGGDSDCampus(polygonCentroid(ring))) continue;
           const shape = makeShape(ring);
           if (!shape) continue;
           const geometry = new THREE.ShapeGeometry(shape);
