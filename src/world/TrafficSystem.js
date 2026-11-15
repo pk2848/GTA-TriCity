@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-const CAR_LIMIT=12, PEDESTRIAN_LIMIT=72, JOIN_RADIUS=19;
+const DEFAULT_CAR_LIMIT=5, DEFAULT_PEDESTRIAN_LIMIT=20, JOIN_RADIUS=19;
 const DEFAULT_TRAFFIC_IDS=['pagani-zonda-cinque','dodge-charger-1970','dodge-challenger-2015'];
 const CAR_COLORS=[0xb83f35,0xd5d8d5,0x243f68,0x87877f,0x252b2e,0xc5a45d,0x557353,0x814c73,0x4d7788];
 const PEOPLE_COLORS=[0x315f91,0x8d493e,0x536846,0xb18a45,0x55515f,0x8b6b58,0x3e7774,0x9b6d8c];
@@ -98,11 +98,29 @@ export class TrafficSystem{
  constructor(scene,onCounts=()=>{},onEvent=()=>{}){
   this.scene=scene;this.onCounts=onCounts;this.onEvent=onEvent;
   this.registeredTiles=new Set();this.roads=new Map();this.cars=[];this.pedestrians=[];this.crossings=[];this.signals=[];this.elapsed=0;this.crossingObjects=[];
+  this.maxCars=DEFAULT_CAR_LIMIT;this.maxPedestrians=DEFAULT_PEDESTRIAN_LIMIT;
   this.vehicleProfiles=[];this.vehicleTemplates=new Map();this.vehicleTemplateErrors=[];
   this.vehicleLoader=new GLTFLoader();
   this.trafficVehicleIds=[...DEFAULT_TRAFFIC_IDS];
   this.loadUploadedTrafficVehicles();
   this.onCounts({cars:0,pedestrians:0,signals:0,crossings:0});
+ }
+
+ setQuality({cars=this.maxCars,pedestrians=this.maxPedestrians}={}){
+  this.maxCars=Math.max(0,Math.floor(cars));
+  this.maxPedestrians=Math.max(0,Math.floor(pedestrians));
+  while(this.cars.length>this.maxCars){
+   const car=this.cars.pop();
+   this.scene.remove(car.object);
+   car.object.clear();
+  }
+  while(this.pedestrians.length>this.maxPedestrians){
+   const person=this.pedestrians.pop();
+   this.scene.remove(person.object);
+   person.object.traverse(object=>{if(object.geometry)object.geometry.dispose();});
+   person.object.clear();
+  }
+  this.emitCounts();
  }
 
  async loadUploadedTrafficVehicles(){
@@ -112,9 +130,14 @@ export class TrafficSystem{
    if(!response.ok)throw new Error(`Vehicle manifest HTTP ${response.status}`);
    const manifest=await response.json();
    this.vehicleProfiles=Array.isArray(manifest.vehicles)?manifest.vehicles:[];
-   this.trafficVehicleIds=this.vehicleProfiles.map(profile=>profile.id).filter(Boolean);
+   // Ambient road traffic uses uploaded cars only. Two-wheelers are player-selectable
+   // until a separate motorcycle + rider physics/animation system is implemented.
+   const trafficProfiles=this.vehicleProfiles.filter(profile =>
+    profile.physics?.vehicleType !== 'motorcycle' && profile.trafficEnabled !== false
+   );
+   this.trafficVehicleIds=trafficProfiles.map(profile=>profile.id).filter(Boolean);
 
-   for(const profile of this.vehicleProfiles){
+   for(const profile of trafficProfiles){
     const file=String(profile.file||'').split('/').pop();
     if(!file||!file.toLowerCase().endsWith('.glb'))continue;
     try{
@@ -227,10 +250,10 @@ export class TrafficSystem{
  spawnRoadTraffic(road){
   const drivable=!['footway','path','pedestrian','cycleway','steps','track'].includes(road.type);
   const urban=['primary','secondary','tertiary','unclassified','residential','living_street','service'].includes(road.type);
-  if(drivable&&this.cars.length<CAR_LIMIT){
+  if(drivable&&this.cars.length<this.maxCars){
    const dirs=road.oneway?[1]:[1,-1];
    for(const direction of dirs){
-    if(this.cars.length>=CAR_LIMIT)break;
+    if(this.cars.length>=this.maxCars)break;
     const base=direction===1?road.points:[...road.points].reverse(),points=offsetPath(base,-road.width*.16),length=lengthOf(points);
     if(length<45)continue;
     const ids=this.trafficVehicleIds.length?this.trafficVehicleIds:DEFAULT_TRAFFIC_IDS;
@@ -241,9 +264,9 @@ export class TrafficSystem{
     const p=samplePath(points,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.attachTrafficModel(agent);this.cars.push(agent);
    }
   }
-  if(urban&&this.pedestrians.length<PEDESTRIAN_LIMIT){
+  if(urban&&this.pedestrians.length<this.maxPedestrians){
    for(const side of [-1,1]){
-    if(this.pedestrians.length>=PEDESTRIAN_LIMIT)break;
+    if(this.pedestrians.length>=this.maxPedestrians)break;
     const path=offsetPath(road.points,side*(road.width/2+1.8)),length=lengthOf(path);if(length<80)continue;
     const object=makePedestrian(PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)],this.pedestrians.length),progress=Math.random()*length;
     const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0};
@@ -289,7 +312,7 @@ export class TrafficSystem{
    stripe.position.set(p.x+t.x*i*.95,.12,p.z+t.z*i*.95);stripe.rotation.y=Math.atan2(-n.z,n.x);group.add(stripe);
   }
   this.scene.add(group);this.crossingObjects.push(group);
-  for(let i=0;i<2&&this.pedestrians.length<PEDESTRIAN_LIMIT;i++){
+  for(let i=0;i<2&&this.pedestrians.length<this.maxPedestrians;i++){
    const a=i===0?start:end,b=i===0?end:start,object=makePedestrian(PEOPLE_COLORS[(i+3)%PEOPLE_COLORS.length],i+3);
    const points=[a,b],length=dist(a,b),progress=Math.random()*length;
    const person={object,points,length,progress,speed:.85+Math.random()*.35,phase:Math.random()*6,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:true,wait:Math.random()*8,crossingPoint:p,crossingAxis:t};

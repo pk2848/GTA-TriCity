@@ -195,6 +195,7 @@ export class OSMStreamer {
     this.totalParks = 0;
     this.seen = new Set();
     this.currentTile = { ix: 0, iy: 0 };
+    this.playerWorld = { x: 0, z: 0 };
   }
 
   requestAtWorld(x, z, force = false) {
@@ -202,8 +203,21 @@ export class OSMStreamer {
     const ix = Math.floor((lon - CITY_ORIGIN.lon) / TILE_DEGREES + 0.5);
     const iy = Math.floor((lat - CITY_ORIGIN.lat) / TILE_DEGREES + 0.5);
     this.currentTile = { ix, iy };
+    this.playerWorld = { x, z };
+    this.updateVisibility(x, z);
     this.requestTile(ix, iy, force);
     this.prefetchAt(lat, lon, ix, iy);
+  }
+
+  // Hide distant, already-loaded city chunks instead of rendering every chunk
+  // the player has ever visited. Their geometry remains cached for quick return.
+  updateVisibility(x, z, radius = 1800) {
+    const radiusSq = radius * radius;
+    for (const tile of this.tiles.values()) {
+      const dx = x - tile.centerX;
+      const dz = z - tile.centerZ;
+      tile.group.visible = (dx * dx + dz * dz) <= radiusSq;
+    }
   }
 
   prefetchAt(lat, lon, ix, iy) {
@@ -310,7 +324,21 @@ export class OSMStreamer {
       group.name = `osm-tile-${tile.key}`;
       [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.detailMeshes, ...result.labels].forEach(mesh => group.add(mesh));
       this.scene.add(group);
-      this.tiles.set(tile.key, { group, bounds, roads: result.roadCount, buildings: result.buildingCount });
+      const tileCenter = geoToWorld(
+        (bounds.south + bounds.north) / 2,
+        (bounds.west + bounds.east) / 2
+      );
+      const playerDx = tileCenter.x - this.playerWorld.x;
+      const playerDz = tileCenter.z - this.playerWorld.z;
+      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 1800 * 1800;
+      this.tiles.set(tile.key, {
+        group,
+        bounds,
+        centerX: tileCenter.x,
+        centerZ: tileCenter.z,
+        roads: result.roadCount,
+        buildings: result.buildingCount
+      });
       this.loaded.add(tile.key);
       this.totalRoads += result.roadCount;
       this.totalBuildings += result.buildingCount;
@@ -531,7 +559,7 @@ export class OSMStreamer {
           }
           const winding = signedArea >= 0 ? 1 : -1;
           const floorCount = Math.min(16, Math.max(1, Math.floor(height / 3.15)));
-          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 12000; edge++) {
+          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 5000; edge++) {
             const a = facadePoints[edge], b = facadePoints[edge + 1];
             const dx = b.x - a.x, dz = b.z - a.z;
             const edgeLength = Math.hypot(dx, dz);
@@ -541,10 +569,10 @@ export class OSMStreamer {
             const nz = (-dx / edgeLength) * winding;
             const yaw = Math.atan2(nx, nz);
             const paneWidth = Math.min(1.28, edgeLength / (count + 1) * 0.68);
-            for (let floor = 0; floor < floorCount && windowMatrices.length < 12000; floor++) {
+            for (let floor = 0; floor < floorCount && windowMatrices.length < 5000; floor++) {
               const y = minHeight + 1.55 + floor * 3.05;
               if (y + 0.55 > minHeight + height) continue;
-              for (let pane = 0; pane < count && windowMatrices.length < 12000; pane++) {
+              for (let pane = 0; pane < count && windowMatrices.length < 5000; pane++) {
                 const t = (pane + 1) / (count + 1);
                 windowMatrices.push({
                   x: a.x + dx * t + nx * 0.075,
