@@ -84,6 +84,25 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.25 — final helicopter control direction audit
+
+The imported civilian helicopter's visible nose is local +Z after its manifest rotation. Flight thrust and strafe now use that exact local basis rather than the car-oriented -Z basis. This corrects W so it accelerates toward the visible nose. The chase camera and minimap use the corresponding opposite heading to remain behind the aircraft. A/D yaw direction is mapped to intuitive left/right for the +Z-forward model. S is a brake only; it no longer generates reverse thrust.
+
+### Final helicopter key map
+- **W / Up Arrow** — fly forward along the visible nose
+- **S / Down Arrow** — brake horizontal movement
+- **A / Left Arrow** — turn left
+- **D / Right Arrow** — turn right
+- **Q** — strafe left
+- **E** — strafe right
+- **Left / Right Shift** — climb / take off
+- **Left / Right Ctrl** — descend
+- **Space** — stabilise / hover
+- **F** — start auto-landing; press again after touchdown to exit
+- **V** — focus the vehicle garage
+- **C** — switch camera view
+- **M** — open/close map
+
 ## Build 0.24 — helicopter forward-axis correction
 
 - Helicopter forward and lateral vectors now include the uploaded GLB's manifest Y rotation, so W/Up applies thrust along the visible nose rather than the unrotated world -Z axis.
