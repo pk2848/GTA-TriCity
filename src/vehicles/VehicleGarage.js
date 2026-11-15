@@ -267,6 +267,24 @@ export class VehicleGarage {
       const bounds = new THREE.Box3().setFromObject(assetRoot);
       if (bounds.isEmpty()) throw new Error('The GLB contains no visible mesh geometry.');
       const center = bounds.getCenter(new THREE.Vector3());
+      const size = bounds.getSize(new THREE.Vector3());
+
+      // Every vehicle asset must be Y-up with its length aligned to local -Z,
+      // matching the Cannon chassis and OSM road-following heading.
+      if (size.z < size.y * 1.45 || size.z < size.x * 1.45) {
+        throw new Error(
+          `Vehicle axes are not road-aligned after manifest rotation. ` +
+          `Expected length on Z and height on Y; got X=${size.x.toFixed(2)}m, ` +
+          `Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ` +
+          `Fix the rotation in public/models/vehicles/manifest.json.`
+        );
+      }
+
+      console.info(
+        `[GTA-TriCity] ${profile.displayName} aligned dimensions: ` +
+        `${size.x.toFixed(2)}m wide × ${size.z.toFixed(2)}m long × ${size.y.toFixed(2)}m high`
+      );
+
       const minY = bounds.min.y;
       assetRoot.position.set(-center.x, 0.055 - minY, -center.z);
       const wheelPivots = createWheelPivots(assetRoot, profile);
