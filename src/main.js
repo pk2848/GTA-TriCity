@@ -1123,7 +1123,7 @@ function updateHelicopterFlight(dt) {
     'YXZ'
   ));
 
-  heading = visualYaw;
+  heading = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
   const horizontalSpeed = Math.hypot(helicopterFlight.velocity.x, helicopterFlight.velocity.z);
   const forwardSpeed = Math.max(0, helicopterFlight.velocity.dot(forwardVector));
   speed = Math.hypot(horizontalSpeed, helicopterFlight.verticalSpeed);
