@@ -112,3 +112,14 @@ body:has(.mall-floor-label:not([hidden])) #vehicle-status{display:none!important
 #sound-toggle{display:block;width:100%;margin-top:6px;padding:6px 8px;border:1px solid #83b6a055;border-radius:2px;background:#83b6a012;color:#bce3c6;font:8px "DM Mono";letter-spacing:.6px;cursor:pointer}
 #sound-toggle[aria-pressed="false"]{border-color:#d7bd7c55;background:#d7bd7c12;color:#e4d4ae}
 #sound-toggle:hover{filter:brightness(1.2)}
+
+/* Helicopter flight instruments */
+#flight-status{position:fixed;left:30px;bottom:57px;width:226px;padding:11px 13px;background:rgba(10,20,21,.94);border:1px solid #d7bd7c77;border-radius:4px;box-shadow:0 8px 26px #0008;backdrop-filter:blur(9px);pointer-events:none;text-shadow:none}
+#flight-status[hidden]{display:none!important}
+.flight-title,.flight-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.flight-title{padding-bottom:7px;margin-bottom:8px;border-bottom:1px solid #d7bd7c33;color:#e8d39d;font:8px 'DM Mono';letter-spacing:1px}
+.flight-title b{color:#a8deb5;font-weight:500}
+.flight-row{margin:5px 0;color:#aebbb2;font:8px 'DM Mono';letter-spacing:.6px}
+.flight-row strong{color:#f0d99f;font:700 13px 'Barlow Condensed';letter-spacing:.3px}
+.flight-keys{margin-top:8px;padding-top:7px;border-top:1px solid #d7bd7c33;color:#c8d3ca;font:7px/1.5 'DM Mono';letter-spacing:.4px}
+@media(max-width:700px){#flight-status{left:16px;bottom:54px;width:190px;padding:8px 10px}.flight-keys{font-size:6px}}
