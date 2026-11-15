@@ -5,7 +5,7 @@ import { TrafficSystem } from './world/TrafficSystem.js';
 import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import { createCP67Mall } from './world/CP67Mall.js';
 import { createCP67Interior } from './world/CP67Interior.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VehicleGarage } from './vehicles/VehicleGarage.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -175,64 +175,19 @@ nitroGlow.position.set(0, 0.7, 2.25);
 nitroFlames.add(nitroGlow);
 vehicle.add(nitroFlames);
 
-// Replace the procedural fallback car with the supplied detailed GLB when present.
-// The uploaded model is 4.43 m long × 2.09 m wide × 1.18 m high. Its headlights
-// face +Z in the source file, so the wrapper rotates it to the game's -Z forward axis.
-const playerCarAsset = new THREE.Group();
-playerCarAsset.name = 'zonda-cinque-player-asset';
-playerCarAsset.visible = false;
-vehicle.add(playerCarAsset);
-
-const carAssetLoader = new GLTFLoader();
-carAssetLoader.load(
-  '/models/vehicles/zonda_cinque.glb',
-  (gltf) => {
-    const modelRoot = gltf.scene;
-    modelRoot.position.set(0, 0.105, 0);
-    modelRoot.traverse((object) => {
-      if (!object.isMesh) return;
-      object.castShadow = true;
-      object.receiveShadow = true;
-      object.frustumCulled = true;
-      if (Array.isArray(object.material)) {
-        object.material.forEach((material) => {
-          material.needsUpdate = true;
-        });
-      } else if (object.material) {
-        object.material.needsUpdate = true;
-      }
-    });
-
-    const alignment = new THREE.Group();
-    alignment.name = 'zonda-chassis-alignment';
-    alignment.rotation.y = Math.PI;
-    alignment.position.z = 0.132;
-    alignment.add(modelRoot);
-    playerCarAsset.add(alignment);
-    playerCarAsset.visible = true;
-
-    // GLB contains its own four wheels. Keep the Cannon wheel objects active for
-    // suspension calculations, but hide their duplicate simple visual cylinders.
-    wheels.forEach((wheel) => { wheel.visible = false; });
-
-    // Hide only the procedural body after the real model has loaded successfully.
-    for (const child of vehicle.children) {
-      if (child !== playerCarAsset && child !== nitroFlames) child.visible = false;
-    }
-    vehicle.userData.assetLoaded = true;
-    vehicle.userData.assetName = 'Pagani Zonda Cinque';
-    console.info('[GTA-TriCity] Pagani Zonda Cinque loaded from /models/vehicles/zonda_cinque.glb');
-  },
-  (progress) => {
-    if (progress.total > 0) {
-      console.info('[GTA-TriCity] Loading Zonda model:', Math.round(progress.loaded / progress.total * 100) + '%');
-    }
-  },
-  (error) => {
-    // Leave the original procedural vehicle visible as a safe fallback.
-    console.warn('[GTA-TriCity] Zonda GLB could not be loaded. Using fallback car.', error);
+// Multi-brand garage. GLB files live in public/models/vehicles/ and are loaded on demand.
+const vehicleGarage = new VehicleGarage({
+  vehicle,
+  physics: vehiclePhysics,
+  selector: document.querySelector('#car-select'),
+  statusElement: document.querySelector('#car-select-status'),
+  fallbackParts: vehicle.children.filter((child) => child !== nitroFlames),
+  nitroFlames,
+  canSelect: () => gameMode === 'vehicle' && vehiclePhysics.getSpeedKmh() < 1.0,
+  onSelected: (profile) => {
+    console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
   }
-);
+});
 
 // Checkpoint is positioned in the first mapped neighbourhood, north-east of the start.
 const checkpoint = new THREE.Group();
@@ -809,6 +764,7 @@ function animate() {
       condition: vehicleCondition
     });
     vehiclePhysics.syncVisuals(vehicle, wheels);
+    vehicleGarage.update(dt);
     speed = vehiclePhysics.speedMps;
     heading = vehiclePhysics.heading;
     nitroFlames.visible = nitroActive;
