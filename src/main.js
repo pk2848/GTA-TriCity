@@ -6,7 +6,6 @@ import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import { createCP67Mall } from './world/CP67Mall.js';
 import { createCP67Interior } from './world/CP67Interior.js';
 import { VehicleGarage } from './vehicles/VehicleGarage.js';
-import { RoadAssetRenderer } from './world/RoadAssetRenderer.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -14,7 +13,7 @@ const root = document.querySelector('#game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91a6a6);
 scene.fog = new THREE.FogExp2(0x91a6a6, 0.00042);
-const camera = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 12000);
+const camera = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 3500);
 // Integrated-GPU friendly defaults: lower internal resolution, no MSAA and no
 // real-time shadow-map pass. Quality can be raised from the in-game graphics menu.
 const renderer = new THREE.WebGLRenderer({
@@ -25,7 +24,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.domElement.id = 'world';
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 0.85));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 0.55));
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.autoUpdate = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -218,9 +217,6 @@ const toast = document.querySelector('#toast');
 const trafficSystem = new TrafficSystem(scene, counts => {
   trafficCount.textContent = `AI traffic · ${counts.cars} cars · ${counts.pedestrians} pedestrians · ${counts.signals || 0} signals · ${counts.crossings || 0} crossings`;
 });
-const roadAssetRenderer = new RoadAssetRenderer(status => {
-  console.info('[GTA-TriCity]', status);
-});
 const streamer = new OSMStreamer(scene,
   status => {
     mapState.textContent = status.length > 22 ? status.slice(0, 20) + '…' : status;
@@ -230,8 +226,9 @@ const streamer = new OSMStreamer(scene,
     mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
   },
   (roads, tileKey, features) => {
+    // Keep OSM ribbons/junctions as the single road surface. The uploaded
+    // 103 MB road scene is deliberately not instanced over each OSM segment.
     trafficSystem.addRoads(roads, tileKey, features);
-    return roadAssetRenderer.addRoads(roads, tileKey);
   },
   (obstacles, tileKey) => vehiclePhysics.addBuildingObstacles(obstacles, tileKey)
 );
@@ -241,8 +238,8 @@ const streamer = new OSMStreamer(scene,
 const graphicsSelect = document.querySelector('#graphics-quality');
 const graphicsStatus = document.querySelector('#graphics-status');
 const GRAPHICS_PROFILES = {
-  performance: { label: 'PERFORMANCE', pixelRatio: 0.85, minCars: 4, maxPedestrians: 14 },
-  balanced: { label: 'BALANCED', pixelRatio: 1.0, minCars: 6, maxPedestrians: 22 }
+  performance: { label: 'PERFORMANCE', pixelRatio: 0.55, minCars: 2, maxPedestrians: 5 },
+  balanced: { label: 'BALANCED', pixelRatio: 0.72, minCars: 3, maxPedestrians: 8 }
 };
 let graphicsMode = 'performance';
 let resolutionScale = 1;
@@ -293,10 +290,10 @@ function updatePerformanceReadout() {
   fpsFrames = 0;
   fpsWindowStart = now;
 
-  if (lastFps < 34) {
+  if (lastFps < 30) {
     lowFpsSeconds += sampleDuration;
     highFpsSeconds = 0;
-  } else if (lastFps > 54) {
+  } else if (lastFps > 50) {
     highFpsSeconds += sampleDuration;
     lowFpsSeconds = 0;
   } else {
@@ -305,12 +302,12 @@ function updatePerformanceReadout() {
   }
 
   // Reduce pixel count in small steps after sustained slow frames.
-  if (lowFpsSeconds >= 2.5 && resolutionScale > 0.68) {
-    resolutionScale = Math.max(0.68, resolutionScale - 0.08);
+  if (lowFpsSeconds >= 1.5 && resolutionScale > 0.36) {
+    resolutionScale = Math.max(0.36, resolutionScale - 0.07);
     applyRenderResolution();
     lowFpsSeconds = 0;
-  } else if (highFpsSeconds >= 9 && resolutionScale < 1) {
-    resolutionScale = Math.min(1, resolutionScale + 0.04);
+  } else if (highFpsSeconds >= 8 && resolutionScale < 1) {
+    resolutionScale = Math.min(1, resolutionScale + 0.025);
     applyRenderResolution();
     highFpsSeconds = 0;
   }
@@ -891,7 +888,6 @@ function animate() {
       condition: vehicleCondition
     });
     vehiclePhysics.syncVisuals(vehicle, wheels);
-    vehicleGarage.update(dt);
     speed = vehiclePhysics.speedMps;
     heading = vehiclePhysics.heading;
     nitroFlames.visible = nitroActive;
@@ -1009,6 +1005,8 @@ function animate() {
     nitroFlames.visible = false;
     nitroGlow.intensity = 0;
   }
+  // This also mounts the player avatar when a motorcycle is selected.
+  vehicleGarage.update(dt);
   updateInteractionHint();
   collisionCooldown = Math.max(0, collisionCooldown - dt);
   if (!impactFeedback.hidden) {
