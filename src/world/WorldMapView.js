@@ -418,9 +418,14 @@ export class WorldMapView {
     const nearestDistance = projection?.distance ?? Infinity;
     const offRoute = nearestDistance > 75 && route.distance > 100;
     if (!offRoute && projection) {
-      route.progressMeters = Math.max(route.progressMeters, projection.alongDistance);
-      route.progressSegment = Math.max(route.progressSegment, projection.segmentIndex);
-      route.progressT = projection.t;
+      const nearCurrentProgress = projection.alongDistance >= route.progressMeters - 3;
+      if (nearCurrentProgress) {
+        route.progressMeters = Math.max(route.progressMeters, projection.alongDistance);
+        if (projection.segmentIndex >= route.progressSegment) {
+          route.progressSegment = projection.segmentIndex;
+          route.progressT = projection.t;
+        }
+      }
     }
 
     // Pick the next maneuver by its position along the route, not straight-line distance.
