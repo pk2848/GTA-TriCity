@@ -3,6 +3,7 @@ import { OSMStreamer, CITY_ORIGIN } from './world/OSMStreamer.js';
 import { WorldMapView } from './world/WorldMapView.js';
 import { TrafficSystem } from './world/TrafficSystem.js';
 import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
+import { createCP67Mall } from './world/CP67Mall.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -96,6 +97,8 @@ for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
 for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshBasicMaterial({ color: 0xffe9ba }), x, 1.04, -2.16);
 
 const vehiclePhysics = new VehiclePhysics();
+const cp67Mall = createCP67Mall(scene);
+vehiclePhysics.addBuildingObstacles(cp67Mall.obstacles, 'cp67-mall');
 vehiclePhysics.syncVisuals(vehicle, wheels);
 
 // Twin exhaust flames illuminate only while N-key nitro is engaged.
@@ -300,7 +303,7 @@ function resetVehicle() {
   speed = 0; heading = 0;
   vehicleCondition = 100; nitroFuel = 100; collisionCooldown = 0;
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
-  toast.textContent = 'Vehicle reset and repaired · Nitro refilled';
+  toast.textContent = 'Returned to CP67 Mall · Vehicle repaired · Nitro refilled';
 }
 
 let dragging = false, lastX = 0, lastY = 0;
@@ -335,11 +338,12 @@ document.querySelector('#retry-map').addEventListener('click', () => streamer.re
 
 function areaName() {
   const x = vehicle.position.x, z = vehicle.position.z;
-  if (x > 7000) return 'EAST CHANDIGARH';
-  if (x < -3500) return 'MOHALI SIDE';
-  if (z < -1500) return 'NORTH CHANDIGARH';
-  if (z > 2500) return 'SOUTH CHANDIGARH';
-  return 'SECTOR 17 AREA';
+  if (Math.abs(x) < 900 && z > -650 && z < 1050) return 'CP67 MALL · SECTOR 67';
+  if (x > 3200) return 'CHANDIGARH · SECTOR 17 SIDE';
+  if (x < -1400) return 'MOHALI · WEST SIDE';
+  if (z < -1800) return 'NORTH TRICITY';
+  if (z > 2500) return 'SOUTH MOHALI';
+  return 'MOHALI · SECTOR 67';
 }
 
 const minimapCanvas = document.querySelector('#minimap');
