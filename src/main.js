@@ -275,6 +275,7 @@ const impactCopy = document.querySelector('#impact-copy');
 const nitroFill = document.querySelector('#nitro-fill');
 const nitroValue = document.querySelector('#nitro-value');
 const conditionValue = document.querySelector('#condition-value');
+const rolloverHint = document.querySelector('#rollover-hint');
 
 function showImpact(title, copy, warning = false) {
   impactTitle.textContent = title;
@@ -295,13 +296,30 @@ addEventListener('keydown', event => {
   keys[event.code] = true;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
   if (event.code === 'KeyR') resetVehicle();
+  if (event.code === 'KeyF' && !event.repeat) recoverVehicle();
 });
 addEventListener('keyup', event => { keys[event.code] = false; });
+function recoverVehicle() {
+  vehiclePhysics.recoverUpright();
+  vehiclePhysics.syncVisuals(vehicle, wheels);
+  speed = 0;
+  heading = vehiclePhysics.getHeading();
+  cameraPitch = 0.12;
+  cameraDistance = 14;
+  nitroActive = false;
+  nitroFlames.visible = false;
+  nitroGlow.intensity = 0;
+  rolloverHint.hidden = true;
+  Object.keys(keys).forEach(key => { keys[key] = false; });
+  toast.textContent = 'Vehicle recovered upright · Continue driving';
+}
+
 function resetVehicle() {
   vehiclePhysics.reset();
   vehiclePhysics.syncVisuals(vehicle, wheels);
   speed = 0; heading = 0;
   vehicleCondition = 100; nitroFuel = 100; collisionCooldown = 0;
+  rolloverHint.hidden = true;
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
   toast.textContent = 'Returned to CP67 Mall · Vehicle repaired · Nitro refilled';
 }
@@ -516,6 +534,12 @@ function animate() {
       document.querySelector('#mission-title').textContent = 'AREA DISCOVERED';
       document.querySelector('#mission-copy').textContent = 'Checkpoint reached · Keep exploring';
       toast.textContent = 'CHECKPOINT REACHED · Explore the mapped streets';
+    }
+    rolloverHint.hidden = !vehiclePhysics.isUpsideDown;
+    if (vehiclePhysics.isUpsideDown) {
+      nitroActive = false;
+      nitroFlames.visible = false;
+      nitroGlow.intensity = 0;
     }
     document.querySelector('#speed').textContent = String(Math.round(Math.abs(speed) * 3.6)).padStart(3, '0');
     document.querySelector('#area').textContent = areaName();
