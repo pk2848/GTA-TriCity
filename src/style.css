@@ -73,3 +73,22 @@
 .mall-floor-label[hidden]{display:none!important}
 body:has(.mall-floor-label:not([hidden])) #vehicle-status{display:none!important}
 @media(max-width:700px){.interaction-hint{bottom:96px;font-size:8px;padding:8px 10px}.mall-floor-label{top:105px;font-size:8px;padding:6px 9px}}
+
+
+/* Expandable vehicle garage — brand grouped, small enough for the driving HUD. */
+.garage-panel{position:fixed;right:28px;top:92px;z-index:12;width:238px;padding:10px 12px;background:rgba(12,22,23,.94);border:1px solid rgba(215,189,124,.42);border-radius:4px;backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.28);pointer-events:auto}
+.garage-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;color:#e6d6ad;font:9px 'DM Mono';letter-spacing:1px}
+.garage-heading b{color:#95b99f;font-weight:400;font-size:8px}
+.garage-panel label{display:block;margin-bottom:5px;color:#9daca4;font:8px 'DM Mono';letter-spacing:.9px}
+#car-select{display:block;width:100%;min-width:0;padding:9px 27px 9px 9px;border:1px solid #d7bd7c66;border-radius:3px;outline:none;background:#182725;color:#f1e7cb;font:11px 'Barlow Condensed',sans-serif;letter-spacing:.45px;cursor:pointer}
+#car-select:focus{border-color:#efd28a;box-shadow:0 0 0 2px #d7bd7c2a}
+#car-select:disabled{opacity:.65;cursor:wait}
+#car-select optgroup{background:#182725;color:#d7bd7c;font:10px 'DM Mono'}
+#car-select option{background:#182725;color:#f1e7cb;font:12px Arial}
+#car-select-status{margin-top:8px;min-height:13px;color:#b7c3b8;font:8px/1.35 'DM Mono';letter-spacing:.35px}
+#car-select-status[data-state="ready"]{color:#a7d7ad}
+#car-select-status[data-state="loading"]{color:#f0d28a}
+#car-select-status[data-state="warning"],#car-select-status[data-state="error"]{color:#ee9c83}
+.garage-tip{display:block;margin-top:5px;color:#7f9088;font:7px 'DM Mono';letter-spacing:.45px}
+@media(max-width:760px){.garage-panel{right:12px;top:84px;width:196px;padding:8px 9px}.garage-heading{font-size:8px}#car-select{font-size:10px;padding:8px}}
+@media(max-width:480px){.garage-panel{right:10px;top:82px;width:174px}.garage-tip{font-size:6px}}
