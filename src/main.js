@@ -1024,7 +1024,7 @@ let mapUiElapsed = 0;
 function updateHelicopterFlight(dt) {
   const forwardInput = Number(Boolean(keys.KeyW || keys.ArrowUp));
   const brakeInput = Number(Boolean(keys.KeyS || keys.ArrowDown));
-  const yawInput = Number(Boolean(keys.KeyD || keys.ArrowRight)) - Number(Boolean(keys.KeyA || keys.ArrowLeft));
+  const yawInput = Number(Boolean(keys.KeyA || keys.ArrowLeft)) - Number(Boolean(keys.KeyD || keys.ArrowRight));
   const strafeInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
   const climbInput = Number(Boolean(keys.ShiftLeft || keys.ShiftRight));
   const descendInput = Number(Boolean(keys.ControlLeft || keys.ControlRight));
@@ -1034,7 +1034,9 @@ function updateHelicopterFlight(dt) {
   const groundY = helicopterFlight.groundY;
   const maxAltitude = 520;
   const maxHorizontalSpeed = 34;
-  const forwardVector = new THREE.Vector3(0, 0, -1)
+  // The selected helicopter asset's nose points along +Z in its corrected
+  // model orientation, so flight thrust must use +Z at yaw zero.
+  const forwardVector = new THREE.Vector3(0, 0, 1)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
   const rightVector = new THREE.Vector3(1, 0, 0)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
