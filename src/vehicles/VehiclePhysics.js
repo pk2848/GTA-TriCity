@@ -124,12 +124,13 @@ export class VehiclePhysics {
   }
 
   setVehicleProfile(profile = {}) {
-    const width = clamp(Number(profile.width) || 2.04, 1.7, 2.5);
-    const length = clamp(Number(profile.length) || 4.1, 3.8, 5.8);
-    const height = clamp(Number(profile.height) || 1.0, 0.82, 1.32);
-    const trackWidth = clamp(Number(profile.trackWidth) || width * 0.82, 1.45, 2.0);
-    const wheelbase = clamp(Number(profile.wheelbase) || 2.74, 2.45, 3.25);
-    const wheelRadius = clamp(Number(profile.wheelRadius) || 0.38, 0.32, 0.46);
+    const isMotorcycle = profile.vehicleType === 'motorcycle';
+    const width = clamp(Number(profile.width) || 2.04, isMotorcycle ? 0.55 : 1.7, isMotorcycle ? 1.1 : 2.5);
+    const length = clamp(Number(profile.length) || 4.1, isMotorcycle ? 1.5 : 3.8, isMotorcycle ? 2.7 : 5.8);
+    const height = clamp(Number(profile.height) || 1.0, isMotorcycle ? 0.8 : 0.7, isMotorcycle ? 1.6 : 1.32);
+    const trackWidth = clamp(Number(profile.trackWidth) || width * 0.82, isMotorcycle ? 0.05 : 1.45, isMotorcycle ? 0.75 : 2.0);
+    const wheelbase = clamp(Number(profile.wheelbase) || 2.74, isMotorcycle ? 0.9 : 2.45, isMotorcycle ? 1.8 : 3.25);
+    const wheelRadius = clamp(Number(profile.wheelRadius) || 0.38, isMotorcycle ? 0.25 : 0.32, isMotorcycle ? 0.42 : 0.46);
 
     // Keep the collision box and all four suspension attachment points matched to the GLB.
     for (const shape of [...this.chassisBody.shapes]) this.chassisBody.removeShape(shape);
