@@ -84,6 +84,23 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.23 — helicopter flight controls and safe landing
+
+The civilian helicopter now has a dedicated arcade flight controller. The previous landing check zeroed vertical speed while the aircraft was still within the helipad's landing radius, preventing take-off. The new controller separates lift, horizontal thrust, yaw, hover damping and ground contact.
+
+### Helicopter controls
+- **Shift:** lift / climb. Hold to take off and gain altitude.
+- **Ctrl:** descend. Release to hold the current altitude.
+- **W / Up Arrow:** forward thrust / accelerate.
+- **S / Down Arrow:** air brake; holding after slowing allows a gentle reverse drift.
+- **A / D or Left / Right Arrows:** yaw / turn left and right.
+- **Q / E:** strafe left and right.
+- **Space:** stabilise / hover; cancels horizontal drift and vertical motion.
+- **F:** start a controlled auto-landing at the current location. Press F again after touchdown to exit.
+- **V:** focus the player garage and select another vehicle.
+
+The aircraft altitude is clamped to the ground plane so it cannot move below the game's ground level. With no collective input, the simplified flight model holds altitude instead of slowly falling. The HUD shows altitude, vertical speed and whether the helicopter is on the ground, airborne or auto-landing.
+
 ## Build 0.22 — complete Tricity offline map pack
 
 The 3D city streamer now supports a prebuilt local OSM data pack and persistent browser caching:
