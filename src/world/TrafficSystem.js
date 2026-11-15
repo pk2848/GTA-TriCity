@@ -126,7 +126,10 @@ export class TrafficSystem{
   while(this.pedestrians.length>this.maxPedestrians){
    const person=this.pedestrians.pop();
    this.scene.remove(person.object);
-   person.object.traverse(object=>{if(object.geometry)object.geometry.dispose();});
+   person.mixer?.stopAllAction();
+   // GLB clones share immutable geometry/materials with the single loaded template.
+   // Never dispose those shared resources while removing an individual NPC.
+   if(!person.isUploadedGirl)person.object.traverse(object=>{if(object.geometry)object.geometry.dispose();});
    person.object.clear();
   }
   this.emitCounts();
@@ -209,6 +212,7 @@ export class TrafficSystem{
   this.scene.remove(previous);
   person.object=clone;
   person.mixer=mixer;
+  person.hasWalkAnimation=Boolean(walkClip);
   person.walkRig=this.createGirlWalkRig(clone);
   person.isUploadedGirl=true;
   person.object.userData.isUploadedGirl=true;
@@ -216,7 +220,7 @@ export class TrafficSystem{
  }
 
  updateGirlWalkAnimation(person,dt,stride){
-  if(person.mixer&&this.girlPedestrianAnimations.length){
+  if(person.mixer&&person.hasWalkAnimation){
    person.mixer.update(dt);
    return;
   }
@@ -381,7 +385,7 @@ export class TrafficSystem{
     const path=offsetPath(road.points,side*(road.width/2+1.8)),length=lengthOf(path);if(length<80)continue;
     const personIndex=this.pedestrians.length;
     const object=makePedestrian(PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)],personIndex),progress=Math.random()*length;
-    const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0,mixer:null,walkRig:null,isUploadedGirl:false};
+    const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0,mixer:null,hasWalkAnimation:false,walkRig:null,isUploadedGirl:false};
     const p=samplePath(path,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.pedestrians.push(person);
     if(personIndex%3===0&&this.girlPedestrianTemplate)this.replacePedestrianWithGirl(person);
    }
