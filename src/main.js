@@ -198,7 +198,9 @@ const vehicleGarage = new VehicleGarage({
   wheelVisuals: wheels,
   nitroFlames,
   // Only uploaded GLB assets become visible player cars; no procedural vehicle fallback.
-  canSelect: () => gameMode === 'walking' || vehiclePhysics.getSpeedKmh() < 1.0,
+  // Allow a garage selection at any speed; the selected GLB replaces the
+  // visual vehicle in-place while the current physics motion is preserved.
+  canSelect: () => true,
   onSelected: (profile) => {
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
   }
