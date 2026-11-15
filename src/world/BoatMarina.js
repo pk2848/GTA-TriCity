@@ -22,13 +22,13 @@ export function createBoatMarina(scene) {
   });
 
   const shore = new THREE.Mesh(new THREE.BoxGeometry(142, 0.38, 104), sand);
-  shore.position.set(0, -0.03, 0);
+  shore.position.set(0, -0.22, 0);
   shore.receiveShadow = true;
   group.add(shore);
 
   const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(128, 84, 1, 1), water);
   waterMesh.rotation.x = -Math.PI / 2;
-  waterMesh.position.set(0, 0.22, 0);
+  waterMesh.position.set(0, 0.05, 0);
   waterMesh.receiveShadow = true;
   waterMesh.name = 'marina-water-surface';
   group.add(waterMesh);
@@ -47,7 +47,7 @@ export function createBoatMarina(scene) {
   // Timber pier on the north bank, with bollards and warm approach lights.
   const pier = new THREE.Group();
   pier.name = 'marina-pier';
-  pier.position.set(0, 0.5, 51);
+  pier.position.set(0, -0.16, 51);
   group.add(pier);
   const deck = new THREE.Mesh(new THREE.BoxGeometry(28, 0.42, 12), timber);
   deck.position.y = 0;
@@ -102,8 +102,8 @@ export function createBoatMarina(scene) {
   sign.rotation.y = Math.PI;
   group.add(sign);
 
-  const dockPosition = new THREE.Vector3(190, 0.72, 271);
-  const boatPosition = new THREE.Vector3(190, 0.54, 218);
+  const dockPosition = new THREE.Vector3(190, 0.05, 271);
+  const boatPosition = new THREE.Vector3(190, 0.13, 218);
   return {
     group,
     waterMesh,
@@ -111,6 +111,6 @@ export function createBoatMarina(scene) {
     dockPosition,
     waterBounds: { minX: -61, maxX: 61, minZ: -38, maxZ: 38 },
     dockRadius: 16,
-    groundY: 0.54
+    groundY: 0.13
   };
 }
