@@ -583,7 +583,10 @@ function activeWorldPosition() {
 function setWalkingMode(enabled) {
   gameMode = enabled ? 'walking' : 'vehicle';
   playerPedestrian.visible = enabled;
-  if (enabled && vehicleGarage) vehicleGarage.resetRiderPose();
+  if (enabled) {
+    if (vehicleGarage) vehicleGarage.resetRiderPose();
+    playerPedestrian.rotation.set(0, pedestrianHeading, 0);
+  }
   vehicle.visible = Boolean(vehicle.userData.assetLoaded);
   wheels.forEach(wheel => { wheel.visible = false; });
   document.querySelector('#vehicle-status').style.display = enabled ? 'none' : '';
