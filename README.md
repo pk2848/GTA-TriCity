@@ -20,6 +20,49 @@ A custom 3D reconstruction of **Goswami Ganesh Dutta Sanatan Dharma College** is
 - [Prof. Roshan Lal Verma Block courtyard photo](https://images.shiksha.com/mediadata/images/1741680204phpHX4qX9_g.jpg)
 - [Golden auditorium photo](https://assets.allegiance-educare.com/colleges/1611469270Main%20auditorium_.jpg)
 
+## Build 0.29 — Panjab University and Sukhna Lake
+
+This release expands the Chandigarh open world with two mapped destination areas. The game uses the existing OpenStreetMap geometry for the full road network, ordinary building footprints, parks and the Sukhna water polygon; custom Three.js landmark models are placed at geographic anchors on top of that base map.
+
+### Panjab University — Sector 14 and Sector 25
+
+Panjab University describes its Chandigarh campus as approximately 550 acres across Sector 14 (North Campus) and Sector 25 (South Campus). The current map already streams the full OSM building and street layout across both areas. This release adds distinct models for the most recognisable North Campus buildings:
+
+- **Gandhi Bhawan:** three-wing lotus/pinwheel-shaped pale concrete pavilion, central glazed hub, raised reflecting pool and approach bridge.
+- **Museum of Fine Arts:** red sandstone gallery wings around a courtyard, with hyperbolic-paraboloid / umbrella-shaped roof forms.
+- **A.C. Joshi Library:** five-storey red-sandstone and concrete façade with floor bands and repeated glazing.
+- **Student Centre (Stu-C):** cylindrical multi-level building with the characteristic spiral ramp wrapping around its body.
+- North Campus and South Campus entrance signs, plus area-HUD labels for Sector 14 and Sector 25.
+
+The official PU/AICTE pages and public architecture photographs informed the designs. The custom meshes are scale-oriented reconstructions, not surveyed BIM/CAD models. Other academic blocks, hostels, roads, grounds and ordinary buildings continue to use their current OSM geometry. Only the OSM building extrusions underneath the four bespoke landmark footprints are suppressed, preventing duplicate geometry; custom landmark collision boxes are registered with the driving physics.
+
+### Sukhna Lake — Sector 1
+
+The OSM water polygon remains the lake's base geometry, retaining the mapped shoreline instead of drawing an unrelated ellipse over it. The custom scenic additions include:
+
+- A curved dam-top pedestrian promenade with stone paving, parapet edge, benches and low lights.
+- A boating landing/pontoon with static pedal boats.
+- A landscaped island with stone revetment, paths, lookout platform and trees.
+- A Lake Club-style lakeside pavilion.
+- **Garden of Silence:** concentric circular steps and a seated Buddha sculpture at the mapped regulator-end location.
+- A low-poly distant Shivalik foothill silhouette and reserve-forest planting accents.
+
+Chandigarh Tourism describes the Garden of Silence as a meditative garden with a seated Buddha and concentric circular steps. The city tourism and environmental sources guided the lake layout; the water outline itself remains OSM-derived. Some scenic placements such as the island dressing and promenade details are approximations from public aerial/street photographs, not survey-accurate engineering geometry.
+
+### Geographic anchors and source basis
+
+- PU North Campus anchor: **30.759871° N, 76.7701576° E**, from the university's AISHE infrastructure submission.
+- Gandhi Bhawan photo/OSM anchor: **30.761556° N, 76.771125° E**.
+- A.C. Joshi Library OSM centre: **30.76158° N, 76.76994° E**.
+- Fine Arts Museum: **30.7623012° N, 76.772183° E**, from the Museum of India record.
+- Student Centre photo/OSM vicinity: **30.762274° N, 76.769227° E**.
+- Sukhna Lake centre: **30.7421° N, 76.8188° E**, from Chandigarh environmental information.
+- Garden of Silence: **30.73834° N, 76.82975° E**, from its mapped location.
+
+### Offline map compatibility
+
+The custom landmark models are local game assets and do not need a network request. To see the surrounding roads, ordinary buildings and mapped lake water offline in a fresh browser, generate/include the Tricity offline OSM pack described in Build 0.22. The previous suggested extract boundary (76.60–76.98° E, 30.55–30.83° N) includes Panjab University and Sukhna Lake.
+
 ## CP67 reference material
 
 The exterior reconstruction uses the supplied aerial/front photograph as its principal shape reference, checked against publicly available CP67 photographs. The interior layout is based on the publicly available first-floor general-arrangement drawing and interior photographs.
