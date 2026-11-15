@@ -400,8 +400,9 @@ addEventListener('keydown', event => {
   if (mapView.isOpen) return;
   keys[event.code] = true;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
-  if (event.code === 'KeyR') resetVehicle();
-  if (event.code === 'KeyF' && !event.repeat) recoverVehicle();
+  if (event.code === 'KeyR' && gameMode === 'vehicle') resetVehicle();
+  if (event.code === 'KeyF' && !event.repeat) interactF();
+  if (event.code === 'KeyE' && !event.repeat && gameMode === 'walking') useMallElevator();
 });
 addEventListener('keyup', event => { keys[event.code] = false; });
 function recoverVehicle() {
@@ -427,6 +428,147 @@ function resetVehicle() {
   rolloverHint.hidden = true;
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
   toast.textContent = 'Returned to CP67 Mall · Vehicle repaired · Nitro refilled';
+}
+
+const interactionHint = document.querySelector('#interaction-hint');
+const mallFloorLabel = document.querySelector('#mall-floor-label');
+const controlsHelp = document.querySelector('#controls-help');
+const floorNames = ['GROUND FLOOR', 'FIRST FLOOR · RETAIL', 'SECOND FLOOR · FOOD COURT / FEC', 'PVR CINEMAS'];
+
+function activeWorldPosition() {
+  return gameMode === 'walking' ? playerPedestrian.position : vehicle.position;
+}
+
+function setWalkingMode(enabled) {
+  gameMode = enabled ? 'walking' : 'vehicle';
+  playerPedestrian.visible = enabled;
+  vehicle.visible = true;
+  wheels.forEach(wheel => { wheel.visible = !enabled; });
+  nitroActive = false;
+  nitroFlames.visible = false;
+  nitroGlow.intensity = 0;
+  Object.keys(keys).forEach(key => { keys[key] = false; });
+  controlsHelp.innerHTML = enabled
+    ? 'W / S <i>WALK</i> &nbsp; A / D <i>TURN</i> &nbsp; SHIFT <i>RUN</i> &nbsp; E <i>USE LIFT</i> &nbsp; F <i>ENTER / EXIT</i> &nbsp; M <i>MAP</i>'
+    : 'W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i>';
+}
+
+function exitVehicle() {
+  if (vehiclePhysics.isUpsideDown) {
+    recoverVehicle();
+    return;
+  }
+  if (Math.abs(speed) > 1.5) {
+    toast.textContent = 'Bring the vehicle to a complete stop before getting out.';
+    return;
+  }
+  const sideX = -Math.cos(heading) * 2.3;
+  const sideZ = Math.sin(heading) * 2.3;
+  playerPedestrian.position.set(vehicle.position.x + sideX, Math.max(0, vehicle.position.y), vehicle.position.z + sideZ);
+  pedestrianHeading = heading;
+  pedestrianInsideMall = false;
+  pedestrianFloor = 0;
+  setWalkingMode(true);
+  toast.textContent = 'On foot · Walk to the CP67 glass entrance to enter the mall.';
+}
+
+function enterVehicle() {
+  if (Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) > 4.5) {
+    toast.textContent = 'Move closer to your vehicle to get back in.';
+    return;
+  }
+  if (pedestrianInsideMall) {
+    cp67Interior.group.visible = false;
+    pedestrianInsideMall = false;
+  }
+  playerPedestrian.visible = false;
+  pedestrianFloor = 0;
+  mallFloorLabel.hidden = true;
+  setWalkingMode(false);
+  speed = vehiclePhysics.speedMps;
+  heading = vehiclePhysics.getHeading();
+  toast.textContent = 'Back in your vehicle.';
+}
+
+function enterMallInterior() {
+  pedestrianInsideMall = true;
+  pedestrianFloor = 0;
+  cp67Interior.group.visible = true;
+  playerPedestrian.position.set(cp67Interior.spawn.x, 0.9, cp67Interior.spawn.z);
+  playerPedestrian.rotation.y = pedestrianHeading;
+  mallFloorLabel.hidden = false;
+  mallFloorLabel.textContent = 'CP67 · ' + floorNames[pedestrianFloor];
+  toast.textContent = 'Welcome to CP67 Mall · Explore the retail atrium and use E at the lift to change floors.';
+}
+
+function exitMallInterior() {
+  if (pedestrianFloor !== 0) {
+    toast.textContent = 'Use the lift (E) to return to the ground floor before exiting.';
+    return;
+  }
+  pedestrianInsideMall = false;
+  cp67Interior.group.visible = false;
+  playerPedestrian.position.set(0, 0.05, 16.5);
+  mallFloorLabel.hidden = true;
+  toast.textContent = 'You are outside CP67 Mall · F near your vehicle to enter.';
+}
+
+function useMallElevator() {
+  if (!pedestrianInsideMall || !cp67Interior.nearElevator(playerPedestrian.position.x, playerPedestrian.position.z)) {
+    toast.textContent = 'Move to the lift lobby on the east side of the atrium to change floors.';
+    return;
+  }
+  pedestrianFloor = (pedestrianFloor + 1) % cp67Interior.floorCount;
+  playerPedestrian.position.set(
+    cp67Interior.collision.elevator.x - 2.2,
+    0.9 + pedestrianFloor * cp67Interior.floorHeight,
+    cp67Interior.collision.elevator.z
+  );
+  mallFloorLabel.textContent = 'CP67 · ' + floorNames[pedestrianFloor];
+  toast.textContent = 'Lift arrived · ' + floorNames[pedestrianFloor];
+}
+
+function interactF() {
+  if (gameMode === 'vehicle') {
+    exitVehicle();
+    return;
+  }
+  if (pedestrianInsideMall) {
+    if (pedestrianFloor === 0 && playerPedestrian.position.z > 5.5 && Math.abs(playerPedestrian.position.x) < 12) exitMallInterior();
+    else if (Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) < 4.5) enterVehicle();
+    else toast.textContent = 'Walk to the entrance to leave the mall, or return to your car outside.';
+    return;
+  }
+  if (Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) < 4.5) {
+    enterVehicle();
+  } else if (Math.abs(playerPedestrian.position.x) < 12 && playerPedestrian.position.z < 19 && playerPedestrian.position.z > 8) {
+    enterMallInterior();
+  } else {
+    toast.textContent = 'Walk to the CP67 entrance or back to your vehicle.';
+  }
+}
+
+function updateInteractionHint() {
+  if (!started || mapView.isOpen) {
+    interactionHint.hidden = true;
+    return;
+  }
+  interactionHint.hidden = false;
+  if (gameMode === 'vehicle') {
+    interactionHint.textContent = vehiclePhysics.isUpsideDown
+      ? 'F  ·  RECOVER VEHICLE'
+      : Math.abs(speed) < 1.5 ? 'F  ·  EXIT VEHICLE' : 'STOP TO EXIT  ·  F';
+  } else if (pedestrianInsideMall) {
+    const atLift = cp67Interior.nearElevator(playerPedestrian.position.x, playerPedestrian.position.z);
+    const atExit = pedestrianFloor === 0 && playerPedestrian.position.z > 5.5 && Math.abs(playerPedestrian.position.x) < 12;
+    interactionHint.textContent = atExit
+      ? 'F  ·  EXIT CP67 MALL'
+      : atLift ? 'E  ·  USE LIFT  /  CHANGE FLOOR' : floorNames[pedestrianFloor] + '  ·  EXPLORE';
+  } else {
+    const nearCar = Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) < 4.5;
+    const nearDoor = Math.abs(playerPedestrian.position.x) < 12 && playerPedestrian.position.z < 19 && playerPedestrian.position.z > 8;
+    interactionHint.textContent = nearCar ? 'F  ·  ENTER VEHICLE' : nearDoor ? 'F  ·  ENTER CP67 MALL' : 'WASD  ·  WALK  /  F  ·  INTERACT';
+  }
 }
 
 let dragging = false, lastX = 0, lastY = 0;
