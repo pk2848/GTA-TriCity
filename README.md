@@ -66,6 +66,17 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.11 — vehicle GLB loading repair
+
+- Vehicle model URLs now respect Vite's `BASE_URL`, so GLBs load from the correct public asset root in local and subpath deployments.
+- Garage selection is allowed while the player is on foot because the parked car can be replaced safely; while driving, the vehicle must be stopped.
+- Adds an explicit retry button for the selected GLB. Failed load errors are preserved in the status tooltip and browser console rather than being silently hidden by the previous generic warning.
+- The source files in `src/vehicles/` contain the garage loader; the actual binary GLB models must stay in `public/models/vehicles/` because Vite serves `public` files by URL. The current main branch contains all three required assets at those exact paths.
+- Verified source asset sizes and manifest SHA-256 values: Pagani Zonda Cinque 16,747,784 bytes; 1970 Dodge Charger R/T 32,946,792 bytes; 2015 Dodge Challenger R/T 14,853,732 bytes.
+- Fixed the garage help text: vehicle selection is available while parked or on foot; use V to focus the selector.
+
+If a model still does not appear, check the garage status. Hover over **LOAD FAILED** for the detailed loader error and inspect the browser console/network tab for the request to `/models/vehicles/<filename>.glb`. The procedural fallback remains visible when a model cannot be loaded.
+
 ## Build 0.10 — multi-brand player garage
 
 - Adds a top-right **Player Garage** selector grouped by brand: Pagani and Dodge.
