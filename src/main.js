@@ -1026,7 +1026,8 @@ let mapUiElapsed = 0;
 function updateHelicopterFlight(dt) {
   const forwardInput = Number(Boolean(keys.KeyW || keys.ArrowUp));
   const brakeInput = Number(Boolean(keys.KeyS || keys.ArrowDown));
-  const yawInput = Number(Boolean(keys.KeyD || keys.ArrowRight)) - Number(Boolean(keys.KeyA || keys.ArrowLeft));
+  // Positive Three.js yaw turns this +Z-forward model left; map A to left and D to right.
+  const yawInput = Number(Boolean(keys.KeyA || keys.ArrowLeft)) - Number(Boolean(keys.KeyD || keys.ArrowRight));
   const strafeInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
   const climbInput = Number(Boolean(keys.ShiftLeft || keys.ShiftRight));
   const descendInput = Number(Boolean(keys.ControlLeft || keys.ControlRight));
