@@ -43,9 +43,10 @@ npm run dev
 ## Controls
 
 ### Driving
-- **W / Arrow Up:** accelerate in the direction the vehicle faces.
+- **W / Arrow Up:** drive forward toward the vehicle's nose.
 - **S / Arrow Down:** reverse.
-- **A / D or arrow keys:** steer.
+- **A / Arrow Left:** steer left.
+- **D / Arrow Right:** steer right.
 - **Space:** brake.
 - **N (hold while accelerating):** nitro; drains and recharges a finite tank.
 - **Shift (hold):** secondary engine boost.
@@ -65,6 +66,29 @@ npm run dev
 - **E:** use the lift when standing in the lift lobby; cycles through the modeled public levels.
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
+
+## Build 0.12 — driving direction, steering stability and uploaded-only garage
+
+- Fixes the Cannon wheel axis/engine-force sign so **W / Arrow Up drives toward the car's nose** (local -Z); S / Arrow Down reverses.
+- Aligns the wheel axle to +X so the raycast tyre-forward vector, steering pivots and the game's -Z vehicle-forward axis agree. A / Left turn left; D / Right turn right.
+- Adds speed-sensitive front steering, reduced tyre roll influence and grounded upright-stability torque to reduce flips during normal cornering.
+- Removes random roll/pitch impulses from ordinary collision response; impacts now primarily reduce speed and add a controlled yaw response.
+- The procedural starter body and procedural wheels are never shown as a player car. A player vehicle becomes visible only after a GLB listed in `public/models/vehicles/manifest.json` loads successfully. If loading fails, the garage reports the failed asset and does not substitute the old truck.
+- The garage now builds brand groups and car choices dynamically from `manifest.json`. To add a future car, copy its GLB into `public/models/vehicles/` and add one entry to the manifest; the UI count and options update automatically.
+- Charger wheel meshes are grouped by their LF/RF/LR/RR names, so tyre and rim sub-meshes rotate together when the source file exposes separate wheel meshes.
+
+### Add another uploaded player car
+
+1. Copy the new GLB into `public/models/vehicles/`.
+2. Add a record to the `vehicles` array in `public/models/vehicles/manifest.json` with:
+   - `id`, `brand`, `model`, `displayName`, `file`
+   - `scale` and `rotation` (to convert the source model to Y-up with its nose facing local -Z)
+   - `wheelRadius`
+   - `physics` dimensions/performance: `width`, `length`, `height`, `wheelbase`, `trackWidth`, `engineMultiplier`, `maxSpeed`, `nitroMaxSpeed`
+   - optional `wheelGroupPattern` only when separate wheel meshes have stable names
+3. Refresh the game. The garage reads the updated manifest—no HTML or JavaScript catalog edit is required.
+
+The GLB's model-axis orientation must be checked before adding it. The garage centres and scales models, but does not guess which end is the bonnet; the manifest's `rotation` must make the front of the car point along local -Z.
 
 ## Build 0.11 — vehicle GLB loading repair
 
