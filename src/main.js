@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { OSMStreamer, CITY_ORIGIN } from './world/OSMStreamer.js';
+import { OSMStreamer, CITY_ORIGIN, geoToWorld } from './world/OSMStreamer.js';
 import { WorldMapView } from './world/WorldMapView.js';
 import { TrafficSystem } from './world/TrafficSystem.js';
 import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
@@ -621,7 +621,26 @@ function showImpact(title, copy, warning = false) {
   cameraShake = warning ? 0.85 : 0.55;
 }
 const keys = Object.create(null);
+const quickLocationMenu = document.querySelector('#quick-location-menu');
+let quickLocationMenuOpen = false;
+function setQuickLocationMenu(open) {
+  quickLocationMenuOpen = Boolean(open);
+  quickLocationMenu.hidden = !quickLocationMenuOpen;
+  Object.keys(keys).forEach(key => { keys[key] = false; });
+}
 addEventListener('keydown', event => {
+  if (quickLocationMenuOpen) {
+    if (event.code === 'Escape' || event.code === 'KeyP') {
+      setQuickLocationMenu(false);
+      event.preventDefault();
+    }
+    return;
+  }
+  if (event.code === 'KeyP' && !event.repeat && started) {
+    setQuickLocationMenu(true);
+    event.preventDefault();
+    return;
+  }
   if (event.code === 'KeyM' && !event.repeat) {
     Object.keys(keys).forEach(key => { keys[key] = false; });
     mapView.toggle(); event.preventDefault(); return;
@@ -917,13 +936,96 @@ renderer.domElement.addEventListener('wheel', event => {
   cameraDistance = THREE.MathUtils.clamp(cameraDistance + event.deltaY * 0.012, 7.5, 32);
 }, { passive: true });
 
-document.querySelector('#start').addEventListener('click', () => {
-  started = true;
-  vehicleAudio.start();
-  document.querySelector('#start-screen').style.display = 'none';
-  streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
-  toast.textContent = `Loading roads and building footprints near ${CITY_ORIGIN.lat.toFixed(4)}, ${CITY_ORIGIN.lon.toFixed(4)}…`;
+const puStudentCentre = panjabUniversity.landmarks.find(item => item.id === 'student-centre')?.position || panjabUniversity.northCenter;
+const sukhnaShoreSpawn = geoToWorld(30.7357, 76.8070);
+const QUICK_PLAY_LOCATIONS = Object.freeze({
+  cp67: {
+    label: 'CP67 MALL · SECTOR 67',
+    x: 0, z: 112, heading: 0,
+    detail: 'Start at the CP67 public drop-off plaza.'
+  },
+  ggdsd: {
+    label: 'GGDSD COLLEGE · SECTOR 32-C',
+    x: ggdsdCollege.center.x, z: ggdsdCollege.center.z + 150, heading: 0,
+    detail: 'Start outside the college main gate.'
+  },
+  puNorth: {
+    label: 'PANJAB UNIVERSITY · SECTOR 14',
+    x: puStudentCentre.x + 62, z: puStudentCentre.z + 58, heading: 0,
+    detail: 'Start beside the Student Centre and North Campus landmarks.'
+  },
+  puSouth: {
+    label: 'PANJAB UNIVERSITY · SECTOR 25',
+    x: panjabUniversity.southCenter.x + 72, z: panjabUniversity.southCenter.z + 96, heading: 0,
+    detail: 'Start near the South Campus entrance area.'
+  },
+  sukhna: {
+    label: 'SUKHNA LAKE · SECTOR 1',
+    x: sukhnaShoreSpawn.x, z: sukhnaShoreSpawn.z, heading: 0,
+    detail: 'Start on the southern shore near the promenade.'
+  }
 });
+
+async function startQuickPlay(locationId = 'cp67') {
+  const location = QUICK_PLAY_LOCATIONS[locationId] || QUICK_PLAY_LOCATIONS.cp67;
+  const activeProfile = vehicleGarage.getActiveProfile();
+  const activeKind = activeProfile?.physics?.vehicleType || activeProfile?.proceduralType || 'car';
+
+  // Quick city starts are road-vehicle starts. Switch back from the helicopter
+  // or yacht if either is currently selected, then place the player at the chosen site.
+  if (activeKind === 'helicopter' || activeKind === 'boat') {
+    await vehicleGarage.selectVehicle('pagani-zonda-cinque');
+  }
+
+  if (mapView.isOpen) mapView.close();
+  setQuickLocationMenu(false);
+  vehiclePhysics.spawnAt(location.x, location.z, location.heading);
+  vehiclePhysics.syncVisuals(vehicle, wheels);
+  setWalkingMode(false);
+  gameMode = 'vehicle';
+  pedestrianInsideMall = false;
+  pedestrianFloor = 0;
+  cp67Interior.group.visible = false;
+  mallFloorLabel.hidden = true;
+  helipad.setParkedHelicopterVisible(true);
+  playerPedestrian.visible = false;
+  vehicle.visible = Boolean(vehicle.userData.assetLoaded);
+  wheels.forEach(wheel => { wheel.visible = false; });
+
+  speed = 0;
+  heading = location.heading;
+  vehicleCondition = 100;
+  nitroFuel = 100;
+  cameraModeIndex = 0;
+  cameraDistance = 14;
+  cameraYaw = 0;
+  cameraPitch = 0.12;
+  nitroActive = false;
+  nitroFlames.visible = false;
+  nitroGlow.intensity = 0;
+  rolloverHint.hidden = true;
+  vehicleAudio.setVehicleType(vehicleGarage.getActiveProfile()?.audioType || 'car');
+  vehicleAudio.start();
+
+  started = true;
+  document.querySelector('#start-screen').style.display = 'none';
+  document.querySelector('#flight-status').hidden = true;
+  document.querySelector('#vehicle-status').style.display = '';
+  setQuickLocationMenu(false);
+  streamer.requestAtWorld(location.x, location.z);
+  toast.textContent = `${location.label} · ${location.detail} Loading nearby streets and buildings…`;
+  document.querySelector('#area').textContent = location.label;
+}
+
+document.querySelector('#start').addEventListener('click', () => startQuickPlay('cp67'));
+document.querySelectorAll('[data-quick-start]').forEach(button => {
+  button.addEventListener('click', () => startQuickPlay(button.dataset.quickStart));
+});
+document.querySelectorAll('[data-quick-location]').forEach(button => {
+  button.addEventListener('click', () => startQuickPlay(button.dataset.quickLocation));
+});
+document.querySelector('#quick-location-open').addEventListener('click', () => setQuickLocationMenu(true));
+document.querySelector('#quick-location-close').addEventListener('click', () => setQuickLocationMenu(false));
 document.querySelector('#retry-map').addEventListener('click', () => streamer.retryCurrent());
 
 function areaName() {
@@ -1248,11 +1350,11 @@ function updateBoatMovement(dt) {
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
-  if (started && !mapView.isOpen && gameMode === 'helicopter') {
+  if (started && !mapView.isOpen && !quickLocationMenuOpen && gameMode === 'helicopter') {
     updateHelicopterFlight(dt);
-  } else if (started && !mapView.isOpen && gameMode === 'boat') {
+  } else if (started && !mapView.isOpen && !quickLocationMenuOpen && gameMode === 'boat') {
     updateBoatMovement(dt);
-  } else if (started && !mapView.isOpen && gameMode === 'vehicle') {
+  } else if (started && !mapView.isOpen && !quickLocationMenuOpen && gameMode === 'vehicle') {
     const forward = keys.KeyW || keys.ArrowUp;
     const reverse = keys.KeyS || keys.ArrowDown;
     const left = keys.KeyA || keys.ArrowLeft;
@@ -1324,7 +1426,7 @@ function animate() {
     nitroValue.textContent = `${Math.round(nitroFuel)}%`;
     conditionValue.textContent = `${Math.round(vehicleCondition)}%`;
     conditionValue.style.color = vehicleCondition < 35 ? '#e98269' : '#dce5d8';
-  } else if (started && !mapView.isOpen && gameMode === 'walking') {
+  } else if (started && !mapView.isOpen && !quickLocationMenuOpen && gameMode === 'walking') {
     engineThrottle = 0;
     const forward = keys.KeyW || keys.ArrowUp;
     const reverse = keys.KeyS || keys.ArrowDown;
