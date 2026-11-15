@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 function makePadLabel() {
   const canvas = document.createElement('canvas');
@@ -94,6 +95,41 @@ export function createHelipad(scene) {
   sign.position.set(20, 4.35, 15);
   sign.rotation.y = -0.4;
   group.add(sign);
+
+  // Overlay the owner's uploaded helipad GLB as a flattened, textured ground
+  // asset. The procedural markings remain underneath as a safe fallback.
+  const assetUrl = `${import.meta.env.BASE_URL || '/'}models/vehicles/helipad.glb`;
+  const loader = new GLTFLoader();
+  loader.load(assetUrl, (gltf) => {
+    const asset = gltf.scene;
+    asset.traverse((object) => {
+      if (object.isCamera) object.parent?.remove(object);
+      if (object.isMesh) {
+        object.castShadow = false;
+        object.receiveShadow = true;
+      }
+    });
+    asset.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(asset);
+    if (!bounds.isEmpty()) {
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      const horizontalSize = Math.max(size.x, size.z, 0.001);
+      const horizontalScale = 28 / horizontalSize;
+      const verticalScale = Math.min(horizontalScale, 0.08);
+      asset.scale.set(horizontalScale, verticalScale, horizontalScale);
+      asset.position.set(
+        -center.x * horizontalScale,
+        0.355 - bounds.min.y * verticalScale,
+        -center.z * horizontalScale
+      );
+      asset.name = 'uploaded-helipad-glb';
+      group.add(asset);
+      console.info('[GTA-TriCity] Uploaded helipad.glb loaded on the CP67 pad.');
+    }
+  }, undefined, (error) => {
+    console.warn('[GTA-TriCity] Uploaded helipad.glb unavailable; procedural pad remains active.', error);
+  });
 
   scene.add(group);
   return {
