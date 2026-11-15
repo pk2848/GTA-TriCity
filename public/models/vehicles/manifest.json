@@ -79,7 +79,7 @@
       "brand": "Motorcycle",
       "model": "Black Bike",
       "displayName": "Black Bike",
-      "file": "bike-black.glb",
+      "file": "bike_black.glb",
       "scale": 0.05,
       "rotation": [
         0,
@@ -117,10 +117,10 @@
       "sha256": "322da508fb717e1fa9d288b56f1fb021e6b1cea28b908da5e5900e0f77d24826"
     },
     {
-      "file": "bike-black.glb",
-      "bytes": 588456,
-      "sha256": "a243216ddcf11d2179a7e90966ec4dca04177b8507c94aab61e7de0537403d12",
-      "source": "User upload bike_black.glb; cropped and optimized for GTA-TriCity"
+      "file": "bike_black.glb",
+      "bytes": 26420884,
+      "sha256": "a4526ce91e2fc970c8ee72ffb47dd0357d35219cdfafe88a91edab40fc111a0a",
+      "source": "User-uploaded public/models/vehicles/bike_black.glb; Sketchfab BIKE BLACK; CC BY 4.0"
     }
   ],
   "howToAddMoreVehicles": {
