@@ -1,7 +1,9 @@
 import * as CANNON from 'cannon-es';
 
 const FIXED_STEP = 1 / 60;
-const MODEL_ORIGIN_OFFSET = new CANNON.Vec3(0, 1, 0);
+// The imported GLB models sit on y=0; the physics chassis centre is lower than
+// the old placeholder SUV so the centre of mass is not excessively high.
+const MODEL_ORIGIN_OFFSET = new CANNON.Vec3(0, 0.9, 0);
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -31,14 +33,14 @@ export class VehiclePhysics {
     this.world.addBody(ground);
 
     this.chassisBody = new CANNON.Body({
-      mass: 1280,
+      mass: 1320,
       material: this.groundMaterial,
-      linearDamping: 0.055,
-      angularDamping: 0.42,
+      linearDamping: 0.035,
+      angularDamping: 0.72,
       allowSleep: false
     });
-    this.chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(1.02, 0.43, 2.05)));
-    this.chassisBody.position.set(0, 1.02, 0);
+    this.chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(1.02, 0.48, 2.05)));
+    this.chassisBody.position.set(0, 0.92, 0);
     this.chassisBody.updateMassProperties();
 
     this.raycastVehicle = new CANNON.RaycastVehicle({
@@ -51,15 +53,17 @@ export class VehiclePhysics {
     const wheelOptions = {
       radius: 0.43,
       directionLocal: new CANNON.Vec3(0, -1, 0),
-      suspensionStiffness: 36,
-      suspensionRestLength: 0.43,
-      frictionSlip: 3.9,
-      dampingRelaxation: 2.5,
-      dampingCompression: 4.8,
-      maxSuspensionForce: 140000,
-      maxSuspensionTravel: 0.28,
-      rollInfluence: 0.075,
-      axleLocal: new CANNON.Vec3(-1, 0, 0),
+      suspensionStiffness: 48,
+      suspensionRestLength: 0.42,
+      frictionSlip: 4.5,
+      dampingRelaxation: 2.8,
+      dampingCompression: 5.2,
+      maxSuspensionForce: 145000,
+      maxSuspensionTravel: 0.22,
+      // Keep lateral tyre impulses close to the centre of mass to resist rollovers.
+      rollInfluence: 0.018,
+      // +X is the right axle. With +Y up, Y × X gives the game's -Z forward.
+      axleLocal: new CANNON.Vec3(1, 0, 0),
       chassisConnectionPointLocal: new CANNON.Vec3(),
       customSlidingRotationalSpeed: -22,
       useCustomSlidingRotationalSpeed: true
@@ -67,10 +71,10 @@ export class VehiclePhysics {
 
     // Front wheels steer. Rear wheels receive engine force.
     const wheelConnections = [
-      [-0.88, -0.16, -1.38],
-      [0.88, -0.16, -1.38],
-      [-0.88, -0.16, 1.36],
-      [0.88, -0.16, 1.36]
+      [-0.88, -0.08, -1.38],
+      [0.88, -0.08, -1.38],
+      [-0.88, -0.08, 1.36],
+      [0.88, -0.08, 1.36]
     ];
     wheelConnections.forEach(([x, y, z], index) => {
       wheelOptions.chassisConnectionPointLocal.set(x, y, z);
@@ -99,7 +103,7 @@ export class VehiclePhysics {
   reset() {
     // Spawn at the CP67 Mall public drop-off plaza, facing the main entrance.
     this.spawnPosition = this.spawnPosition || { x: 0, z: 112 };
-    this.chassisBody.position.set(this.spawnPosition.x, 1.02, this.spawnPosition.z);
+    this.chassisBody.position.set(this.spawnPosition.x, 0.92, this.spawnPosition.z);
     this.chassisBody.quaternion.set(0, 0, 0, 1);
     this.chassisBody.velocity.set(0, 0, 0);
     this.chassisBody.angularVelocity.set(0, 0, 0);
@@ -108,38 +112,46 @@ export class VehiclePhysics {
     this.steering = 0;
     this.speedMps = 0;
     this.heading = 0;
+    this.rolloverTimer = 0;
+    this.isUpsideDown = false;
+    this.chassisBody.wakeUp();
+    this.chassisBody.aabbNeedsUpdate = true;
   }
 
   setVehicleProfile(profile = {}) {
     const width = clamp(Number(profile.width) || 2.04, 1.7, 2.5);
     const length = clamp(Number(profile.length) || 4.1, 3.8, 5.8);
-    const height = clamp(Number(profile.height) || 0.9, 0.7, 1.2);
+    const height = clamp(Number(profile.height) || 1.0, 0.82, 1.32);
     const trackWidth = clamp(Number(profile.trackWidth) || width * 0.82, 1.45, 2.0);
     const wheelbase = clamp(Number(profile.wheelbase) || 2.74, 2.45, 3.25);
+    const wheelRadius = clamp(Number(profile.wheelRadius) || 0.38, 0.32, 0.46);
 
-    // Keep collision dimensions matched to the selected body rather than the old placeholder SUV.
+    // Keep the collision box and all four suspension attachment points matched to the GLB.
     for (const shape of [...this.chassisBody.shapes]) this.chassisBody.removeShape(shape);
     this.chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, length / 2)));
     this.chassisBody.updateMassProperties();
     this.chassisBody.aabbNeedsUpdate = true;
 
     const positions = [
-      [-trackWidth / 2, -0.16, -wheelbase / 2],
-      [trackWidth / 2, -0.16, -wheelbase / 2],
-      [-trackWidth / 2, -0.16, wheelbase / 2],
-      [trackWidth / 2, -0.16, wheelbase / 2]
+      [-trackWidth / 2, -0.08, -wheelbase / 2],
+      [trackWidth / 2, -0.08, -wheelbase / 2],
+      [-trackWidth / 2, -0.08, wheelbase / 2],
+      [trackWidth / 2, -0.08, wheelbase / 2]
     ];
     positions.forEach(([x, y, z], index) => {
-      this.raycastVehicle.wheelInfos[index].chassisConnectionPointLocal.set(x, y, z);
+      const wheel = this.raycastVehicle.wheelInfos[index];
+      wheel.chassisConnectionPointLocal.set(x, y, z);
+      wheel.radius = wheelRadius;
+      wheel.rollInfluence = 0.018;
     });
 
     this.engineMultiplier = clamp(Number(profile.engineMultiplier) || 1, 0.65, 1.4);
     this.maxSpeed = clamp(Number(profile.maxSpeed) || 36, 25, 55);
     this.nitroMaxSpeed = clamp(Number(profile.nitroMaxSpeed) || 47, this.maxSpeed, 65);
+    this.chassisBody.wakeUp();
     this.raycastVehicle.updateWheelTransform(0);
     this.chassisBody.updateAABB();
   }
-
   update(deltaTime, controls = {}) {
     const dt = clamp(deltaTime, 0, 0.05);
     const throttle = clamp(Number(controls.throttle) || 0, -1, 1);
@@ -148,18 +160,23 @@ export class VehiclePhysics {
     const nitro = Boolean(controls.nitro);
     const condition = clamp(Number(controls.condition ?? 100) / 100, 0.45, 1);
 
-    const maxSteer = 0.48;
+    // Reduce steering angle as speed rises: full lock at high speed is a major
+    // rollover trigger in a raycast vehicle.
+    const horizontalSpeed = Math.hypot(this.chassisBody.velocity.x, this.chassisBody.velocity.z);
+    const maxSteer = 0.48 / (1 + horizontalSpeed / 12);
     const targetSteering = steer * maxSteer;
-    this.steering += (targetSteering - this.steering) * Math.min(1, dt * 5.8);
+    this.steering += (targetSteering - this.steering) * Math.min(1, dt * 7.0);
     this.raycastVehicle.setSteeringValue(this.steering, 0);
     this.raycastVehicle.setSteeringValue(this.steering, 1);
 
     const baseEngineForce = 5200 * condition * this.engineMultiplier * (controls.boost ? 1.16 : 1);
     const engineForce = throttle * baseEngineForce * (nitro && throttle > 0 ? 1.85 : 1);
-    this.raycastVehicle.applyEngineForce(-engineForce, 2);
-    this.raycastVehicle.applyEngineForce(-engineForce, 3);
+    // The chassis and imported vehicles face local -Z. With +X wheel axles,
+    // positive engine force drives the vehicle forward toward -Z.
+    this.raycastVehicle.applyEngineForce(engineForce, 2);
+    this.raycastVehicle.applyEngineForce(engineForce, 3);
 
-    const serviceBrake = braking ? 9800 : (throttle === 0 ? 240 : 0);
+    const serviceBrake = braking ? 9200 : (throttle === 0 ? 90 : 0);
     for (let i = 0; i < 4; i++) this.raycastVehicle.setBrake(serviceBrake, i);
 
     // Fixed-step integration keeps suspension behaviour stable across frame rates.
@@ -185,9 +202,26 @@ export class VehiclePhysics {
 
     const chassisUp = new CANNON.Vec3(0, 1, 0);
     this.chassisBody.quaternion.vmult(chassisUp, chassisUp);
-    const rolled = chassisUp.y < 0.38 || this.chassisBody.position.y < -1;
+    const worldUp = new CANNON.Vec3(0, 1, 0);
+    const groundedWheels = this.raycastVehicle.wheelInfos.reduce(
+      (count, wheel) => count + (wheel.isInContact ? 1 : 0), 0
+    );
+
+    // Electronic stability assist: gently counter body roll and pitch while at least
+    // two wheels are on the ground. It does not affect steering/yaw.
+    if (groundedWheels >= 2 && chassisUp.y > 0.22) {
+      const correctionAxis = chassisUp.cross(worldUp);
+      const correctionStrength = 2600;
+      const angularDamping = 780;
+      this.chassisBody.torque.x += correctionAxis.x * correctionStrength
+        - this.chassisBody.angularVelocity.x * angularDamping;
+      this.chassisBody.torque.z += correctionAxis.z * correctionStrength
+        - this.chassisBody.angularVelocity.z * angularDamping;
+    }
+
+    const rolled = chassisUp.y < 0.18 || this.chassisBody.position.y < -1;
     this.rolloverTimer = rolled ? this.rolloverTimer + dt : Math.max(0, this.rolloverTimer - dt * 2);
-    this.isUpsideDown = this.rolloverTimer > 0.75;
+    this.isUpsideDown = this.rolloverTimer > 1.0;
   }
 
   syncVisuals(chassisObject, wheelObjects = []) {
@@ -268,8 +302,8 @@ export class VehiclePhysics {
   applyImpact(intensity = 0.5, direction = 1) {
     const amount = clamp(intensity, 0, 1);
     this.chassisBody.velocity.scale(1 - amount * 0.74, this.chassisBody.velocity);
-    this.chassisBody.angularVelocity.y += direction * amount * 1.7;
-    this.chassisBody.angularVelocity.x += (Math.random() - 0.5) * amount * 0.65;
+    // Contacts yaw the car but do not inject random roll/pitch that can flip it.
+    this.chassisBody.angularVelocity.y += direction * amount * 0.85;
     this.chassisBody.wakeUp();
   }
 
