@@ -352,9 +352,6 @@ export class VehicleGarage {
         this.selector.value = this.activeId || profile.id;
         this.selector.disabled = false;
       }
-      const fallbackName = this.activeId
-        ? this.catalog.find((item) => item.id === this.activeId)?.displayName
-        : 'no uploaded player car available';
       const message = error?.message || error?.target?.statusText || String(error);
       this.setStatus(
         `LOAD FAILED · ${profile.displayName.toUpperCase()}`,
