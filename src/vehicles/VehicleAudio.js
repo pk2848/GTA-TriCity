@@ -1,5 +1,8 @@
 const TYPE_PROFILES = {
   car:        { base: 38, rev: 104, gain: 0.19, lowpass: 820, sub: 0.42 },
+  supercar:   { base: 48, rev: 172, gain: 0.16, lowpass: 1550, sub: 0.22 },
+  muscle:     { base: 33, rev: 92, gain: 0.22, lowpass: 690, sub: 0.72 },
+  utility:    { base: 34, rev: 86, gain: 0.17, lowpass: 760, sub: 0.58 },
   motorcycle: { base: 52, rev: 176, gain: 0.16, lowpass: 1450, sub: 0.18 },
   helicopter: { base: 28, rev: 66, gain: 0.12, lowpass: 980, sub: 0.65 },
   boat:       { base: 30, rev: 78, gain: 0.15, lowpass: 620, sub: 0.72 }
