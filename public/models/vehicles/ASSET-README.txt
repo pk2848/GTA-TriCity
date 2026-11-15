@@ -11,8 +11,12 @@ FILES
 - public/models/vehicles/1970-dodge-charger-rt.glb
 - public/models/vehicles/2015-dodge-challenger-rt.glb
 - public/models/vehicles/bike_black.glb (original 26 MB uploaded scan; optimized derivative not currently installed)
+- public/models/vehicles/Model No-08.glb
+- public/models/vehicles/animated_civilian_helicopter.glb
+- public/models/vehicles/animated_yacht.glb
+- public/models/vehicles/helipad.glb
 
-The CP67 Light Utility Helicopter is procedural (`src/vehicles/HelicopterModel.js`) and is not a binary file in this folder. The CP67 helipad is created by `src/world/Helipad.js`.
+The animated civilian helicopter and yacht GLBs play their embedded animation clips through `THREE.AnimationMixer`. The CP67 helipad overlays the uploaded helipad GLB with a procedural fallback. The yacht spawns at the custom TriCity Marina in `src/world/BoatMarina.js`.
 
 ASSET / LICENCE NOTES
 - Pagani Zonda Cinque: supplied by the project owner in this conversation. The GLB does not contain embedded author/licence metadata; distribution rights have not been independently verified.
