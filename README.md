@@ -84,6 +84,35 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.21 — uploaded vehicles, helicopter, yacht, sound and map streaming repair
+
+- Adds **Model No-08** as a selectable road vehicle from `public/models/vehicles/Model No-08.glb`.
+- Adds the uploaded **Animated Civilian Helicopter** GLB to the Aircraft garage category. Its embedded animation clip is played by a Three.js AnimationMixer; the helicopter spawns at the CP67 helipad and uses arcade flight controls.
+- Adds the uploaded **Animated Yacht** GLB to the Watercraft garage category. Its animation clip plays while the yacht is driven around a newly modeled TriCity Marina with a water basin and boarding pier.
+- Loads the uploaded `helipad.glb` over the CP67 helipad marking, retaining the procedural landing pad as a fallback.
+- Adds distinct procedural Web Audio sound profiles for road cars, the motorcycle, helicopter rotor/engine and yacht engine. Sound starts after the start-screen click and can be muted with the **SOUND ON/OFF** button in the garage.
+- Repairs OSM tile streaming: uses independent public Overpass fallbacks, retries transient tile failures, prioritises the player's current tile, drops stale prefetch queue entries, keeps the full tile footprint visible, and deduplicates features per tile rather than globally.
+- The new marina is an in-game water feature created for yacht gameplay; the map and road network remain based on OpenStreetMap.
+
+### Flight controls
+- **W / S:** forward / backward.
+- **A / D:** bank and translate sideways.
+- **Q / E:** yaw left / right.
+- **Shift / Ctrl:** climb / descend.
+- **Space:** stabilise / hover.
+- **F:** exit only after landing on the CP67 helipad.
+
+### Yacht controls
+- **W / S:** accelerate / reverse.
+- **A / D:** turn.
+- **F:** leave the yacht only when moored slowly beside the TriCity Marina pier.
+
+### Uploaded model rights notes
+- `Model No-08.glb`: uploaded file has no embedded author or licence metadata.
+- `animated_civilian_helicopter.glb` and `animated_yacht.glb`: embedded metadata credits assetfactory and labels both assets **Sketchfab Standard**. Check the applicable Sketchfab terms before redistribution.
+- `helipad.glb`: embedded metadata credits srockzv and labels the model **CC BY 4.0**. Attribution: “Helipad” by srockzv, CC BY 4.0, via Sketchfab.
+- Existing model licence notes remain in `public/models/vehicles/README.md`.
+
 ## Build 0.18 — frame-time repair and rideable motorcycle
 
 - Removes the American Road GLB overlay from the live OSM tile path. The old implementation instanced an entire 103 MB scene (including all selected meshes) across every road segment; the screenshot's roughly 465 million triangles and 1,975 draw calls are consistent with that repeated-instancing failure. The uploaded road asset remains in `src/other/` but is not loaded into the live game until it is reduced to a clean, low-poly road-only segment.
