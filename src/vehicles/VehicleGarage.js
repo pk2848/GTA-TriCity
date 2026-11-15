@@ -112,6 +112,7 @@ export class VehicleGarage {
     selector,
     statusElement,
     fallbackParts = [],
+    wheelVisuals = [],
     nitroFlames = null,
     canSelect = () => true,
     onSelected = () => {}
@@ -121,6 +122,7 @@ export class VehicleGarage {
     this.selector = selector;
     this.statusElement = statusElement;
     this.fallbackParts = fallbackParts;
+    this.wheelVisuals = wheelVisuals;
     this.nitroFlames = nitroFlames;
     this.canSelect = canSelect;
     this.onSelected = onSelected;
@@ -214,6 +216,7 @@ export class VehicleGarage {
 
       // Switch away from the placeholder only after the new GLB has loaded successfully.
       this.fallbackParts.forEach((part) => { part.visible = false; });
+      this.wheelVisuals.forEach((wheel) => { wheel.visible = false; });
       if (this.nitroFlames) this.nitroFlames.visible = false;
       if (this.selector) this.selector.value = profile.id;
       this.vehicle.userData.assetLoaded = true;
@@ -227,7 +230,10 @@ export class VehicleGarage {
         ? VEHICLE_CATALOG.find((item) => item.id === this.activeId)?.displayName
         : 'procedural starter vehicle';
       this.setStatus(`LOAD FAILED · KEEPING ${fallbackName?.toUpperCase() || 'STARTER CAR'}`, 'error');
-      if (!this.activeSlot) this.fallbackParts.forEach((part) => { part.visible = true; });
+      if (!this.activeSlot) {
+        this.fallbackParts.forEach((part) => { part.visible = true; });
+        this.wheelVisuals.forEach((wheel) => { wheel.visible = true; });
+      }
     } finally {
       if (request === this.requestId) {
         this.loading = false;
