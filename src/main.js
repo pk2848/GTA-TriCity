@@ -4,6 +4,7 @@ import { WorldMapView } from './world/WorldMapView.js';
 import { TrafficSystem } from './world/TrafficSystem.js';
 import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import { createCP67Mall } from './world/CP67Mall.js';
+import { createGGDSDCollege } from './world/GGDSDCollege.js';
 import { createCP67Interior } from './world/CP67Interior.js';
 import { VehicleGarage } from './vehicles/VehicleGarage.js';
 import { createHelipad } from './world/Helipad.js';
@@ -112,6 +113,7 @@ for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshB
 
 const vehiclePhysics = new VehiclePhysics();
 const cp67Mall = createCP67Mall(scene);
+const ggdsdCollege = createGGDSDCollege(scene);
 const helipad = createHelipad(scene);
 const boatMarina = createBoatMarina(scene);
 const helicopterFlight = {
@@ -124,6 +126,7 @@ let engineThrottle = 0;
 const cp67Interior = createCP67Interior(scene);
 cp67Interior.group.position.y = 0.9;
 vehiclePhysics.addBuildingObstacles(cp67Mall.obstacles, 'cp67-mall');
+vehiclePhysics.addBuildingObstacles(ggdsdCollege.obstacles, 'ggdsd-college');
 vehiclePhysics.syncVisuals(vehicle, wheels);
 
 function createPlayerPedestrian() {
