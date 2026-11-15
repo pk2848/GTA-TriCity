@@ -826,7 +826,9 @@ function animate() {
       playerPedestrian.position.z = nextZ;
     }
 
-    playerPedestrian.position.y = 0.9 + pedestrianFloor * cp67Interior.floorHeight;
+    playerPedestrian.position.y = pedestrianInsideMall
+      ? 0.9 + pedestrianFloor * cp67Interior.floorHeight
+      : 0.05;
     playerPedestrian.rotation.y = pedestrianHeading;
     pedestrianWalkPhase += dt * (moving ? (walkSpeed > WALK_SPEED ? 11 : 7.5) : 0);
     const limbs = playerPedestrian.userData.limbs;
