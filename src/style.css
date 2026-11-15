@@ -92,3 +92,9 @@ body:has(.mall-floor-label:not([hidden])) #vehicle-status{display:none!important
 .garage-tip{display:block;margin-top:5px;color:#7f9088;font:7px 'DM Mono';letter-spacing:.45px}
 @media(max-width:760px){.garage-panel{right:12px;top:84px;width:196px;padding:8px 9px}.garage-heading{font-size:8px}#car-select{font-size:10px;padding:8px}}
 @media(max-width:480px){.garage-panel{right:10px;top:82px;width:174px}.garage-tip{font-size:6px}}
+
+
+#car-retry{display:block;width:100%;margin-top:7px;padding:6px 8px;border:1px solid #d7bd7c55;border-radius:2px;background:#d7bd7c12;color:#e4d4ae;font:8px 'DM Mono';letter-spacing:.5px;cursor:pointer}
+#car-retry:hover{background:#d7bd7c2b;border-color:#d7bd7c99}
+#car-retry:disabled{opacity:.5;cursor:wait}
+#car-select-status{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help}
