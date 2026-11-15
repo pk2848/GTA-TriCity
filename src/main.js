@@ -7,6 +7,8 @@ import { createCP67Mall } from './world/CP67Mall.js';
 import { createCP67Interior } from './world/CP67Interior.js';
 import { VehicleGarage } from './vehicles/VehicleGarage.js';
 import { createHelipad } from './world/Helipad.js';
+import { createBoatMarina } from './world/BoatMarina.js';
+import { VehicleAudio } from './vehicles/VehicleAudio.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -111,7 +113,10 @@ for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshB
 const vehiclePhysics = new VehiclePhysics();
 const cp67Mall = createCP67Mall(scene);
 const helipad = createHelipad(scene);
+const boatMarina = createBoatMarina(scene);
 const helicopterFlight = { velocity: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0, landed: true };
+const boatFlight = { velocity: new THREE.Vector3(), yaw: 0, elapsed: 0 };
+let engineThrottle = 0;
 const cp67Interior = createCP67Interior(scene);
 cp67Interior.group.position.y = 0.9;
 vehiclePhysics.addBuildingObstacles(cp67Mall.obstacles, 'cp67-mall');
@@ -161,7 +166,7 @@ function createPlayerPedestrian() {
 const playerPedestrian = createPlayerPedestrian();
 playerPedestrian.visible = false;
 scene.add(playerPedestrian);
-let gameMode = 'vehicle'; // vehicle | walking
+let gameMode = 'vehicle'; // vehicle | walking | helicopter | boat
 let pedestrianHeading = 0;
 let pedestrianFloor = 0;
 let pedestrianInsideMall = false;
@@ -188,6 +193,7 @@ nitroFlames.add(nitroGlow);
 vehicle.add(nitroFlames);
 
 // Multi-brand garage. GLB files live in public/models/vehicles/ and are loaded on demand.
+const vehicleAudio = new VehicleAudio({ toggleButton: document.querySelector('#sound-toggle') });
 const vehicleGarage = new VehicleGarage({
   vehicle,
   physics: vehiclePhysics,
@@ -206,8 +212,10 @@ const vehicleGarage = new VehicleGarage({
   canSelect: () => true,
   onSelected: (profile) => {
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
-    if (profile.proceduralType === 'helicopter') {
-      // Spawn the aircraft on the marked CP67 apron and switch to flight controls.
+    const kind = profile.physics?.vehicleType || profile.proceduralType || 'car';
+    vehicleAudio.setVehicleType(kind === 'motorcycle' ? 'motorcycle' : kind === 'helicopter' ? 'helicopter' : kind === 'boat' ? 'boat' : 'car');
+
+    if (kind === 'helicopter') {
       vehiclePhysics.reset();
       helicopterFlight.velocity.set(0, 0, 0);
       helicopterFlight.yaw = 0;
@@ -218,22 +226,45 @@ const vehicleGarage = new VehicleGarage({
       vehicle.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
       vehicle.visible = true;
       playerPedestrian.visible = false;
-      if (vehicleGarage) vehicleGarage.resetRiderPose();
+      vehicleGarage.resetRiderPose();
       wheels.forEach((wheel) => { wheel.visible = false; });
       gameMode = 'helicopter';
       pedestrianInsideMall = false;
       cp67Interior.group.visible = false;
       document.querySelector('#vehicle-status').style.display = 'none';
       document.querySelector('#controls-help').innerHTML =
-        'W / S <i>FORWARD / BACK</i> &nbsp; A / D <i>BANK</i> &nbsp; Q / E <i>YAW</i> &nbsp; SHIFT <i>ASCEND</i> &nbsp; CTRL <i>DESCEND</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i>';
-      toast.textContent = 'HELICOPTER READY · Take off from the CP67 helipad. Follow the flight controls at the bottom.';
+        'W / S <i>FORWARD / BACK</i> &nbsp; A / D <i>BANK</i> &nbsp; Q / E <i>YAW</i> &nbsp; SHIFT <i>ASCEND</i> &nbsp; CTRL <i>DESCEND</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
+      toast.textContent = 'CIVILIAN HELICOPTER READY · Take off from the CP67 helipad.';
       cameraDistance = 24;
       return;
     }
-    if (gameMode === 'helicopter') {
-      // Returning to a road vehicle resets the car chassis safely at the CP67 spawn.
+
+    if (kind === 'boat') {
+      vehiclePhysics.reset();
+      boatFlight.velocity.set(0, 0, 0);
+      boatFlight.yaw = 0;
+      boatFlight.elapsed = 0;
+      vehicle.position.copy(boatMarina.boatPosition);
+      vehicle.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), boatFlight.yaw);
+      vehicle.visible = true;
+      playerPedestrian.visible = false;
+      vehicleGarage.resetRiderPose();
+      wheels.forEach((wheel) => { wheel.visible = false; });
+      gameMode = 'boat';
+      pedestrianInsideMall = false;
+      cp67Interior.group.visible = false;
+      document.querySelector('#vehicle-status').style.display = 'none';
+      document.querySelector('#controls-help').innerHTML =
+        'W / S <i>ACCELERATE / REVERSE</i> &nbsp; A / D <i>TURN</i> &nbsp; SPACE <i>COAST</i> &nbsp; F <i>EXIT AT DOCK</i> &nbsp; V <i>GARAGE</i>';
+      toast.textContent = 'TRICITY MARINA · Yacht launched · Follow the water and return to the pier to exit.';
+      cameraDistance = 22;
+      return;
+    }
+
+    if (gameMode === 'helicopter' || gameMode === 'boat') {
       gameMode = 'vehicle';
       helicopterFlight.velocity.set(0, 0, 0);
+      boatFlight.velocity.set(0, 0, 0);
       vehiclePhysics.reset();
       vehiclePhysics.syncVisuals(vehicle, wheels);
       wheels.forEach((wheel) => { wheel.visible = false; });
