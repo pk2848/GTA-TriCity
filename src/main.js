@@ -779,9 +779,9 @@ function useMallElevator() {
 }
 
 function exitHelicopter() {
-  if (!helicopterFlight.landed) {
+  if (!helicopterFlight.landed || helicopterFlight.velocity.length() > 1.0) {
     helicopterFlight.autoLanding = true;
-    toast.textContent = 'AUTO LANDING · Aircraft braking and descending. Press F again after landing to exit.';
+    toast.textContent = 'AUTO LANDING · Braking drift and descending. Press F again after the aircraft settles to exit.';
     return;
   }
   playerPedestrian.position.set(vehicle.position.x + 4.2, 0.05, vehicle.position.z + 1.5);
@@ -1059,23 +1059,29 @@ function updateHelicopterFlight(dt) {
       if (Math.abs(helicopterFlight.verticalSpeed) < 0.035) helicopterFlight.verticalSpeed = 0;
     }
 
-    // W adds forward thrust. S is a proper air brake; holding it can gently
-    // reverse only after the aircraft has come nearly to a stop.
-    if (forwardInput) helicopterFlight.velocity.addScaledVector(forwardVector, 9.0 * dt);
-    if (brakeInput) {
-      helicopterFlight.velocity.multiplyScalar(Math.exp(-4.5 * dt));
-      if (helicopterFlight.velocity.length() < 0.65) {
-        helicopterFlight.velocity.addScaledVector(forwardVector, -1.8 * dt);
+    // Do not let the aircraft taxi around like a ground vehicle. Horizontal
+    // flight controls engage only after collective lift has left the helipad.
+    if (!helicopterFlight.landed || climbInput) {
+      // W adds forward thrust. S is a proper air brake; holding it can gently
+      // reverse only after the aircraft has come nearly to a stop.
+      if (forwardInput) helicopterFlight.velocity.addScaledVector(forwardVector, 9.0 * dt);
+      if (brakeInput) {
+        helicopterFlight.velocity.multiplyScalar(Math.exp(-4.5 * dt));
+        if (helicopterFlight.velocity.length() < 0.65) {
+          helicopterFlight.velocity.addScaledVector(forwardVector, -1.8 * dt);
+        }
       }
-    }
 
-    // Q/E provide lateral translation; A/D turn the nose left and right.
-    if (strafeInput) helicopterFlight.velocity.addScaledVector(rightVector, strafeInput * 4.8 * dt);
+      // Q/E provide lateral translation; A/D turn the nose left and right.
+      if (strafeInput) helicopterFlight.velocity.addScaledVector(rightVector, strafeInput * 4.8 * dt);
 
-    const horizontalDrag = hoverInput ? 4.8 : 0.72;
-    helicopterFlight.velocity.multiplyScalar(Math.exp(-horizontalDrag * dt));
-    if (helicopterFlight.velocity.length() > maxHorizontalSpeed) {
-      helicopterFlight.velocity.setLength(maxHorizontalSpeed);
+      const horizontalDrag = hoverInput ? 4.8 : 0.72;
+      helicopterFlight.velocity.multiplyScalar(Math.exp(-horizontalDrag * dt));
+      if (helicopterFlight.velocity.length() > maxHorizontalSpeed) {
+        helicopterFlight.velocity.setLength(maxHorizontalSpeed);
+      }
+    } else {
+      helicopterFlight.velocity.set(0, 0, 0);
     }
 
     if (hoverInput) {
@@ -1095,10 +1101,10 @@ function updateHelicopterFlight(dt) {
   if (vehicle.position.y <= groundY) {
     vehicle.position.y = groundY;
     helicopterFlight.verticalSpeed = 0;
-    helicopterFlight.landed = true;
-    helicopterFlight.velocity.multiplyScalar(Math.exp(-2.8 * dt));
-    if (helicopterFlight.velocity.length() < 0.22) helicopterFlight.velocity.set(0, 0, 0);
-    if (helicopterFlight.autoLanding) helicopterFlight.autoLanding = false;
+    helicopterFlight.velocity.multiplyScalar(Math.exp(-3.8 * dt));
+    if (helicopterFlight.velocity.length() < 0.28) helicopterFlight.velocity.set(0, 0, 0);
+    helicopterFlight.landed = helicopterFlight.velocity.length() < 1.0;
+    if (helicopterFlight.landed && helicopterFlight.autoLanding) helicopterFlight.autoLanding = false;
   } else {
     vehicle.position.y = Math.min(maxAltitude, vehicle.position.y);
     helicopterFlight.landed = false;
@@ -1120,7 +1126,9 @@ function updateHelicopterFlight(dt) {
   document.querySelector('#flight-status').hidden = false;
   document.querySelector('#flight-altitude').textContent = `${Math.max(0, vehicle.position.y - groundY).toFixed(1)} m`;
   document.querySelector('#flight-vertical').textContent = `${helicopterFlight.verticalSpeed >= 0 ? '+' : ''}${helicopterFlight.verticalSpeed.toFixed(1)} m/s`;
-  document.querySelector('#flight-ground').textContent = helicopterFlight.landed ? 'ON GROUND' : helicopterFlight.autoLanding ? 'AUTO LANDING' : 'AIRBORNE';
+  document.querySelector('#flight-ground').textContent = helicopterFlight.landed ? 'ON GROUND'
+    : helicopterFlight.autoLanding ? 'AUTO LANDING'
+    : vehicle.position.y <= groundY + 0.001 ? 'GROUND ROLL' : 'AIRBORNE';
   nitroActive = false;
   nitroFlames.visible = false;
   nitroGlow.intensity = 0;
