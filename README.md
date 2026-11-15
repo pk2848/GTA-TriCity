@@ -57,6 +57,16 @@ npm run dev
 - **M:** open/close the detailed city map.
 - **Esc:** close the detailed city map.
 
+### Helicopter flight
+- Select **Aircraft → Light Utility Helicopter** in the Player Garage. It spawns on the marked CP67 helipad beside the mall.
+- **W / S:** accelerate forward / backward in the air.
+- **A / D:** bank and move sideways.
+- **Q / E:** yaw left / right.
+- **Shift:** climb. **Ctrl:** descend.
+- **Space:** stabilise / hover.
+- **F:** exit only after landing slowly inside the marked helipad ring. Walk near the aircraft and press F to re-enter it.
+- Select a road vehicle in the garage to return to ground driving.
+
 ### Walking and mall exploration
 - **F:** leave the parked car; press F near the car to enter it again.
 - Walk toward the CP67 entrance to enter the mall interior. The entrance trigger loads the walkable interior.
@@ -66,6 +76,13 @@ npm run dev
 - **E:** use the lift when standing in the lift lobby; cycles through the modeled public levels.
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
+
+## Build 0.20 — helicopter, helipad and vehicle garage expansion
+
+- Adds a procedural light utility helicopter as a selectable Aircraft entry in the same Player Garage; it uses no external binary model.
+- Adds a marked CP67 helipad and apron beside the mall with an H landing mark, perimeter lights, approach signage and spawn point.
+- Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
+- Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
 ## Build 0.18 — frame-time repair and rideable motorcycle
 
