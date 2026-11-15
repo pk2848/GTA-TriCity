@@ -67,6 +67,19 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.15 — Black Bike motorcycle asset
+
+- Adds `bike-black.glb` to `public/models/vehicles/` and registers it in the manifest-driven player garage under **Motorcycle → Black Bike**.
+- The uploaded 26 MB photogrammetry GLB was prepared as a browser-friendly 588 KB game asset: seven material sections retained, central bike scan cropped away from much of the surrounding paving, mesh reduced to approximately 19,440 triangles, and seven albedo textures reduced to 512 px. Position/normal/UV attributes use `KHR_mesh_quantization`.
+- After the manifest transform, the target dimensions are approximately 0.80 m wide × 1.33 m high × 2.00 m long. The model's local forward axis is aligned to the game's -Z road-forward convention.
+- Adds motorcycle-specific physics dimension limits so the bike's narrow body, shorter wheelbase and small tyre radius are not clamped to car-sized dimensions.
+- The model is a textured photogrammetry scan without separately named wheel meshes; therefore its visible wheels are static in this first integration. The existing four-contact raycast physics is reused with a narrow track width; dedicated two-wheel motorcycle leaning/steering physics remains future work.
+- The same manifest entry makes the bike eligible for the existing AI traffic model pool.
+
+### Black Bike attribution
+
+Original model: **“BIKE BLACK”** by **Nikitos & 3130 (vrcityphoto)**, CC BY 4.0. Source: https://sketchfab.com/3d-models/bike-black-125180830cbe44818e1be482a509f0e8. Acknowledge the creator and include the licence link when redistributing the asset.
+
 ## Build 0.14 — 1970 Charger axis correction
 
 - Corrects the 1970 Dodge Charger source orientation: its supplied GLB is Z-up, with the long axis along source Y. The manifest now applies **X = -90°, Y = 0°, Z = 0°**. This maps its height to game +Y and its nose/longitudinal axis to game -Z.
