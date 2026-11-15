@@ -10,24 +10,18 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.11</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.12</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
     <div id="garage-panel" class="garage-panel">
-      <div class="garage-heading"><span>PLAYER GARAGE</span><b>3 VEHICLES</b></div>
+      <div class="garage-heading"><span>PLAYER GARAGE</span><b id="garage-count">LOADING</b></div>
       <label for="car-select">BRAND / MODEL</label>
-      <select id="car-select" aria-label="Select player vehicle">
-        <optgroup label="PAGANI">
-          <option value="pagani-zonda-cinque">Zonda Cinque</option>
-        </optgroup>
-        <optgroup label="DODGE">
-          <option value="dodge-charger-1970">Charger R/T · 1970</option>
-          <option value="dodge-challenger-2015">Challenger R/T · 2015</option>
-        </optgroup>
+      <select id="car-select" aria-label="Select uploaded player vehicle" disabled>
+        <option value="">Loading uploaded vehicles…</option>
       </select>
       <div id="car-select-status" data-state="loading" aria-live="polite">LOADING · PAGANI ZONDA CINQUE</div>
       <button id="car-retry" type="button">RETRY MODEL LOAD</button>
-      <small class="garage-tip">SELECT WHILE PARKED OR ON FOOT · V TO FOCUS</small>
+      <small class="garage-tip">UP/DOWN DRIVE · LEFT/RIGHT STEER · V TO FOCUS GARAGE</small>
     </div>
     <div class="map-panel">
       <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
