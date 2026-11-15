@@ -82,6 +82,9 @@ export class VehiclePhysics {
     this.steering = 0;
     this.speedMps = 0;
     this.heading = 0;
+    this.engineMultiplier = 1;
+    this.maxSpeed = 36;
+    this.nitroMaxSpeed = 47;
     this.rolloverTimer = 0;
     this.isUpsideDown = false;
     this.nitroMultiplier = 1;
@@ -107,6 +110,36 @@ export class VehiclePhysics {
     this.heading = 0;
   }
 
+  setVehicleProfile(profile = {}) {
+    const width = clamp(Number(profile.width) || 2.04, 1.7, 2.5);
+    const length = clamp(Number(profile.length) || 4.1, 3.8, 5.8);
+    const height = clamp(Number(profile.height) || 0.9, 0.7, 1.2);
+    const trackWidth = clamp(Number(profile.trackWidth) || width * 0.82, 1.45, 2.0);
+    const wheelbase = clamp(Number(profile.wheelbase) || 2.74, 2.45, 3.25);
+
+    // Keep collision dimensions matched to the selected body rather than the old placeholder SUV.
+    for (const shape of [...this.chassisBody.shapes]) this.chassisBody.removeShape(shape);
+    this.chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, length / 2)));
+    this.chassisBody.updateMassProperties();
+    this.chassisBody.aabbNeedsUpdate = true;
+
+    const positions = [
+      [-trackWidth / 2, -0.16, -wheelbase / 2],
+      [trackWidth / 2, -0.16, -wheelbase / 2],
+      [-trackWidth / 2, -0.16, wheelbase / 2],
+      [trackWidth / 2, -0.16, wheelbase / 2]
+    ];
+    positions.forEach(([x, y, z], index) => {
+      this.raycastVehicle.wheelInfos[index].chassisConnectionPointLocal.set(x, y, z);
+    });
+
+    this.engineMultiplier = clamp(Number(profile.engineMultiplier) || 1, 0.65, 1.4);
+    this.maxSpeed = clamp(Number(profile.maxSpeed) || 36, 25, 55);
+    this.nitroMaxSpeed = clamp(Number(profile.nitroMaxSpeed) || 47, this.maxSpeed, 65);
+    this.raycastVehicle.updateWheelTransform(0);
+    this.chassisBody.updateAABB();
+  }
+
   update(deltaTime, controls = {}) {
     const dt = clamp(deltaTime, 0, 0.05);
     const throttle = clamp(Number(controls.throttle) || 0, -1, 1);
@@ -121,7 +154,7 @@ export class VehiclePhysics {
     this.raycastVehicle.setSteeringValue(this.steering, 0);
     this.raycastVehicle.setSteeringValue(this.steering, 1);
 
-    const baseEngineForce = 5200 * condition * (controls.boost ? 1.16 : 1);
+    const baseEngineForce = 5200 * condition * this.engineMultiplier * (controls.boost ? 1.16 : 1);
     const engineForce = throttle * baseEngineForce * (nitro && throttle > 0 ? 1.85 : 1);
     this.raycastVehicle.applyEngineForce(-engineForce, 2);
     this.raycastVehicle.applyEngineForce(-engineForce, 3);
@@ -137,7 +170,7 @@ export class VehiclePhysics {
     this.speedMps = this.chassisBody.velocity.dot(forward);
     this.heading = Math.atan2(-forward.x, -forward.z);
 
-    const speedCap = nitro ? 47 : 36;
+    const speedCap = nitro ? this.nitroMaxSpeed : this.maxSpeed;
     const speed = this.chassisBody.velocity.length();
     if (speed > speedCap) {
       const scale = speedCap / speed;
