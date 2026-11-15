@@ -1036,10 +1036,12 @@ function updateHelicopterFlight(dt) {
   const groundY = helicopterFlight.groundY;
   const maxAltitude = 520;
   const maxHorizontalSpeed = 45;
-  const visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
-  const forwardVector = new THREE.Vector3(0, 0, -1)
+  // This uploaded GLB's cockpit/nose faces local +Z after its manifest rotation.
+  // Build both directions from that same local basis so W/E always match the mesh.
+  let visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
+  const forwardVector = new THREE.Vector3(0, 0, 1)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
-  const rightVector = new THREE.Vector3(1, 0, 0)
+  const rightVector = new THREE.Vector3(-1, 0, 0)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
 
   if (helicopterFlight.autoLanding) {
@@ -1050,9 +1052,9 @@ function updateHelicopterFlight(dt) {
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, 0, 3.5, dt);
   } else {
     helicopterFlight.yaw += yawInput * 1.25 * dt;
-    const currentVisualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
-    forwardVector.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentVisualYaw);
-    rightVector.set(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentVisualYaw);
+    visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
+    forwardVector.set(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
+    rightVector.set(-1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), visualYaw);
 
     // Collective: SHIFT climbs, CTRL descends. Releasing both holds altitude.
     if (climbInput) {
@@ -1072,10 +1074,8 @@ function updateHelicopterFlight(dt) {
       // reverse only after the aircraft has come nearly to a stop.
       if (forwardInput) helicopterFlight.velocity.addScaledVector(forwardVector, 16.0 * dt);
       if (brakeInput) {
-        helicopterFlight.velocity.multiplyScalar(Math.exp(-4.5 * dt));
-        if (helicopterFlight.velocity.length() < 0.65) {
-          helicopterFlight.velocity.addScaledVector(forwardVector, -1.8 * dt);
-        }
+        // S is a brake only: it must never add reverse thrust.
+        helicopterFlight.velocity.multiplyScalar(Math.exp(-5.5 * dt));
       }
 
       // Q/E provide lateral translation; A/D turn the nose left and right.
@@ -1095,7 +1095,8 @@ function updateHelicopterFlight(dt) {
       helicopterFlight.verticalSpeed *= Math.exp(-7.0 * dt);
     }
 
-    const targetPitch = THREE.MathUtils.clamp(-forwardInput * 0.24 + brakeInput * 0.10, -0.32, 0.18);
+    // The nose is local +Z, so positive X pitch tilts it down into forward flight.
+    const targetPitch = THREE.MathUtils.clamp(forwardInput * 0.24 - brakeInput * 0.10, -0.18, 0.32);
     const targetRoll = THREE.MathUtils.clamp(-strafeInput * 0.20, -0.28, 0.28);
     helicopterFlight.pitch = THREE.MathUtils.damp(helicopterFlight.pitch, targetPitch, 3.8, dt);
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, targetRoll, 4.2, dt);
