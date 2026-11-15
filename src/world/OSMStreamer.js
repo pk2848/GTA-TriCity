@@ -202,8 +202,20 @@ export class OSMStreamer {
     const ix = Math.floor((lon - CITY_ORIGIN.lon) / TILE_DEGREES + 0.5);
     const iy = Math.floor((lat - CITY_ORIGIN.lat) / TILE_DEGREES + 0.5);
     this.currentTile = { ix, iy };
+    this.updateVisibility(x, z);
     this.requestTile(ix, iy, force);
     this.prefetchAt(lat, lon, ix, iy);
+  }
+
+  // Hide distant, already-loaded city chunks instead of rendering every chunk
+  // the player has ever visited. Their geometry remains cached for quick return.
+  updateVisibility(x, z, radius = 1800) {
+    const radiusSq = radius * radius;
+    for (const tile of this.tiles.values()) {
+      const dx = x - tile.centerX;
+      const dz = z - tile.centerZ;
+      tile.group.visible = (dx * dx + dz * dz) <= radiusSq;
+    }
   }
 
   prefetchAt(lat, lon, ix, iy) {
@@ -310,7 +322,21 @@ export class OSMStreamer {
       group.name = `osm-tile-${tile.key}`;
       [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.detailMeshes, ...result.labels].forEach(mesh => group.add(mesh));
       this.scene.add(group);
-      this.tiles.set(tile.key, { group, bounds, roads: result.roadCount, buildings: result.buildingCount });
+      const tileCenter = geoToWorld(
+        (bounds.south + bounds.north) / 2,
+        (bounds.west + bounds.east) / 2
+      );
+      const dx = tileCenter.x - this.currentTile.ix * TILE_DEGREES * METRES_PER_LON_DEGREE;
+      const dz = tileCenter.z + this.currentTile.iy * TILE_DEGREES * METRES_PER_LAT_DEGREE;
+      group.visible = Math.hypot(dx, dz) <= 1800;
+      this.tiles.set(tile.key, {
+        group,
+        bounds,
+        centerX: tileCenter.x,
+        centerZ: tileCenter.z,
+        roads: result.roadCount,
+        buildings: result.buildingCount
+      });
       this.loaded.add(tile.key);
       this.totalRoads += result.roadCount;
       this.totalBuildings += result.buildingCount;
