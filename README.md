@@ -1,22 +1,24 @@
 # GTA-TriCity — Chandigarh × Mohali
 
-GTA-TriCity is an actively developed browser-based open-world driving game built with Three.js. The playable world uses OpenStreetMap geography and currently starts at CP67 Mall, Sector 67, Mohali.
+GTA-TriCity is an actively developed browser-based open-world driving and exploration game built with Three.js. The world is anchored to Chandigarh–Mohali geography using OpenStreetMap data. The current game start is the CP67 Mall arrival plaza in Sector 67, Mohali.
 
-## CP67 Mall visual references
+## CP67 reference material
 
-The custom CP67 landmark is an original Three.js reconstruction guided by publicly available exterior photographs and the published architectural brief. The Commons photograph below is included as a reference link/image, not copied as a facade texture into the game.
+The exterior reconstruction uses the supplied aerial/front photograph as its principal shape reference, checked against publicly available CP67 photographs. The interior layout is based on the publicly available first-floor general-arrangement drawing and interior photographs.
 
-![CP67 Mall entrance reference](https://upload.wikimedia.org/wikipedia/commons/6/67/CP67_Mall_Mohali.jpg)
+- [CP67 official gallery](https://cp67.co.in/gallery/)
+- [CP67 official site and stacking-plan gallery](https://cp67.in/)
+- [CP67 first-floor general arrangement drawing (PDF)](https://www.cp67.co.in/wp-content/themes/cp67-web/assets/images/pdf/first-floor.pdf)
+- [CP67 basement 1 general arrangement drawing (PDF)](https://www.cp67.co.in/wp-content/themes/cp67-web/assets/images/pdf/basement1-floor.pdf)
+- [CP67 architectural project brief — GPM Architects](https://gpmindia.com/portfolio/commercial/cp-67/)
+- [CP67 exterior elevation reference photograph — CC BY-SA 4.0](https://commons.wikimedia.org/wiki/File:CP67_Mall_Mohali.jpg)
+- [Interior atrium reference photograph](https://akshanshestates.com/wp-content/uploads/2024/01/retail-home-img.jpg)
+- [Upper-floor store corridor reference photograph](https://akshanshestates.com/wp-content/uploads/2024/01/sept-img-7.jpg)
+- [PVR lobby reference photograph](https://files.yappe.in/place/full/pvr-cinemas-cp67-mall-11268442.webp)
 
-Photo: Iamnegi01, *CP67 Mall Mohali*, 4 August 2024, licensed CC BY-SA 4.0. [File page and licence](https://commons.wikimedia.org/wiki/File:CP67_Mall_Mohali.jpg). The reference photo is not modified or redistributed as a game texture.
+The available architectural brief identifies two basement parking levels, two retail floors, two floors for restaurants/food court/FEC, a seven-screen multiplex, seven office floors and open-to-sky dining areas. The published first-floor drawing labels a retail passage, Lifestyle/Home Centre, Croma, M&S Fountain, an atrium/void, escalator provisions and lift lobbies.
 
-Additional reference material:
-- [Official CP67 Mall gallery](https://cp67.co.in/gallery/)
-- [Official CP67 Mall website](https://cp67.co.in/)
-- [CP67 project architectural description — GPM Architects](https://gpmindia.com/portfolio/commercial/cp-67/)
-- [CP67 Mall on OpenStreetMap-derived Mapcarta map](https://mapcarta.com/N13147982801)
-
-The architect's published project description identifies a four-side-open site of 181,781 sq ft, 1,057,317 sq ft built-up area, two basement parking levels, retail floors, restaurant/food-court/FEC levels, a seven-screen multiplex, office floors and open-to-sky dining areas. The in-game geometry is a scale-oriented visual reconstruction, not an approved as-built BIM model.
+**Accuracy note:** the public material located for this build does not include a complete current as-built BIM model, surveyed façade elevations or every current interior floor plan. The model is a detailed, scale-oriented reconstruction using the published project brief, one published general-arrangement floor drawing and public photos. It is not yet an exact architectural replica of every room, tenant boundary or façade detail. Tenant signs can also change over time. A current as-built CAD/BIM package and verified tenant directory would be needed for a room-by-room exact match.
 
 ## Run locally
 
@@ -30,116 +32,120 @@ npm run dev
 ```
 
 4. Open the Vite URL (normally http://localhost:5173).
-5. Press **ENTER THE CITY**. An internet connection is required for live OSM data, map tiles and driving-route calculation.
+5. Press **ENTER THE CITY**. Internet access is required for live OSM data, map tiles and route calculation.
 
 ## Starting location
 
-- **Spawn:** CP67 Mall arrival/drop-off plaza, Sector 67, Mohali.
-- **Map origin:** CP67 Mall OSM point 13147982801, approximately 30.67697° N, 76.72403° E.
-- The world coordinate system is a local metric projection centred on CP67 Mall, so Chandigarh and the wider Mohali area remain in the same connected map.
+- **Spawn:** CP67 Mall arrival/drop-off forecourt, Sector 67, Mohali.
+- **Map origin:** CP67 Mall, approximately 30.67697° N, 76.72403° E.
+- The local metric map origin is centred near CP67; Chandigarh and wider Mohali remain in the same connected world.
 
-## Driving controls
+## Controls
 
-- **W / Arrow Up:** accelerate in the direction the car faces.
+### Driving
+- **W / Arrow Up:** accelerate in the direction the vehicle faces.
 - **S / Arrow Down:** reverse.
 - **A / D or arrow keys:** steer.
 - **Space:** brake.
-- **N (hold while accelerating):** nitro; consumes a finite tank and recharges after release.
+- **N (hold while accelerating):** nitro; drains and recharges a finite tank.
 - **Shift (hold):** secondary engine boost.
-- **F:** recover an overturned vehicle at its current location.
-- **R:** reset the car to the CP67 Mall drop-off plaza, repair condition and refill nitro.
-- **Hold and drag left mouse on the 3D canvas:** orbit the camera.
-- **Mouse wheel on the 3D canvas:** zoom the follow camera.
+- **F:** exit the vehicle when stationary. If overturned, F recovers the car upright.
+- **R:** reset the car to the CP67 Mall forecourt, repair vehicle condition and refill nitro.
+- **Hold and drag left mouse:** orbit the camera.
+- **Mouse wheel:** zoom the follow camera.
 - **M:** open/close the detailed city map.
 - **Esc:** close the detailed city map.
 
-## Build 0.8 — vehicle recovery and route guidance correction
+### Walking and mall exploration
+- **F:** leave the parked car; press F near the car to enter it again.
+- Walk toward the CP67 entrance to enter the mall interior. The entrance trigger loads the walkable interior.
+- **W / S:** walk forwards/backwards.
+- **A / D:** turn.
+- **Shift:** run.
+- **E:** use the lift when standing in the lift lobby; cycles through the modeled public levels.
+- Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
+- **M:** map.
 
-- Adds rollover detection to the Cannon vehicle controller. When the chassis stays tipped, the HUD displays **VEHICLE OVERTURNED · PRESS F TO RECOVER**.
-- Press **F** to stand the vehicle upright at its current location, retain its heading, clear linear/angular velocity, refresh suspension state and continue driving. Press **R** to respawn at CP67 Mall instead.
-- Throttle and boost are suppressed while the car is overturned.
-- Corrects map direction-arrow rotation so northbound and eastbound route arrows point in the proper screen direction.
-- Navigation progress is measured along the route polyline instead of straight-line distance to the next turn, reducing premature instruction skipping at parallel streets and junctions.
-- The circular minimap starts the remaining route at the vehicle's projected route position, draws future direction chevrons and displays the next manoeuvre with distance to turn.
-- The full-screen map toolbar displays the current next manoeuvre, distance to turn, remaining distance and ETA.
-- The 3D street route includes repeated direction chevrons along the highlighted road path.
+## Build 0.9 — CP67 visual and walkable-interior pass
 
-Route quality still depends on the routing service and mapped road network. The circular minimap is a compact forward view of the remaining route, not a full city-scale overview; use the full map for distant destinations. If no route is active, the minimap displays “NO ACTIVE ROUTE”. If the player leaves the road network, navigation shows the distance back to the highlighted route.
+### Exterior
+- Reworks the main podium from a solid placeholder block into a perimeter shell with an open interior volume.
+- Adds a more recognisable long retail elevation with stone cladding bands, vertical piers, upper glass curtain wall, mullions, signage panels and the distinctive raised CP67 logo feature.
+- Adds a glazed office/atrium volume and extra detail to the office-tower grid.
+- Adds return-street glazing and signage on both side elevations, so the complex reads as a four-side-open mixed-use site rather than a single flat billboard.
+- Uses labels based on visible/source-supported tenants and project uses: PVR, Lifestyle, Home Centre, Max, Trends, Croma, M&S, dining/cafés, food court and office/residential zones.
+- Preserves the arrival forecourt, drop-off loop, landscaped edges, parking markings and collision walls.
+- The exterior is still a procedural Three.js reconstruction; detailed photography-derived facade materials and exact surveyed geometry remain future work.
 
-## Build 0.7 — CP67 Mall and navigation update
+### Walkable interior
+- Adds a separate interior scene that loads when the player walks through the front entrance.
+- Builds a polished stone retail promenade, glass-fronted shop bays, signboards, mall directory signs, central atrium void, glass balustrades, escalator pairs, pendant lights, seating and planters.
+- Models four playable public levels: Ground Floor retail, First Floor retail, Second Floor food court/FEC and a PVR seven-auditorium level.
+- The food court has labelled stalls, seating and table groups. The PVR level includes seven labelled auditorium rooms with screen walls and seating rows.
+- The lift lobby is interactive: press E near it to move between floors.
+- Walking character has a third-person follow camera and a procedural human model with arm/leg walk animation.
+- The car remains parked and visible after the player exits; F near it returns the player to driving mode.
+- F is context-sensitive: exit/enter vehicle, enter/exit the mall, or recover an overturned vehicle.
 
-### CP67 Mall landmark
-- Replaces the default Sector 17 spawn with the CP67 Mall public drop-off plaza.
-- Adds an original procedural model for the retail podium, glazed main atrium, steel-and-glass entrance canopy, multi-storey office tower, serviced-residence wing, seven-screen cinema volume, food-court/restaurant terrace, rooftop plant rooms, basement parking ramp, valet booth, forecourt, drop-off loop, parking bays, planters, palms, trees and lamps.
-- Adds building collision volumes so the vehicle cannot drive through the main mall structure.
-- Suppresses the coarse OSM building extrusion in the custom mall footprint to avoid two overlapping building models.
-- Uses a facade-window InstancedMesh system and reusable materials so repeated window details do not create one draw call per pane.
-- The ground-floor storefronts and entrance atrium are visible from outside. The interior is not yet a complete walkable/enterable mall; indoor shops, floor navigation, escalators, lifts and detailed cinema/food-court interiors are future work.
+### Documented layout versus reconstruction
+- The first-floor reference drawing is an issued General Arrangement Plan dated 26 September 2017 and identifies retail spaces, shop bays, Life Style & Home Center, Croma, M&S Fountain, passages, atrium/void, lift lobbies and escalator provisions.
+- The architect's brief supports the mixed-use vertical programme: two retail floors, two restaurant/food court/FEC floors, seven-screen multiplex, seven office floors and two basement parking levels.
+- The playable interior uses those uses and circulation cues, but tenant boundaries, shop assignments, exact escalator locations and the allocation of PVR/food-court rooms across levels remain approximate where a current complete plan was not publicly available.
 
-### Route display
-- Fixes the Leaflet error caused by calling `bringToFront()` on Marker objects. Route Paths use `bringToFront()`; markers now use their supported z-index offset.
-- The circular minimap now draws the pinned route in heading-up orientation, repeats direction chevrons along the path, highlights the next manoeuvre, and shows the next instruction and distance-to-turn.
-- The full-size map retains the route line and turn direction markers.
-
-## Vehicle and world systems
+## Vehicle and city systems
 
 ### Vehicle
-- `cannon-es` raycast vehicle with four suspension wheels, spring stiffness, damping, tire grip, rear-wheel engine force and front-wheel steering.
-- Nitro/secondary boost, speed and condition HUD, collision impulses and camera shake.
-- Current ground is a flat plane. Terrain elevation, road-surface grip and curb physics are still pending.
+- `cannon-es` raycast vehicle with four suspension wheels, spring stiffness, damping, tire grip, rear-wheel drive and front-wheel steering.
+- Nitro/secondary boost, speed/condition HUD, collision impulses, camera shake and F-key rollover recovery.
+- OSM building collision boxes are registered as static physics bodies (capped for browser performance). Road-surface grip variation, curbs and terrain elevation remain future work.
 
 ### AI traffic and pedestrians
-- Traffic agents use OSM road centre-lines, mapped one-way tags and connected road endpoints.
-- Simulated cars include hatchback, sedan, SUV, van and auto-rickshaw silhouettes.
-- Mapped signal/crossing nodes generate signal heads and zebra-crossing behaviour where the source data contains those features.
-- Pedestrians use procedural character meshes and walk cycles along inferred sidewalk paths.
-- AI traffic is simulated game traffic, not a live feed from Chandigarh/Mohali road sensors. AI cars are not yet rigid bodies in the Cannon physics world.
+- OSM road centerlines, one-way tags, signal nodes and crossing nodes feed the traffic simulation.
+- AI cars include hatchback, sedan, SUV, van and auto-rickshaw silhouettes; agents can select connected mapped road segments at endpoints.
+- Mapped signal/crossing nodes produce traffic lights, zebra crossings and pedestrian waiting behaviour when present in the OSM data.
+- Pedestrians use procedural character meshes and walk cycles.
+- Traffic is simulated game traffic, not a live Chandigarh traffic-sensor feed. AI cars are not yet rigid-body vehicles in the Cannon world.
 
-### 3D map
-- Overpass streams OSM roads, buildings, sidewalks/curbs, parks, woodland, water and selected named places in geographic chunks.
-- Building footprint/height uses OSM data when available, with estimates when tags are absent.
-- The custom CP67 mall model replaces the coarse OSM building geometry in its campus footprint.
-
-## Destination navigation
-
-1. Press **M** or click **OPEN MAP**.
-2. Click a destination on the OpenStreetMap view.
-3. OSRM calculates a drivable route from the current vehicle location.
-4. The full map draws the route and direction chevrons.
-5. The circular minimap also draws the route, direction arrows and next-turn cue.
-6. The HUD displays the next instruction and remaining distance/time.
-7. Use **CLEAR PIN** or choose another map point to replace the destination.
+### Navigation
+- Click a point on the Leaflet map to pin a destination.
+- OSRM calculates a drivable route from the current player location.
+- The map shows a route line, direction chevrons, destination pin, distance and ETA.
+- The circular minimap and 3D road ribbon show remaining route direction and next manoeuvre.
+- If walking away from the planned driving route, the navigator may report off-route; use the detailed map to re-pin a destination.
 
 ## Architecture
 
 ```text
 src/
-  main.js                    # renderer, player vehicle, camera, HUD and game loop
-  style.css                  # HUD, navigation and game interface
+  main.js                    # renderer, driving/walking modes, camera, HUD and interactions
+  style.css                  # game HUD, minimap, walking prompt and floor label
   vehicles/
-    VehiclePhysics.js         # cannon-es raycast vehicle, suspension and static collision bodies
+    VehiclePhysics.js         # cannon-es raycast vehicle, suspension and collision bodies
   world/
-    OSMStreamer.js            # OSM queries, projection, 3D map geometry and obstacle data
-    WorldMapView.js           # Leaflet map, routes, direction guidance and minimap state
-    TrafficSystem.js          # road-following traffic, signal heads, crossings and pedestrians
-    CP67Mall.js               # custom CP67 Mall campus landmark and collision footprints
+    OSMStreamer.js            # OSM queries, projection, 3D geometry and obstacle data
+    WorldMapView.js           # Leaflet map, route calculation and navigation state
+    TrafficSystem.js          # road-following traffic, signals, crossings and pedestrians
+    CP67Mall.js               # detailed exterior shell, facade and forecourt
+    CP67Interior.js           # walkable retail, atrium, escalators, food court and cinema
 
-index.html                   # game shell and HUD
+index.html                   # game shell and interaction controls
 package.json                 # Vite, Three.js, Leaflet and cannon-es
 .github/workflows/ci.yml     # production build verification
 ```
 
-## Production considerations
+## Next production priorities
 
-- The CP67 geometry is a custom visual approximation guided by the linked photo and published project brief, not an exact surveyed building model or architectural BIM.
-- Public Overpass, OpenStreetMap raster tiles and OSRM demo routing are development services. Use dedicated hosted/self-hosted infrastructure before a public high-traffic release.
-- World chunks currently stream around the player; unloading/LOD and persistent city state are future work.
-- The 3D world is not a photogrammetric replica. Accurate building facade assets, terrain, interiors, roads markings, traffic lights and vehicle/character assets need continuing development.
+1. Obtain current as-built architectural drawings or BIM for accurate façade and room-by-room geometry.
+2. Replace procedural facade and interior pieces with high-detail authored GLB assets and correct PBR texture sets.
+3. Add accurate tenant/shop boundaries, directory listings, escalator positions, lift/stair cores and the latest PVR/food-court floor allocation.
+4. Add walkable store interiors, escalator animation, lift doors/ride animation and indoor NPC shoppers.
+5. Add photogrammetry or licensed multi-view façade references for the other CP67 elevations.
+6. Add terrain/road surface physics, smarter lane AI and world chunk unloading/LOD.
 
 ## Attribution and service policies
 
-- OpenStreetMap data © OpenStreetMap contributors, licensed under ODbL: https://www.openstreetmap.org/copyright
-- CP67 reference photograph: Iamnegi01, CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
-- CP67 architectural program reference: GPM Architects & Planners, CP 67 project page.
-- OpenStreetMap tile usage policy: https://operations.osmfoundation.org/policies/tiles/
+- OpenStreetMap data © OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright
+- CP67 project information and floor-plan references: Unity/Homeland CP67 project website and GPM Architects & Planners (links above).
+- CP67 exterior Commons photo: Iamnegi01, CC BY-SA 4.0 (link above). The photo is used as a visual reference, not as a full-building texture.
+- Standard OSM raster tile usage policy: https://operations.osmfoundation.org/policies/tiles/
 - OSRM demo-server policy: https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server
