@@ -1,11 +1,27 @@
 # GTA-TriCity — Chandigarh × Mohali
 
-GTA-TriCity is an actively developed browser-based open-world driving game built with Three.js. The game world is anchored to Chandigarh–Mohali geography using OpenStreetMap (OSM) data.
+GTA-TriCity is an actively developed browser-based open-world driving game built with Three.js. The playable world uses OpenStreetMap geography and currently starts at CP67 Mall, Sector 67, Mohali.
+
+## CP67 Mall visual references
+
+The custom CP67 landmark is an original Three.js reconstruction guided by publicly available exterior photographs and the published architectural brief. The Commons photograph below is included as a reference link/image, not copied as a facade texture into the game.
+
+![CP67 Mall entrance reference](https://upload.wikimedia.org/wikipedia/commons/6/67/CP67_Mall_Mohali.jpg)
+
+Photo: Iamnegi01, *CP67 Mall Mohali*, 4 August 2024, licensed CC BY-SA 4.0. [File page and licence](https://commons.wikimedia.org/wiki/File:CP67_Mall_Mohali.jpg). The reference photo is not modified or redistributed as a game texture.
+
+Additional reference material:
+- [Official CP67 Mall gallery](https://cp67.co.in/gallery/)
+- [Official CP67 Mall website](https://cp67.co.in/)
+- [CP67 project architectural description — GPM Architects](https://gpmindia.com/portfolio/commercial/cp-67/)
+- [CP67 Mall on OpenStreetMap-derived Mapcarta map](https://mapcarta.com/N13147982801)
+
+The architect's published project description identifies a four-side-open site of 181,781 sq ft, 1,057,317 sq ft built-up area, two basement parking levels, retail floors, restaurant/food-court/FEC levels, a seven-screen multiplex, office floors and open-to-sky dining areas. The in-game geometry is a scale-oriented visual reconstruction, not an approved as-built BIM model.
 
 ## Run locally
 
 1. Install Node.js 20 or newer.
-2. Clone this repository and open the project folder.
+2. Clone the repository and open the project folder.
 3. Run:
 
 ```bash
@@ -14,126 +30,102 @@ npm run dev
 ```
 
 4. Open the Vite URL (normally http://localhost:5173).
-5. Press **ENTER THE CITY**. Internet access is required for OSM data, map tiles and route calculation.
+5. Press **ENTER THE CITY**. An internet connection is required for live OSM data, map tiles and driving-route calculation.
+
+## Starting location
+
+- **Spawn:** CP67 Mall arrival/drop-off plaza, Sector 67, Mohali.
+- **Map origin:** CP67 Mall OSM point 13147982801, approximately 30.67697° N, 76.72403° E.
+- The world coordinate system is a local metric projection centred on CP67 Mall, so Chandigarh and the wider Mohali area remain in the same connected map.
 
 ## Driving controls
 
 - **W / Arrow Up:** accelerate in the direction the car faces.
 - **S / Arrow Down:** reverse.
-- **A / D or arrow keys:** steer the front wheels.
+- **A / D or arrow keys:** steer.
 - **Space:** brake.
-- **N (hold while accelerating):** nitro. It drains a finite tank and increases engine force and top speed; the tank refills after release.
+- **N (hold while accelerating):** nitro; consumes a finite tank and recharges after release.
 - **Shift (hold):** secondary engine boost.
-- **R:** reset vehicle at the Sector 17 origin and repair/refill it.
-- **Hold and drag left mouse on the 3D canvas:** orbit camera.
-- **Mouse wheel on the 3D canvas:** zoom follow camera.
+- **R:** reset the car to the CP67 Mall drop-off plaza, repair condition and refill nitro.
+- **Hold and drag left mouse on the 3D canvas:** orbit the camera.
+- **Mouse wheel on the 3D canvas:** zoom the follow camera.
 - **M:** open/close the detailed city map.
 - **Esc:** close the detailed city map.
 
-## Build 0.6 — vehicle dynamics and city traffic
+## Build 0.7 — CP67 Mall and navigation update
 
-### Player vehicle physics
-- Player motion is now driven by `cannon-es` `RaycastVehicle`, not direct position integration.
-- Four raycast wheels provide suspension travel, spring stiffness, compression/relaxation damping, tire grip and braking.
-- Front wheels steer; rear wheels receive engine force.
-- Vehicle rotation, body weight and suspension transforms feed the third-person camera and minimap.
-- N-key nitro changes engine force and the speed cap; Shift remains a separate smaller boost.
-- Impact events apply a velocity impulse and yaw response. Vehicle condition reduces available engine power.
-- The player SUV model now has a more complete bonnet/cabin/roof/window/bumper/light silhouette.
+### CP67 Mall landmark
+- Replaces the default Sector 17 spawn with the CP67 Mall public drop-off plaza.
+- Adds an original procedural model for the retail podium, glazed main atrium, steel-and-glass entrance canopy, multi-storey office tower, serviced-residence wing, seven-screen cinema volume, food-court/restaurant terrace, rooftop plant rooms, basement parking ramp, valet booth, forecourt, drop-off loop, parking bays, planters, palms, trees and lamps.
+- Adds building collision volumes so the vehicle cannot drive through the main mall structure.
+- Suppresses the coarse OSM building extrusion in the custom mall footprint to avoid two overlapping building models.
+- Uses a facade-window InstancedMesh system and reusable materials so repeated window details do not create one draw call per pane.
+- The ground-floor storefronts and entrance atrium are visible from outside. The interior is not yet a complete walkable/enterable mall; indoor shops, floor navigation, escalators, lifts and detailed cinema/food-court interiors are future work.
 
-### AI traffic and junctions
-- OSM road centerlines are passed to the traffic simulation as connected road segments.
-- AI cars follow offset lane paths and choose connected roads at segment endpoints, preferring a continuation that avoids an immediate U-turn.
-- OSM `oneway` tags constrain allowed movement.
-- AI traffic uses procedural hatchback, sedan, SUV, van and auto-rickshaw silhouettes.
-- Cars approach mapped traffic-signal nodes and stop for the red phase. Signal heads animate red, amber and green phases.
-- Traffic is generated from map geometry; it is simulated game traffic, not a live Chandigarh traffic feed.
+### Route display
+- Fixes the Leaflet error caused by calling `bringToFront()` on Marker objects. Route Paths use `bringToFront()`; markers now use their supported z-index offset.
+- The circular minimap now draws the pinned route in heading-up orientation, repeats direction chevrons along the path, highlights the next manoeuvre, and shows the next instruction and distance-to-turn.
+- The full-size map retains the route line and turn direction markers.
 
-### Pedestrians and crossings
-- Pedestrians walk along generated sidewalk paths beside urban streets.
-- OSM crossing nodes create zebra crossing markings and pedestrian crossing paths.
-- Where a nearby signal exists, crossing walkers wait for the vehicle red phase; crossings without a mapped signal use timed gaps.
-- Human meshes include head/hair/clothing/limbs and a walk cycle.
-- Player contact produces a non-graphic stumble/recovery reaction and reduces vehicle condition.
+## Vehicle and world systems
 
-### Chandigarh building detail
-- Building heights and floor levels use OSM `height`, `building:levels`, `min_height` and `building:min_level` tags where available.
-- Building use receives different Chandigarh-appropriate residential, commercial, industrial and civic palettes.
-- Facade window frames and glazing are generated with `THREE.InstancedMesh` to keep repeated details efficient.
-- Parks, woodland, water, raised sidewalks and selected named POIs are rendered from OSM features.
+### Vehicle
+- `cannon-es` raycast vehicle with four suspension wheels, spring stiffness, damping, tire grip, rear-wheel engine force and front-wheel steering.
+- Nitro/secondary boost, speed and condition HUD, collision impulses and camera shake.
+- Current ground is a flat plane. Terrain elevation, road-surface grip and curb physics are still pending.
 
-## Destination routing
+### AI traffic and pedestrians
+- Traffic agents use OSM road centre-lines, mapped one-way tags and connected road endpoints.
+- Simulated cars include hatchback, sedan, SUV, van and auto-rickshaw silhouettes.
+- Mapped signal/crossing nodes generate signal heads and zebra-crossing behaviour where the source data contains those features.
+- Pedestrians use procedural character meshes and walk cycles along inferred sidewalk paths.
+- AI traffic is simulated game traffic, not a live feed from Chandigarh/Mohali road sensors. AI cars are not yet rigid bodies in the Cannon physics world.
+
+### 3D map
+- Overpass streams OSM roads, buildings, sidewalks/curbs, parks, woodland, water and selected named places in geographic chunks.
+- Building footprint/height uses OSM data when available, with estimates when tags are absent.
+- The custom CP67 mall model replaces the coarse OSM building geometry in its campus footprint.
+
+## Destination navigation
 
 1. Press **M** or click **OPEN MAP**.
 2. Click a destination on the OpenStreetMap view.
-3. OSRM calculates a drivable route from the current vehicle position.
-4. The map shows a highlighted route with screen-sized direction chevrons, destination pin, distance and ETA.
-5. Close the map to see the next manoeuvre and remaining distance/time in the HUD.
-6. A gold route ribbon and destination beacon are rendered in the 3D world.
-7. Use **CLEAR PIN** or click another location to change/cancel the destination.
-
-## Real-world data architecture
-
-### 2D navigation
-- Leaflet displays standard OpenStreetMap raster map tiles.
-- The player's live position and heading are converted between a local metric coordinate system and latitude/longitude.
-- The map supports pan, zoom, follow player and center on player.
-
-### 3D streamed city
-- Local metric origin is near Sector 17, Chandigarh (30.7415, 76.7820).
-- Overpass queries load nearby OSM chunks as the player moves.
-- Road widths use OSM `width` and `lanes` tags where present.
-- Road junction patches, sidewalks, curbs, parks, woodland and water are generated from mapped geometry.
-- OSM traffic signal and crossing nodes are sent to the traffic simulation.
-- Building footprints and supported multipolygon outer/inner rings are extruded to tagged/estimated heights.
-
-## Accuracy and production considerations
-
-The geography, mapped road positions and feature footprints come from OpenStreetMap, but coverage varies. Sidewalks are inferred where specific sidewalk tags are missing. Building heights use estimates where OSM tags are absent. Facades are procedural, not surveyed architectural models; windows and building palettes are visual estimates. Traffic cars and pedestrians are procedural game characters. AI traffic is not synchronized to live traffic-control systems.
-
-The physics world uses a simplified flat ground collision plane, raycast suspension and deduplicated OSM-derived oriented building collision boxes (capped at 3,500 bodies). Curbs and terrain elevation are not yet part of the physics surface, and AI vehicles are still kinematic traffic agents rather than rigid bodies in the Cannon world. Full lane topology, turn signals, queueing, safe-distance following and complex intersection conflict resolution remain future work.
-
-The whole city is not downloaded at start. OSM chunks stream around the player's position and remain loaded for the current session. Production-scale use needs chunk unloading/LOD, memory budgets, persistent world state and a suitable map-data/routing service.
+3. OSRM calculates a drivable route from the current vehicle location.
+4. The full map draws the route and direction chevrons.
+5. The circular minimap also draws the route, direction arrows and next-turn cue.
+6. The HUD displays the next instruction and remaining distance/time.
+7. Use **CLEAR PIN** or choose another map point to replace the destination.
 
 ## Architecture
 
 ```text
 src/
-  main.js                    # renderer, player car, camera, HUD and game loop
-  style.css                  # game HUD, navigation, nitro and impact UI
+  main.js                    # renderer, player vehicle, camera, HUD and game loop
+  style.css                  # HUD, navigation and game interface
   vehicles/
-    VehiclePhysics.js         # cannon-es raycast car, suspension, steering and impact response
+    VehiclePhysics.js         # cannon-es raycast vehicle, suspension and static collision bodies
   world/
-    OSMStreamer.js            # Overpass requests, projection and 3D map geometry
-    WorldMapView.js           # Leaflet map, destination pins, OSRM routes and guidance
-    TrafficSystem.js          # connected-road AI traffic, signals, crossings and pedestrians
+    OSMStreamer.js            # OSM queries, projection, 3D map geometry and obstacle data
+    WorldMapView.js           # Leaflet map, routes, direction guidance and minimap state
+    TrafficSystem.js          # road-following traffic, signal heads, crossings and pedestrians
+    CP67Mall.js               # custom CP67 Mall campus landmark and collision footprints
 
-vite.config.js               # local development Overpass proxy
-index.html                   # game shell and interface
+index.html                   # game shell and HUD
 package.json                 # Vite, Three.js, Leaflet and cannon-es
-.github/workflows/ci.yml      # production build verification
+.github/workflows/ci.yml     # production build verification
 ```
 
-## Next production priorities
+## Production considerations
 
-1. Terrain elevation, curb collision, road-surface grip and physical AI vehicle collisions.
-2. More complete lane graphs, right/left turn choice, junction conflict rules, traffic queues and safe following distances.
-3. Better procedural and authored local vehicle/character GLB assets with animation, LOD and instancing.
-4. Traffic signal groups with directional heads, pedestrian countdown phases and smarter crossing behaviour.
-5. Distinct Chandigarh landmarks, sector markets, civic buildings and facade/roof kits.
-6. Chunk unload/LOD, profiling, asset streaming and persistent player/world state.
-7. A dedicated routing, map-tile and OSM-data backend before a public high-traffic release.
+- The CP67 geometry is a custom visual approximation guided by the linked photo and published project brief, not an exact surveyed building model or architectural BIM.
+- Public Overpass, OpenStreetMap raster tiles and OSRM demo routing are development services. Use dedicated hosted/self-hosted infrastructure before a public high-traffic release.
+- World chunks currently stream around the player; unloading/LOD and persistent city state are future work.
+- The 3D world is not a photogrammetric replica. Accurate building facade assets, terrain, interiors, roads markings, traffic lights and vehicle/character assets need continuing development.
 
-## Map data, attribution and service policies
+## Attribution and service policies
 
-Map data © OpenStreetMap contributors. OpenStreetMap data is licensed under the Open Database License (ODbL). See https://www.openstreetmap.org/copyright. Review ODbL requirements when redistributing data or database derivatives.
-
-The interactive map uses standard OSM raster tiles `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Keep visible attribution, honour caching and request only the viewport. The OSM Foundation standard tile servers are community-funded and best-effort, with no SLA.
-
-3D map data uses public Overpass instances with sequential chunk requests. Shared Overpass instances can be busy or rate-limited; production traffic should use a suitable hosted service or self-hosted OSM backend.
-
-The default route provider is the OSRM public demo server. It is for modest development/testing use, not a production service guarantee. Use a hosted routing provider or self-host OSRM for a public release.
-
-Relevant policies:
-- https://operations.osmfoundation.org/policies/tiles/
-- https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server
+- OpenStreetMap data © OpenStreetMap contributors, licensed under ODbL: https://www.openstreetmap.org/copyright
+- CP67 reference photograph: Iamnegi01, CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
+- CP67 architectural program reference: GPM Architects & Planners, CP 67 project page.
+- OpenStreetMap tile usage policy: https://operations.osmfoundation.org/policies/tiles/
+- OSRM demo-server policy: https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server
