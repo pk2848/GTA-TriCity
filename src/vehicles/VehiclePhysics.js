@@ -42,6 +42,7 @@ export class VehiclePhysics {
       angularDamping: 0.72,
       allowSleep: false
     });
+    this.defaultMass = 1320;
     this.chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(1.02, 0.48, 2.05)));
     this.chassisBody.position.set(0, 0.92, 0);
     this.chassisBody.updateMassProperties();
@@ -135,6 +136,9 @@ export class VehiclePhysics {
     // Keep the collision box and all four suspension attachment points matched to the GLB.
     for (const shape of [...this.chassisBody.shapes]) this.chassisBody.removeShape(shape);
     this.chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, length / 2)));
+    this.chassisBody.mass = isMotorcycle
+      ? clamp(Number(profile.mass) || 260, 180, 360)
+      : clamp(Number(profile.mass) || this.defaultMass, 900, 2200);
     this.chassisBody.updateMassProperties();
     this.chassisBody.aabbNeedsUpdate = true;
 
@@ -148,7 +152,7 @@ export class VehiclePhysics {
       const wheel = this.raycastVehicle.wheelInfos[index];
       wheel.chassisConnectionPointLocal.set(x, y, z);
       wheel.radius = wheelRadius;
-      wheel.rollInfluence = 0.018;
+      wheel.rollInfluence = isMotorcycle ? 0.055 : 0.018;
     });
 
     this.engineMultiplier = clamp(Number(profile.engineMultiplier) || 1, 0.65, 1.4);
