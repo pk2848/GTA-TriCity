@@ -10,7 +10,7 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.21</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.22</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
     <div id="garage-panel" class="garage-panel">
@@ -34,7 +34,7 @@
       <small class="garage-tip">DRIVE / FLY / SAIL · V TO FOCUS GARAGE · SOUND ON</small>
     </div>
     <div class="map-panel">
-      <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
+      <div class="map-head"><b>CITY MAP DATA</b><span id="map-state">WAITING</span></div>
       <div id="map-counts">0 chunks · 0 roads · 0 buildings</div>
       <div id="traffic-count">AI traffic · 0 cars · 0 pedestrians</div>
       <button id="retry-map" type="button">RETRY CURRENT AREA ↻</button>
@@ -73,7 +73,7 @@
 
   <section id="map-overlay" aria-hidden="true">
     <header class="map-toolbar">
-      <div><strong>TRICITY NAVIGATION</strong><small>LIVE OPENSTREETMAP · CP67 MALL, MOHALI</small></div>
+      <div><strong>TRICITY NAVIGATION</strong><small>OPENSTREETMAP DATA · OFFLINE PACK SUPPORTED</small></div>
       <div class="map-actions">
         <button id="map-follow" type="button">FOLLOW PLAYER: ON</button>
         <button id="map-center" type="button">CENTER ON ME</button>
@@ -90,12 +90,12 @@
 
   <div id="start-screen">
     <div class="start-card">
-      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.21</div>
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.22</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
       <p>Start at CP67 Mall, Mohali. Drive through the city, walk into the multi-level CP67 Mall, or select the new utility helicopter to take off from the CP67 helipad and explore the TriCity from the air.</p>
       <div class="start-meta"><span>CP67 MALL · SECTOR 67, MOHALI</span><span>3D + PHYSICS + CITY AI</span></div>
       <button id="start" type="button">ENTER THE CITY <span>→</span></button>
-      <small>Desktop recommended · Internet connection required for live map data. Map detail depends on OpenStreetMap coverage.</small>
+      <small>Desktop recommended · First-time live map data needs Internet. Install the Tricity offline map pack to explore saved roads and buildings without a connection.</small>
     </div>
   </div>
   <script type="module" src="/src/main.js"></script>

@@ -14,6 +14,56 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter'
 ];
 
+const TILE_CACHE_DB = 'tricity-osm-tiles-v1';
+const TILE_CACHE_STORE = 'tiles';
+let tileCacheDbPromise = null;
+
+function openTileCacheDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  if (tileCacheDbPromise) return tileCacheDbPromise;
+  tileCacheDbPromise = new Promise((resolve) => {
+    const request = indexedDB.open(TILE_CACHE_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(TILE_CACHE_STORE)) {
+        db.createObjectStore(TILE_CACHE_STORE, { keyPath: 'key' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+  return tileCacheDbPromise;
+}
+
+function readPersistentTile(key) {
+  return openTileCacheDb().then(db => new Promise(resolve => {
+    if (!db) return resolve(null);
+    try {
+      const request = db.transaction(TILE_CACHE_STORE, 'readonly').objectStore(TILE_CACHE_STORE).get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  }));
+}
+
+function writePersistentTile(key, data) {
+  return openTileCacheDb().then(db => new Promise(resolve => {
+    if (!db) return resolve(false);
+    try {
+      const transaction = db.transaction(TILE_CACHE_STORE, 'readwrite');
+      transaction.objectStore(TILE_CACHE_STORE).put({ key, savedAt: Date.now(), data });
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => resolve(false);
+      transaction.onabort = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  }));
+}
+
 const roadWidths = {
   motorway: 15, trunk: 13, primary: 11, secondary: 9,
   tertiary: 7, unclassified: 5.5, residential: 5.5,
@@ -50,8 +100,13 @@ function stableHash(value) {
   for (let i = 0; i < String(value).length; i++) h = Math.imul(h ^ String(value).charCodeAt(i), 16777619);
   return h >>> 0;
 }
+function validLine(points) {
+  return Array.isArray(points) && points.length >= 2 && points.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+}
 function validRing(ring) {
-  return Array.isArray(ring) && ring.length >= 4 && ring.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+  if (!Array.isArray(ring) || ring.length < 4 || !ring.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon))) return false;
+  const first = ring[0], last = ring[ring.length - 1];
+  return Math.hypot(first.lat - last.lat, first.lon - last.lon) < 0.00005;
 }
 function parseMetres(value) {
   const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
@@ -201,6 +256,39 @@ export class OSMStreamer {
     this.currentTile = { ix: 0, iy: 0 };
     this.playerWorld = { x: 0, z: 0 };
     this.disposed = false;
+    this.offlineManifestPromise = this.loadOfflineManifest();
+  }
+
+  async loadOfflineManifest() {
+    try {
+      const base = import.meta.env.BASE_URL || '/';
+      const response = await fetch(`${base}maps/tricity-offline/manifest.json`, { cache: 'force-cache' });
+      if (!response.ok) return null;
+      const manifest = await response.json();
+      return manifest?.format === 'tricity-osm-offline-v1' && Array.isArray(manifest.tiles)
+        ? manifest
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchOfflinePackTile(key) {
+    const manifest = await this.offlineManifestPromise;
+    if (!manifest || !manifest.tiles.includes(key)) return null;
+    const [ix, iy] = key.split(':').map(Number);
+    const base = import.meta.env.BASE_URL || '/';
+    const response = await fetch(`${base}maps/tricity-offline/${ix}_${iy}.json`, { cache: 'force-cache' });
+    if (!response.ok) {
+      console.warn(`[GTA-TriCity] Offline pack lists ${key}, but its tile file is missing; trying the browser cache/network.`);
+      return null;
+    }
+    const data = await response.json();
+    if (!Array.isArray(data.elements)) {
+      console.warn(`[GTA-TriCity] Offline pack tile ${key} is invalid; trying the browser cache/network.`);
+      return null;
+    }
+    return data;
   }
 
   requestAtWorld(x, z, force = false) {
@@ -357,9 +445,37 @@ export class OSMStreamer {
   async fetchTile(tile) {
     this.loading.add(tile.key);
     const bounds = tileBounds(tile.ix, tile.iy);
-    this.onStatus(`FETCHING ${tile.key.replace(':', ' / ')}…`);
+    this.onStatus(`LOADING ${tile.key.replace(':', ' / ')}…`);
     try {
-      const data = await this.fetchData(this.buildQuery(bounds));
+      let data = null;
+      let source = '';
+
+      // A prebuilt Tricity pack is local static JSON and works without Internet.
+      data = await this.fetchOfflinePackTile(tile.key);
+      if (data) {
+        source = 'OFFLINE MAP';
+      } else {
+        // Browser IndexedDB keeps tiles from places already visited so returning
+        // to them is immediate, even after a browser/game restart.
+        const cached = await readPersistentTile(tile.key);
+        // Prefer a saved tile immediately, even when it is older than the
+        // refresh window. A fast slightly-stale city is better than a blank
+        // road while a public Overpass endpoint is timing out.
+        if (cached?.data) {
+          data = cached.data;
+          source = 'SAVED MAP';
+        } else if (navigator.onLine !== false) {
+          data = await this.fetchData(this.buildQuery(bounds));
+          source = 'LIVE MAP';
+          // Cache the raw OSM response asynchronously; map rendering must not
+          // wait for IndexedDB quota or filesystem latency.
+          writePersistentTile(tile.key, data);
+        } else {
+          throw new Error('No offline data for this area. Connect once or install the full Tricity offline pack.');
+        }
+      }
+
+      this.onStatus(`${source} · ${tile.key.replace(':', ' / ')}`);
       const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
       const roadAssetGroup = (result.trafficRoads.length || result.trafficFeatures.length)
         ? this.onRoads(result.trafficRoads, tile.key, result.trafficFeatures)
@@ -464,6 +580,10 @@ export class OSMStreamer {
       let rings = [];
       if (element.type === 'relation' && Array.isArray(element.members)) {
         rings = element.members.filter(member => member.role === 'outer' && validRing(member.geometry)).map(member => member.geometry);
+      } else if (tags.highway && validLine(element.geometry)) {
+        // Roads are open LineStrings; do not require their first and last node
+        // to meet as we do for building/park polygon rings.
+        rings = [element.geometry];
       } else if (validRing(element.geometry)) {
         rings = [element.geometry];
       }
