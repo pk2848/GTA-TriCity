@@ -20,6 +20,27 @@ A custom 3D reconstruction of **Goswami Ganesh Dutta Sanatan Dharma College** is
 - [Prof. Roshan Lal Verma Block courtyard photo](https://images.shiksha.com/mediadata/images/1741680204phpHX4qX9_g.jpg)
 - [Golden auditorium photo](https://assets.allegiance-educare.com/colleges/1611469270Main%20auditorium_.jpg)
 
+## Build 0.30 — Quick Play and instant location switching
+
+A Quick Play / fast-travel menu lets players inspect completed locations without driving across the full open world.
+
+### Available quick locations
+- **CP67 Mall · Sector 67, Mohali:** existing default start/drop-off.
+- **GGDSD College · Sector 32-C, Chandigarh:** spawn outside the custom main gate.
+- **Panjab University · Sector 14, North Campus:** spawn by the Student Centre and signature buildings.
+- **Panjab University · Sector 25, South Campus:** spawn near the South Campus approach.
+- **Sukhna Lake · Sector 1, Chandigarh:** spawn by the southern shore/promenade.
+
+### How to use it
+- On the start screen, click one of the **Quick Play · Developed Locations** cards.
+- During gameplay, press **P** or click **LOCATIONS [P]** in the HUD to open the fast-travel menu.
+- Choose a location to move the selected road vehicle there, reset its speed and camera, and request nearby OSM map tiles.
+- Press **Escape** or **P** to close the menu without travelling.
+- If the helicopter or yacht is selected, Quick Play switches back to the default Pagani road vehicle before teleporting. Cars and the motorcycle remain selected.
+- Driving/flight movement pauses while the menu is open.
+
+Quick Play moves the player/vehicle to the landmark's real-world map anchor and a nearby approach point. Custom landmark geometry is local; surrounding roads and ordinary city detail use the offline OSM pack or live/cached map tiles.
+
 ## Build 0.29 — Panjab University and Sukhna Lake
 
 This release expands the Chandigarh open world with two mapped destination areas. The game uses the existing OpenStreetMap geometry for the full road network, ordinary building footprints, parks and the Sukhna water polygon; custom Three.js landmark models are placed at geographic anchors on top of that base map.
