@@ -1,12 +1,13 @@
 {
   "name": "tricity-drive",
   "private": true,
-  "version": "0.21.0",
+  "version": "0.22.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "build:offline-map": "node scripts/build-offline-map.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
