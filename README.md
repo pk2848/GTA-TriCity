@@ -67,6 +67,16 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.14 — 1970 Charger axis correction
+
+- Corrects the 1970 Dodge Charger source orientation: its supplied GLB is Z-up, with the long axis along source Y. The manifest now applies **X = -90°, Y = 0°, Z = 0°**. This maps its height to game +Y and its nose/longitudinal axis to game -Z.
+- Removes the erroneous additional 180° Y rotation that flipped the up axis under Three.js's XYZ Euler composition.
+- Corrects the Charger wheel group pattern to match the actual source node names `Wheel1A_LF`, `Wheel1A_RF`, `Wheel1A_LR`, and `Wheel1A_RR`.
+- The GLB dimensions after correction are approximately 1.98 m wide × 5.27 m long × 1.42 m high.
+- Adds a runtime axis check to the garage. A vehicle must have its length along local Z and height along local Y before it can appear. Misaligned future assets produce a clear manifest rotation error rather than a car standing vertically.
+- Traffic uses the same manifest transform, so the Charger orientation is corrected for ambient AI cars as well.
+- Road direction remains handled by the vehicle chassis yaw: each uploaded model's local nose points down local -Z, and the physics heading rotates that axis to follow mapped road segments in world X/Z.
+
 ## Build 0.13 — nitro stability, uploaded-model traffic and camera presets
 
 - Reduces the rear-wheel engine force from the previous 1.85x nitro spike to a gradual 1.13x acceleration increase. Nitro now ramps in/out over time and increases the speed cap progressively rather than applying an instant force impulse.
