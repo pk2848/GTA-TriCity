@@ -479,7 +479,7 @@ export function createCP67Mall(scene) {
       addBox(facade, 0.12, 4.2, 0.34, mullion, side * 65.02, 3.35, z + 1.7);
       addBox(facade, 0.12, 0.12, 3.6, M.silver, side * 65.0, 2.4, z + 1.8);
     }
-    addSign(facade, 'CP67', 'RETAIL · OFFICES', side * 65.02, 8.0, -22, 13, 1.65, side < 0 ? Math.PI/2 : -Math.PI/2);
+    addSign(facade, 'CP67', 'RETAIL · OFFICES', 13, 1.65, side * 65.02, 8.0, -22, side < 0 ? Math.PI/2 : -Math.PI/2);
   }
 
   // Fine podium return bands tie the street-facing sides to the main elevation.
