@@ -114,7 +114,10 @@ const vehiclePhysics = new VehiclePhysics();
 const cp67Mall = createCP67Mall(scene);
 const helipad = createHelipad(scene);
 const boatMarina = createBoatMarina(scene);
-const helicopterFlight = { velocity: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0, landed: true };
+const helicopterFlight = {
+  velocity: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0,
+  verticalSpeed: 0, groundY: 0.32, landed: true, autoLanding: false
+};
 const boatFlight = { velocity: new THREE.Vector3(), yaw: 0, elapsed: 0 };
 let engineThrottle = 0;
 const cp67Interior = createCP67Interior(scene);
@@ -221,7 +224,10 @@ const vehicleGarage = new VehicleGarage({
       helicopterFlight.yaw = 0;
       helicopterFlight.pitch = 0;
       helicopterFlight.roll = 0;
+      helicopterFlight.verticalSpeed = 0;
+      helicopterFlight.groundY = helipad.groundY;
       helicopterFlight.landed = true;
+      helicopterFlight.autoLanding = false;
       vehicle.position.set(helipad.position.x, helipad.groundY, helipad.position.z);
       vehicle.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
       vehicle.visible = true;
@@ -232,9 +238,10 @@ const vehicleGarage = new VehicleGarage({
       pedestrianInsideMall = false;
       cp67Interior.group.visible = false;
       document.querySelector('#vehicle-status').style.display = 'none';
+      document.querySelector('#flight-status').hidden = false;
       document.querySelector('#controls-help').innerHTML =
-        'W / S <i>FORWARD / BACK</i> &nbsp; A / D <i>BANK</i> &nbsp; Q / E <i>YAW</i> &nbsp; SHIFT <i>ASCEND</i> &nbsp; CTRL <i>DESCEND</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
-      toast.textContent = 'CIVILIAN HELICOPTER READY · Take off from the CP67 helipad.';
+        'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>TURN</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
+      toast.textContent = 'HELICOPTER READY · Hold SHIFT to lift off. W to fly forward, A/D to turn.';
       cameraDistance = 24;
       return;
     }
@@ -270,6 +277,7 @@ const vehicleGarage = new VehicleGarage({
       vehiclePhysics.syncVisuals(vehicle, wheels);
       wheels.forEach((wheel) => { wheel.visible = false; });
       document.querySelector('#vehicle-status').style.display = '';
+      document.querySelector('#flight-status').hidden = true;
       document.querySelector('#controls-help').innerHTML =
         'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>REVERSE</i> &nbsp; A/D / ←→ <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; C <i>CAMERA</i> &nbsp; M <i>MAP</i>';
       cameraDistance = 14;
@@ -668,6 +676,7 @@ function setWalkingMode(enabled) {
   vehicle.visible = !enabled && Boolean(vehicle.userData.assetLoaded);
   wheels.forEach(wheel => { wheel.visible = false; });
   document.querySelector('#vehicle-status').style.display = enabled || gameMode === 'helicopter' || gameMode === 'boat' ? 'none' : '';
+  document.querySelector('#flight-status').hidden = enabled || gameMode !== 'helicopter';
   nitroActive = false;
   nitroFlames.visible = false;
   nitroGlow.intensity = 0;
@@ -713,8 +722,9 @@ function enterVehicle() {
   if (selectedType === 'helicopter') {
     gameMode = 'helicopter';
     document.querySelector('#vehicle-status').style.display = 'none';
-    controlsHelp.innerHTML = 'W / S <i>FORWARD / BACK</i> &nbsp; A / D <i>BANK</i> &nbsp; Q / E <i>YAW</i> &nbsp; SHIFT <i>ASCEND</i> &nbsp; CTRL <i>DESCEND</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
-    toast.textContent = 'Back in the helicopter · Check rotor clearance before taking off.';
+    document.querySelector('#flight-status').hidden = false;
+    controlsHelp.innerHTML = 'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>BRAKE</i> &nbsp; A / D <i>TURN</i> &nbsp; Q / E <i>STRAFE</i> &nbsp; SHIFT <i>UP</i> &nbsp; CTRL <i>DOWN</i> &nbsp; SPACE <i>HOVER</i> &nbsp; F <i>LAND / EXIT</i> &nbsp; V <i>GARAGE</i>';
+    toast.textContent = 'Back in the helicopter · SHIFT to lift, W to move forward.';
     return;
   }
   if (selectedType === 'boat') {
@@ -768,15 +778,16 @@ function useMallElevator() {
 }
 
 function exitHelicopter() {
-  const padDistance = Math.hypot(vehicle.position.x - helipad.position.x, vehicle.position.z - helipad.position.z);
-  if (!helicopterFlight.landed || padDistance > helipad.landingRadius || helicopterFlight.velocity.length() > 1.2) {
-    toast.textContent = 'Land slowly on the marked CP67 helipad before exiting. Keep the aircraft close to the H marking.';
+  if (!helicopterFlight.landed) {
+    helicopterFlight.autoLanding = true;
+    toast.textContent = 'AUTO LANDING · Aircraft braking and descending. Press F again after landing to exit.';
     return;
   }
   playerPedestrian.position.set(vehicle.position.x + 4.2, 0.05, vehicle.position.z + 1.5);
   pedestrianHeading = helicopterFlight.yaw;
   setWalkingMode(true);
-  toast.textContent = 'Helicopter parked · Walk around the CP67 helipad or select another vehicle in the garage.';
+  document.querySelector('#flight-status').hidden = true;
+  toast.textContent = 'Helicopter parked · Walk around the landing area or select another vehicle in the garage.';
 }
 
 function exitBoat() {
@@ -1010,55 +1021,116 @@ let mapCheckElapsed = 0;
 let mapUiElapsed = 0;
 
 function updateHelicopterFlight(dt) {
-  const forward = Number(Boolean(keys.KeyW || keys.ArrowUp)) - Number(Boolean(keys.KeyS || keys.ArrowDown));
-  const bank = Number(Boolean(keys.KeyD || keys.ArrowRight)) - Number(Boolean(keys.KeyA || keys.ArrowLeft));
-  const yawInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
-  const vertical = Number(Boolean(keys.ShiftLeft || keys.ShiftRight)) - Number(Boolean(keys.ControlLeft || keys.ControlRight));
-  engineThrottle = Math.max(Math.abs(forward), Math.abs(vertical));
+  const forwardInput = Number(Boolean(keys.KeyW || keys.ArrowUp));
+  const brakeInput = Number(Boolean(keys.KeyS || keys.ArrowDown));
+  const yawInput = Number(Boolean(keys.KeyD || keys.ArrowRight)) - Number(Boolean(keys.KeyA || keys.ArrowLeft));
+  const strafeInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
+  const climbInput = Number(Boolean(keys.ShiftLeft || keys.ShiftRight));
+  const descendInput = Number(Boolean(keys.ControlLeft || keys.ControlRight));
+  const hoverInput = Boolean(keys.Space);
+  engineThrottle = Math.max(forwardInput, climbInput, descendInput);
 
-  helicopterFlight.yaw += yawInput * dt * 0.82;
-  const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
-  const rightVector = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
-  helicopterFlight.velocity.addScaledVector(forwardVector, forward * 8.5 * dt);
-  helicopterFlight.velocity.addScaledVector(rightVector, bank * 5.2 * dt);
-  helicopterFlight.velocity.y += vertical * 6.0 * dt;
+  const groundY = helicopterFlight.groundY;
+  const maxAltitude = 520;
+  const maxHorizontalSpeed = 34;
+  const forwardVector = new THREE.Vector3(0, 0, -1)
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
+  const rightVector = new THREE.Vector3(1, 0, 0)
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
 
-  const hovering = Boolean(keys.Space);
-  helicopterFlight.velocity.multiplyScalar(Math.exp(-(hovering ? 3.2 : 0.46) * dt));
-  if (hovering) helicopterFlight.velocity.y *= Math.exp(-5.5 * dt);
+  if (helicopterFlight.autoLanding) {
+    // F starts a stable, controlled descent at the current location.
+    helicopterFlight.velocity.multiplyScalar(Math.exp(-2.4 * dt));
+    helicopterFlight.verticalSpeed = Math.max(-3.0, helicopterFlight.verticalSpeed - 5.5 * dt);
+    helicopterFlight.pitch = THREE.MathUtils.damp(helicopterFlight.pitch, 0, 3.5, dt);
+    helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, 0, 3.5, dt);
+  } else {
+    helicopterFlight.yaw += yawInput * 1.25 * dt;
 
-  vehicle.position.addScaledVector(helicopterFlight.velocity, dt);
-  vehicle.position.y = Math.max(0.34, Math.min(520, vehicle.position.y));
+    // Collective: SHIFT climbs, CTRL descends. Releasing both holds altitude.
+    if (climbInput) {
+      helicopterFlight.landed = false;
+      helicopterFlight.verticalSpeed = Math.min(9.0, helicopterFlight.verticalSpeed + 10.5 * dt);
+    } else if (descendInput) {
+      helicopterFlight.verticalSpeed = Math.max(-5.0, helicopterFlight.verticalSpeed - 8.5 * dt);
+    } else {
+      helicopterFlight.verticalSpeed *= Math.exp(-3.8 * dt);
+      if (Math.abs(helicopterFlight.verticalSpeed) < 0.035) helicopterFlight.verticalSpeed = 0;
+    }
 
-  const padDistance = Math.hypot(vehicle.position.x - helipad.position.x, vehicle.position.z - helipad.position.z);
-  const horizontalSpeed = Math.hypot(helicopterFlight.velocity.x, helicopterFlight.velocity.z);
-  helicopterFlight.landed = padDistance <= helipad.landingRadius && vehicle.position.y <= helipad.groundY + 0.28 && horizontalSpeed < 2.6;
-  if (helicopterFlight.landed) {
-    vehicle.position.y = helipad.groundY;
-    helicopterFlight.velocity.set(0, 0, 0);
+    // W adds forward thrust. S is a proper air brake; holding it can gently
+    // reverse only after the aircraft has come nearly to a stop.
+    if (forwardInput) helicopterFlight.velocity.addScaledVector(forwardVector, 9.0 * dt);
+    if (brakeInput) {
+      helicopterFlight.velocity.multiplyScalar(Math.exp(-4.5 * dt));
+      if (helicopterFlight.velocity.length() < 0.65) {
+        helicopterFlight.velocity.addScaledVector(forwardVector, -1.8 * dt);
+      }
+    }
+
+    // Q/E provide lateral translation; A/D turn the nose left and right.
+    if (strafeInput) helicopterFlight.velocity.addScaledVector(rightVector, strafeInput * 4.8 * dt);
+
+    const horizontalDrag = hoverInput ? 4.8 : 0.72;
+    helicopterFlight.velocity.multiplyScalar(Math.exp(-horizontalDrag * dt));
+    if (helicopterFlight.velocity.length() > maxHorizontalSpeed) {
+      helicopterFlight.velocity.setLength(maxHorizontalSpeed);
+    }
+
+    if (hoverInput) {
+      // Space is a stabiliser: rapidly cancel horizontal drift and vertical movement.
+      helicopterFlight.verticalSpeed *= Math.exp(-7.0 * dt);
+    }
+
+    const targetPitch = THREE.MathUtils.clamp(-forwardInput * 0.24 + brakeInput * 0.10, -0.32, 0.18);
+    const targetRoll = THREE.MathUtils.clamp(-strafeInput * 0.20, -0.28, 0.28);
+    helicopterFlight.pitch = THREE.MathUtils.damp(helicopterFlight.pitch, targetPitch, 3.8, dt);
+    helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, targetRoll, 4.2, dt);
   }
 
-  helicopterFlight.pitch = THREE.MathUtils.clamp(-forward * 0.22, -0.28, 0.28);
-  helicopterFlight.roll = THREE.MathUtils.clamp(-bank * 0.2, -0.3, 0.3);
-  vehicle.quaternion.setFromEuler(new THREE.Euler(helicopterFlight.pitch, helicopterFlight.yaw, helicopterFlight.roll, 'YXZ'));
+  // Integrate in world space, with a hard ground clamp and an altitude ceiling.
+  vehicle.position.addScaledVector(helicopterFlight.velocity, dt);
+  vehicle.position.y += helicopterFlight.verticalSpeed * dt;
+  if (vehicle.position.y <= groundY) {
+    vehicle.position.y = groundY;
+    helicopterFlight.verticalSpeed = 0;
+    helicopterFlight.landed = true;
+    helicopterFlight.velocity.multiplyScalar(Math.exp(-2.8 * dt));
+    if (helicopterFlight.velocity.length() < 0.22) helicopterFlight.velocity.set(0, 0, 0);
+    if (helicopterFlight.autoLanding) helicopterFlight.autoLanding = false;
+  } else {
+    vehicle.position.y = Math.min(maxAltitude, vehicle.position.y);
+    helicopterFlight.landed = false;
+  }
+
+  vehicle.quaternion.setFromEuler(new THREE.Euler(
+    helicopterFlight.pitch,
+    helicopterFlight.yaw,
+    helicopterFlight.roll,
+    'YXZ'
+  ));
 
   heading = helicopterFlight.yaw;
-  speed = helicopterFlight.velocity.length();
+  const horizontalSpeed = Math.hypot(helicopterFlight.velocity.x, helicopterFlight.velocity.z);
+  speed = Math.hypot(horizontalSpeed, helicopterFlight.verticalSpeed);
   document.querySelector('#speed').textContent = String(Math.round(speed * 3.6)).padStart(3, '0');
   document.querySelector('#area').textContent = 'AIRSPACE · ' + areaName();
   document.querySelector('#vehicle-status').style.display = 'none';
+  document.querySelector('#flight-status').hidden = false;
+  document.querySelector('#flight-altitude').textContent = `${Math.max(0, vehicle.position.y - groundY).toFixed(1)} m`;
+  document.querySelector('#flight-vertical').textContent = `${helicopterFlight.verticalSpeed >= 0 ? '+' : ''}${helicopterFlight.verticalSpeed.toFixed(1)} m/s`;
+  document.querySelector('#flight-ground').textContent = helicopterFlight.landed ? 'ON GROUND' : helicopterFlight.autoLanding ? 'AUTO LANDING' : 'AIRBORNE';
   nitroActive = false;
   nitroFlames.visible = false;
   nitroGlow.intensity = 0;
   rolloverHint.hidden = true;
 
   mapCheckElapsed += dt;
-  if (mapCheckElapsed > 1.5) {
+  if (mapCheckElapsed > 2.0) {
     streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
     mapCheckElapsed = 0;
   }
 }
-
 function updateBoatMovement(dt) {
   const forward = Number(Boolean(keys.KeyW || keys.ArrowUp)) - Number(Boolean(keys.KeyS || keys.ArrowDown));
   const turn = Number(Boolean(keys.KeyA || keys.ArrowLeft)) - Number(Boolean(keys.KeyD || keys.ArrowRight));
