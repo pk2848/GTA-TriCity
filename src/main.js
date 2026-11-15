@@ -387,6 +387,14 @@ let missionDone = false;
 let started = false;
 let cameraYaw = 0;
 let cameraPitch = 0.12;
+const CAMERA_PRESETS = [
+  { label: 'REAR CHASE', distance: 14, height: 4.7, lookHeight: 1.0, side: 0 },
+  { label: 'CLOSE CHASE', distance: 8.5, height: 3.0, lookHeight: 0.8, side: 0 },
+  { label: 'FAR CHASE', distance: 23, height: 8.2, lookHeight: 1.4, side: 0 },
+  { label: 'CINEMATIC SIDE', distance: 12, height: 4.6, lookHeight: 1.0, side: 7.0 },
+  { label: 'BONNET / FIRST PERSON', type: 'hood' }
+];
+let cameraModeIndex = 0;
 let nitroFuel = 100;
 let nitroActive = false;
 let vehicleCondition = 100;
@@ -425,6 +433,14 @@ addEventListener('keydown', event => {
   if (event.code === 'KeyV' && !event.repeat && gameMode === 'vehicle') {
     event.preventDefault();
     document.querySelector('#car-select')?.focus();
+  }
+  if (event.code === 'KeyC' && !event.repeat) {
+    cameraModeIndex = (cameraModeIndex + 1) % CAMERA_PRESETS.length;
+    const preset = CAMERA_PRESETS[cameraModeIndex];
+    if (preset.distance) cameraDistance = preset.distance;
+    cameraPitch = 0.12;
+    toast.textContent = `CAMERA · ${preset.label} · PRESS C TO CHANGE VIEW`;
+    event.preventDefault();
   }
 });
 addEventListener('keyup', event => { keys[event.code] = false; });
@@ -911,20 +927,49 @@ function animate() {
     gameMode === 'walking' ? playerPosition.y + 1.45 : 2.1,
     playerPosition.z
   );
-  const distance = gameMode === 'walking' ? 7.2 : cameraDistance;
-  const behind = new THREE.Vector3(
-    Math.sin(playerHeading + cameraYaw) * distance,
-    gameMode === 'walking' ? 2.6 + cameraPitch * 6.5 : 4.7 + cameraPitch * 12,
-    Math.cos(playerHeading + cameraYaw) * distance
-  );
-  const desired = target.clone().add(behind);
+  const preset = CAMERA_PRESETS[cameraModeIndex];
+  let desired;
+  let lookTarget;
+
+  if (gameMode === 'vehicle' && preset.type === 'hood') {
+    // First-person bonnet camera mounted just ahead of the driver.
+    const forwardX = -Math.sin(playerHeading + cameraYaw);
+    const forwardZ = -Math.cos(playerHeading + cameraYaw);
+    desired = new THREE.Vector3(
+      playerPosition.x + forwardX * 1.18,
+      playerPosition.y + 1.42 + cameraPitch * 2,
+      playerPosition.z + forwardZ * 1.18
+    );
+    lookTarget = new THREE.Vector3(
+      playerPosition.x + forwardX * 18,
+      playerPosition.y + 1.25,
+      playerPosition.z + forwardZ * 18
+    );
+  } else {
+    const distance = gameMode === 'walking' ? 7.2 : (preset.distance || cameraDistance);
+    const height = gameMode === 'walking' ? 2.6 + cameraPitch * 6.5 : preset.height + cameraPitch * 12;
+    const yaw = playerHeading + cameraYaw;
+    const side = gameMode === 'walking' ? 0 : (preset.side || 0);
+    const behind = new THREE.Vector3(
+      Math.sin(yaw) * distance + Math.cos(yaw) * side,
+      height,
+      Math.cos(yaw) * distance - Math.sin(yaw) * side
+    );
+    desired = target.clone().add(behind);
+    lookTarget = target.clone().add(new THREE.Vector3(
+      0,
+      gameMode === 'walking' ? 1.0 : (preset.lookHeight || 1.0),
+      0
+    ));
+  }
+
   if (cameraShake > 0) {
     const shakeTime = performance.now() * 0.035;
     desired.x += Math.sin(shakeTime * 1.7) * cameraShake * 0.7;
     desired.y += Math.cos(shakeTime * 2.1) * cameraShake * 0.45;
   }
-  camera.position.lerp(desired, 0.085);
-  camera.lookAt(target.clone().add(new THREE.Vector3(0, 1.0, 0)));
+  camera.position.lerp(desired, preset.type === 'hood' && gameMode === 'vehicle' ? 0.22 : 0.085);
+  camera.lookAt(lookTarget);
   ring.rotation.z += dt * 0.7;
   if (destinationRing) destinationRing.rotation.z += dt * 0.85;
   if (destinationBeacon) {
