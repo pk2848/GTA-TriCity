@@ -357,7 +357,7 @@ export class VehicleGarage {
         : 'no uploaded player car available';
       const message = error?.message || error?.target?.statusText || String(error);
       this.setStatus(
-        `LOAD FAILED · ${fallbackName?.toUpperCase() || 'NO PLAYER CAR'}`,
+        `LOAD FAILED · ${profile.displayName.toUpperCase()}`,
         'error',
         `Asset: ${profile.file} · Error: ${message}`
       );
