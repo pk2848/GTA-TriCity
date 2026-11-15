@@ -190,6 +190,8 @@ const vehicleGarage = new VehicleGarage({
   statusElement: document.querySelector('#car-select-status'),
   retryButton: document.querySelector('#car-retry'),
   countElement: document.querySelector('#garage-count'),
+  rider: playerPedestrian,
+  isDriving: () => gameMode === 'vehicle',
   fallbackParts: vehicle.children.filter((child) => child !== nitroFlames),
   wheelVisuals: wheels,
   nitroFlames,
@@ -581,6 +583,7 @@ function activeWorldPosition() {
 function setWalkingMode(enabled) {
   gameMode = enabled ? 'walking' : 'vehicle';
   playerPedestrian.visible = enabled;
+  if (enabled && vehicleGarage) vehicleGarage.resetRiderPose();
   vehicle.visible = Boolean(vehicle.userData.assetLoaded);
   wheels.forEach(wheel => { wheel.visible = false; });
   document.querySelector('#vehicle-status').style.display = enabled ? 'none' : '';
