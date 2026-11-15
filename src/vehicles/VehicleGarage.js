@@ -284,14 +284,20 @@ export class VehicleGarage {
       // axes without rejecting them for a wide scan footprint.
       const isMotorcycle = profile.physics?.vehicleType === 'motorcycle';
       const axesInvalid = isMotorcycle
-        ? (size.z < size.y * 1.35 || size.z < size.x * 1.0)
+        ? (
+            size.x < 0.55 || size.x > 1.3 ||
+            size.y < 0.95 || size.y > 1.7 ||
+            size.z < 1.55 || size.z > 2.55
+          )
         : (size.z < size.y * 1.45 || size.z < size.x * 1.45);
       if (axesInvalid) {
+        const bikeHint = isMotorcycle
+          ? 'The raw photogrammetry scan includes surrounding ground. Replace public/models/vehicles/bike_black.glb with the optimized 575 KB bike from GTA-TriCity-Bike-Optimized-Install.zip.'
+          : 'Fix the rotation in public/models/vehicles/manifest.json.';
         throw new Error(
-          `Vehicle axes are not road-aligned after manifest rotation. ` +
-          `Expected Y-up and the nose along local -Z; got X=${size.x.toFixed(2)}m, ` +
-          `Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ` +
-          `Fix the rotation in public/models/vehicles/manifest.json.`
+          `Vehicle dimensions are not game-ready after manifest scale/rotation. ` +
+          `Expected Y-up and nose along local -Z; got X=${size.x.toFixed(2)}m, ` +
+          `Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ${bikeHint}`
         );
       }
 
