@@ -36,6 +36,34 @@ function directionText(modifier = '') {
   };
   return map[modifier] || ['↑', 'Continue'];
 }
+function buildRouteCumulative(points) {
+  const cumulative = [0];
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    cumulative.push(cumulative[i - 1] + Math.hypot(b.x - a.x, b.z - a.z));
+  }
+  return cumulative;
+}
+
+function projectOntoRoute(x, z, points, cumulative, minSegment = 0, maxSegment = points.length - 2) {
+  let best = { distance: Infinity, segmentIndex: 0, t: 0, x: points[0]?.x || 0, z: points[0]?.z || 0, alongDistance: 0 };
+  const first = Math.max(0, minSegment);
+  const last = Math.min(points.length - 2, maxSegment);
+  for (let i = first; i <= last; i++) {
+    const a = points[i], b = points[i + 1];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const lengthSquared = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lengthSquared));
+    const px = a.x + dx * t, pz = a.z + dz * t;
+    const distance = Math.hypot(x - px, z - pz);
+    if (distance < best.distance) {
+      const segmentLength = cumulative[i + 1] - cumulative[i];
+      best = { distance, segmentIndex: i, t, x: px, z: pz, alongDistance: cumulative[i] + segmentLength * t };
+    }
+  }
+  return best;
+}
+
 function describeStep(step) {
   const maneuver = step?.maneuver || {};
   const type = maneuver.type || 'continue';
@@ -236,7 +264,7 @@ export class WorldMapView {
           Math.round(i * (coordinates.length - 1) / (arrowCount + 1))));
         const previous = coordinates[Math.max(0, index - 1)];
         const next = coordinates[Math.min(coordinates.length - 1, index + 1)];
-        const bearing = Math.atan2(next[0] - previous[0], (next[1] - previous[1]) * Math.cos(next[0] * Math.PI / 180)) * 180 / Math.PI;
+        const bearing = Math.atan2(-(next[0] - previous[0]), (next[1] - previous[1]) * Math.cos(next[0] * Math.PI / 180)) * 180 / Math.PI;
         const icon = L.divIcon({
           className: 'route-direction-marker',
           html: `<span class="route-direction-chevron" style="transform:rotate(${bearing}deg)">➤</span>`,
@@ -258,19 +286,35 @@ export class WorldMapView {
         ? '<strong>Destination pinned</strong><br>Route endpoint snapped to the nearest drivable road.'
         : '<strong>Destination pinned</strong><br>Driving route ready.');
       const steps = route.legs?.flatMap(leg => leg.steps || []) || [];
+      const worldPoints = coordinates.map(([lon, lat]) => geoToWorld(lat, lon));
+      const cumulativeDistances = buildRouteCumulative(worldPoints);
+      const stepWorld = steps.map(step => {
+        const location = step.maneuver?.location;
+        return location ? geoToWorld(location[1], location[0]) : null;
+      });
+      let lastStepSegment = 0;
+      const stepAlong = stepWorld.map(point => {
+        if (!point) return null;
+        const projection = projectOntoRoute(point.x, point.z, worldPoints, cumulativeDistances, Math.max(0, lastStepSegment - 1));
+        lastStepSegment = Math.max(lastStepSegment, projection.segmentIndex);
+        return projection.alongDistance;
+      });
+      const spawnWorld = geoToWorld(start.lat, start.lon);
+      const initialProjection = projectOntoRoute(spawnWorld.x, spawnWorld.z, worldPoints, cumulativeDistances);
       this.route = {
         destination: navigationDestination,
         selectedDestination: destination,
         coordinates,
-        worldPoints: coordinates.map(([lon, lat]) => geoToWorld(lat, lon)),
+        worldPoints,
+        cumulativeDistances,
+        totalWorldDistance: cumulativeDistances[cumulativeDistances.length - 1] || route.distance || 0,
         steps,
-        stepWorld: steps.map(step => {
-          const location = step.maneuver?.location;
-          return location ? geoToWorld(location[1], location[0]) : null;
-        }),
-        stepIndex: Math.min(1, Math.max(0, steps.length - 1)),
-        distance: route.distance || 0,
-        duration: route.duration || 0,
+        stepWorld,
+        stepAlong,
+        stepIndex: 0,
+        progressSegment: initialProjection.segmentIndex,
+        progressT: initialProjection.t,
+        progressMeters: Math.max(0, initialProjection.alongDistance),
         isArrived: false
       };
       const destinationWorld = geoToWorld(navigationDestination.lat, navigationDestination.lon);
@@ -326,19 +370,22 @@ export class WorldMapView {
     this.onStatus('Destination cleared. Click the map to choose a new destination.');
   }
 
-  nearestRouteDistance(x, z) {
-    const points = this.route?.worldPoints || [];
-    if (points.length < 2) return Infinity;
-    let minimum = Infinity;
-    for (let i = 0; i < points.length - 1; i++) {
-      const a = points[i], b = points[i + 1];
-      const dx = b.x - a.x, dz = b.z - a.z;
-      const lengthSquared = dx * dx + dz * dz || 1;
-      const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lengthSquared));
-      const px = a.x + t * dx, pz = a.z + t * dz;
-      minimum = Math.min(minimum, Math.hypot(x - px, z - pz));
+  nearestRouteProjection(x, z) {
+    const route = this.route;
+    if (!route || route.worldPoints.length < 2) return null;
+    const start = Math.max(0, route.progressSegment - 3);
+    const end = Math.min(route.worldPoints.length - 2, route.progressSegment + 140);
+    let projection = projectOntoRoute(x, z, route.worldPoints, route.cumulativeDistances, start, end);
+    // If the car has left the local route window, search the entire route for an off-route diagnostic.
+    if (projection.distance > 85) {
+      const globalProjection = projectOntoRoute(x, z, route.worldPoints, route.cumulativeDistances);
+      if (globalProjection.distance < projection.distance) projection = globalProjection;
     }
-    return minimum;
+    return projection;
+  }
+
+  nearestRouteDistance(x, z) {
+    return this.nearestRouteProjection(x, z)?.distance ?? Infinity;
   }
 
   emitGuidance(force = false) {
@@ -381,16 +428,44 @@ export class WorldMapView {
     for (let i = route.stepIndex + 1; i < route.steps.length; i++) remainingDistance += route.steps[i].distance || 0;
     for (let i = route.stepIndex; i < route.steps.length; i++) remainingDuration += route.steps[i].duration || 0;
 
-    const nearestDistance = this.nearestRouteDistance(player.x, player.z);
-    const offRoute = nearestDistance > 90 && route.distance > 100;
+    const projection = this.nearestRouteProjection(player.x, player.z);
+    const nearestDistance = projection?.distance ?? Infinity;
+    const offRoute = nearestDistance > 75 && route.distance > 100;
+    if (!offRoute && projection) {
+      route.progressMeters = Math.max(route.progressMeters, projection.alongDistance);
+      route.progressSegment = Math.max(route.progressSegment, projection.segmentIndex);
+      route.progressT = projection.t;
+    }
+
+    // Pick the next maneuver by its position along the route, not straight-line distance.
+    // This avoids skipping turns on nearby/parallel streets.
+    let nextStepIndex = Math.max(0, route.steps.length - 1);
+    for (let i = 0; i < route.steps.length; i++) {
+      const type = route.steps[i]?.maneuver?.type;
+      const along = route.stepAlong[i];
+      if (type === 'depart' || along == null) continue;
+      if (along > route.progressMeters + 9) {
+        nextStepIndex = i;
+        break;
+      }
+    }
+    route.stepIndex = nextStepIndex;
+    const step = route.steps[route.stepIndex] || route.steps[route.steps.length - 1];
     const instruction = describeStep(step);
+    const nextStepAlong = route.stepAlong[route.stepIndex] ?? route.totalWorldDistance;
+    const distanceToTurn = Math.max(0, nextStepAlong - route.progressMeters);
+    const progressRatio = route.totalWorldDistance > 0
+      ? Math.min(1, route.progressMeters / route.totalWorldDistance)
+      : 0;
+    const remainingDistance = Math.max(0, route.distance * (1 - progressRatio));
+    const remainingDuration = Math.max(0, route.duration * (1 - progressRatio));
     const roadPart = step?.name ? ` · ${step.name}` : '';
     const details = offRoute
-      ? `You are ${formatDistance(nearestDistance)} from the route. Open the map and pin again to recalculate.`
+      ? `You are ${formatDistance(nearestDistance)} from the route. Return to the highlighted road.`
       : `In ${formatDistance(distanceToTurn)}${roadPart} · ${formatDistance(remainingDistance)} left · ${formatDuration(remainingDuration)}`;
     this.latestGuidance = {
       arrived: false, offRoute, arrow: offRoute ? '!' : instruction.arrow,
-      instruction: offRoute ? 'You are off route' : instruction.text,
+      instruction: offRoute ? 'Return to the highlighted route' : instruction.text,
       details, distanceToTurn, remainingDistance, remainingDuration
     };
     this.onGuidance(this.latestGuidance);
@@ -406,6 +481,9 @@ export class WorldMapView {
     const step = describeStep(this.route.steps[this.route.stepIndex]);
     return {
       worldPoints: this.route.worldPoints,
+      segmentIndex: this.route.progressSegment,
+      segmentT: this.route.progressT,
+      progressMeters: this.route.progressMeters,
       nextStep,
       destination: geoToWorld(this.route.destination.lat, this.route.destination.lon),
       arrow: guidance?.arrow || step.arrow,
