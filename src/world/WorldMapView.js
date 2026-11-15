@@ -414,20 +414,6 @@ export class WorldMapView {
       return;
     }
 
-    while (route.stepIndex < route.steps.length - 1) {
-      const stepPoint = route.stepWorld[route.stepIndex];
-      if (!stepPoint) { route.stepIndex++; continue; }
-      if (Math.hypot(player.x - stepPoint.x, player.z - stepPoint.z) < 22) route.stepIndex++;
-      else break;
-    }
-    const step = route.steps[route.stepIndex] || route.steps[route.steps.length - 1];
-    const point = route.stepWorld[route.stepIndex] || destinationWorld;
-    const distanceToTurn = Math.hypot(player.x - point.x, player.z - point.z);
-    let remainingDistance = distanceToTurn;
-    let remainingDuration = 0;
-    for (let i = route.stepIndex + 1; i < route.steps.length; i++) remainingDistance += route.steps[i].distance || 0;
-    for (let i = route.stepIndex; i < route.steps.length; i++) remainingDuration += route.steps[i].duration || 0;
-
     const projection = this.nearestRouteProjection(player.x, player.z);
     const nearestDistance = projection?.distance ?? Infinity;
     const offRoute = nearestDistance > 75 && route.distance > 100;
