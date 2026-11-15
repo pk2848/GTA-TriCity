@@ -10,9 +10,24 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.9</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.10</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
+    <div id="garage-panel" class="garage-panel">
+      <div class="garage-heading"><span>PLAYER GARAGE</span><b>3 VEHICLES</b></div>
+      <label for="car-select">BRAND / MODEL</label>
+      <select id="car-select" aria-label="Select player vehicle">
+        <optgroup label="PAGANI">
+          <option value="pagani-zonda-cinque">Zonda Cinque</option>
+        </optgroup>
+        <optgroup label="DODGE">
+          <option value="dodge-charger-1970">Charger R/T · 1970</option>
+          <option value="dodge-challenger-2015">Challenger R/T · 2015</option>
+        </optgroup>
+      </select>
+      <div id="car-select-status" data-state="loading" aria-live="polite">LOADING · PAGANI ZONDA CINQUE</div>
+      <small class="garage-tip">STOP VEHICLE TO SWITCH CARS</small>
+    </div>
     <div class="map-panel">
       <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
       <div id="map-counts">0 chunks · 0 roads · 0 buildings</div>
@@ -31,7 +46,7 @@
     </div>
     <div id="interaction-hint" class="interaction-hint" hidden></div>
     <div id="mall-floor-label" class="mall-floor-label" hidden>CP67 · GROUND FLOOR</div>
-    <div class="help"><span id="controls-help">W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></span></div>
+    <div class="help"><span id="controls-help">W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; V <i>GARAGE</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i></span></div>
   </div>
   <div id="crosshair">+</div>
   <section id="nav-guidance" class="nav-guidance" hidden aria-live="polite">
