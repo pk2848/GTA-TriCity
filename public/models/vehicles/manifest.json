@@ -1,19 +1,103 @@
 {
+  "defaultVehicle": "pagani-zonda-cinque",
   "vehicles": [
     {
-      "file": "public/models/vehicles/pagani-zonda-cinque.glb",
+      "id": "pagani-zonda-cinque",
+      "brand": "Pagani",
+      "model": "Zonda Cinque",
+      "displayName": "Pagani Zonda Cinque",
+      "file": "pagani-zonda-cinque.glb",
+      "scale": 1,
+      "rotation": [
+        0,
+        3.141592653589793,
+        0
+      ],
+      "wheelRadius": 0.36,
+      "physics": {
+        "width": 2.09,
+        "length": 4.43,
+        "height": 0.92,
+        "wheelbase": 2.73,
+        "trackWidth": 1.76,
+        "engineMultiplier": 1.1,
+        "maxSpeed": 37,
+        "nitroMaxSpeed": 46
+      }
+    },
+    {
+      "id": "dodge-charger-1970",
+      "brand": "Dodge",
+      "model": "Charger R/T · 1970",
+      "displayName": "1970 Dodge Charger R/T",
+      "file": "1970-dodge-charger-rt.glb",
+      "scale": 1,
+      "rotation": [
+        -1.5707963267948966,
+        3.141592653589793,
+        0
+      ],
+      "wheelGroupPattern": "^Wheel1A_(LF|RF|LR|RR)_",
+      "wheelRadius": 0.39,
+      "physics": {
+        "width": 1.99,
+        "length": 5.27,
+        "height": 1.18,
+        "wheelbase": 2.95,
+        "trackWidth": 1.61,
+        "engineMultiplier": 0.92,
+        "maxSpeed": 32,
+        "nitroMaxSpeed": 41
+      }
+    },
+    {
+      "id": "dodge-challenger-2015",
+      "brand": "Dodge",
+      "model": "Challenger R/T · 2015",
+      "displayName": "2015 Dodge Challenger R/T",
+      "file": "2015-dodge-challenger-rt.glb",
+      "scale": 100,
+      "rotation": [
+        0,
+        3.141592653589793,
+        0
+      ],
+      "wheelRadius": 0.38,
+      "physics": {
+        "width": 2.18,
+        "length": 5.27,
+        "height": 1.18,
+        "wheelbase": 2.95,
+        "trackWidth": 1.78,
+        "engineMultiplier": 1,
+        "maxSpeed": 35,
+        "nitroMaxSpeed": 44
+      }
+    }
+  ],
+  "assetChecksums": [
+    {
+      "file": "pagani-zonda-cinque.glb",
       "bytes": 16747784,
       "sha256": "0a9514f211c8c007ddb1950f9fcc792bb50e3f1ec8e4ac34d918587aee10a039"
     },
     {
-      "file": "public/models/vehicles/1970-dodge-charger-rt.glb",
+      "file": "1970-dodge-charger-rt.glb",
       "bytes": 32946792,
       "sha256": "8026abb6fcadfa431f9d5b0932896589883fce786be87778c1475214c6789fe2"
     },
     {
-      "file": "public/models/vehicles/2015-dodge-challenger-rt.glb",
+      "file": "2015-dodge-challenger-rt.glb",
       "bytes": 14853732,
       "sha256": "322da508fb717e1fa9d288b56f1fb021e6b1cea28b908da5e5900e0f77d24826"
     }
-  ]
+  ],
+  "howToAddMoreVehicles": {
+    "steps": [
+      "Copy the new .glb into public/models/vehicles/",
+      "Add one entry to the vehicles array with id, brand, model, displayName, file, scale, rotation, wheelRadius and physics",
+      "Refresh the game; the top-right garage reads this manifest automatically"
+    ],
+    "note": "The model itself must have a Y-up game orientation after the supplied rotation. Add wheelGroupPattern only when the GLB has separately named wheel meshes."
+  }
 }
