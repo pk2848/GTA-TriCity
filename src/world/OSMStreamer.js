@@ -265,7 +265,14 @@ export class OSMStreamer {
       this.failedAt.delete(key);
       this.retryAttempts.delete(key);
     }
-    if (this.queue.some(tile => tile.key === key)) return;
+    const queuedIndex = this.queue.findIndex(tile => tile.key === key);
+    if (queuedIndex >= 0) {
+      if (priority && queuedIndex > 0) {
+        const [queued] = this.queue.splice(queuedIndex, 1);
+        this.queue.unshift(queued);
+      }
+      return;
+    }
     const entry = { ix, iy, key };
     if (priority) this.queue.unshift(entry);
     else this.queue.push(entry);
