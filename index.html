@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#101a1d" />
   <meta name="description" content="GTA-TriCity — explore Chandigarh and Mohali, starting at CP67 Mall in Sector 67." />
-  <title>GTA-TriCity — CP67 Mall, Mohali</title>
+  <title>GTA-TriCity — Chandigarh, Mohali and Sukhna Lake</title>
 </head>
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH · MOHALI · BUILD 0.29</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH · MOHALI · BUILD 0.30</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
-    <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
+    <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span><button id="quick-location-open" type="button">LOCATIONS <kbd>P</kbd></button></div>
     <div id="garage-panel" class="garage-panel">
       <div class="garage-heading"><span>PLAYER GARAGE</span><b id="garage-count">LOADING</b></div>
       <label for="car-select">BRAND / MODEL</label>
@@ -97,13 +97,40 @@
 
   <div id="start-screen">
     <div class="start-card">
-      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.29</div>
+      <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.30</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
       <p>Start at CP67 Mall, Mohali. Drive through the city, walk into the multi-level CP67 Mall, or fly the civilian helicopter from the CP67 helipad. Use SHIFT to lift off, W to accelerate, A/D to turn and SPACE to stabilise.</p>
       <div class="start-meta"><span>CP67 MALL · SECTOR 67, MOHALI</span><span>3D + PHYSICS + CITY AI</span></div>
-      <button id="start" type="button">ENTER THE CITY <span>→</span></button>
-      <small>Desktop recommended · First-time live map data needs Internet. Install the Tricity offline map pack to explore saved roads and buildings without a connection.</small>
+      <button id="start" type="button">PLAY · CP67 MALL <span>→</span></button>
+      <div class="quick-start">
+        <div class="quick-start-heading">OR QUICK PLAY · DEVELOPED LOCATIONS</div>
+        <div class="quick-start-grid">
+          <button type="button" data-quick-start="ggdsd"><b>GGDSD COLLEGE</b><small>Sector 32-C · Chandigarh</small><span>PLAY HERE ↗</span></button>
+          <button type="button" data-quick-start="puNorth"><b>PANJAB UNIVERSITY</b><small>Sector 14 · North Campus</small><span>PLAY HERE ↗</span></button>
+          <button type="button" data-quick-start="puSouth"><b>PANJAB UNIVERSITY</b><small>Sector 25 · South Campus</small><span>PLAY HERE ↗</span></button>
+          <button type="button" data-quick-start="sukhna"><b>SUKHNA LAKE</b><small>Sector 1 · Chandigarh</small><span>PLAY HERE ↗</span></button>
+        </div>
+      </div>
+      <small>During gameplay press P or LOCATIONS to jump between developed areas. Desktop recommended · First-time live map data needs Internet; installed offline map packs load locally.</small>
     </div>
+  </div>
+
+  <div id="quick-location-menu" hidden>
+    <section class="quick-location-card" role="dialog" aria-modal="true" aria-labelledby="quick-location-title">
+      <div class="quick-location-title">
+        <div><small>TRICITY FAST TRAVEL</small><h2 id="quick-location-title">CHOOSE YOUR LOCATION</h2></div>
+        <button id="quick-location-close" type="button" aria-label="Close locations">×</button>
+      </div>
+      <p>Jump directly to a developed area. Your current ground vehicle will be moved to the selected spawn point.</p>
+      <div class="quick-location-grid">
+        <button type="button" data-quick-location="cp67"><b>CP67 MALL</b><small>Sector 67 · Mohali</small><span>GO THERE ↗</span></button>
+        <button type="button" data-quick-location="ggdsd"><b>GGDSD COLLEGE</b><small>Sector 32-C · Chandigarh</small><span>GO THERE ↗</span></button>
+        <button type="button" data-quick-location="puNorth"><b>PANJAB UNIVERSITY</b><small>Sector 14 · North Campus</small><span>GO THERE ↗</span></button>
+        <button type="button" data-quick-location="puSouth"><b>PANJAB UNIVERSITY</b><small>Sector 25 · South Campus</small><span>GO THERE ↗</span></button>
+        <button type="button" data-quick-location="sukhna"><b>SUKHNA LAKE</b><small>Sector 1 · Chandigarh</small><span>GO THERE ↗</span></button>
+      </div>
+      <small class="quick-location-footnote">FAST TRAVEL · Nearby map tiles are requested immediately; missing live map data may still need an Internet connection.</small>
+    </section>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
