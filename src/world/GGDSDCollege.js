@@ -238,7 +238,7 @@ export function createGGDSDCollege(scene) {
   // Distinctive golden auditorium volume shown in campus photographs.
   const auditorium = new THREE.Group();
   auditorium.name = 'ggdsd-golden-auditorium';
-  auditorium.position.set(77, 0, 55);
+  auditorium.position.set(82, 0, 55);
   root.add(auditorium);
   box(auditorium, 46, 11.5, 30, MAT.gold, 0, 5.75, 0, 'ggdsd-auditorium-shell');
   box(auditorium, 44.8, 8.4, 0.24, MAT.goldGlass, 0, 5.7, 15.15, 'ggdsd-auditorium-glass-front');
@@ -248,7 +248,7 @@ export function createGGDSDCollege(scene) {
   }
   box(auditorium, 47.5, 0.52, 31.5, MAT.cream, 0, 11.65, 0);
   sign(auditorium, 'AUDITORIUM', 'G.G.D.S.D. COLLEGE', 24, 3.2, 0, 6.0, 15.34);
-  obstacles.push({ id: 'ggdsd-golden-auditorium', x: 77, z: 55, width: 47, depth: 31, height: 12.4, minHeight: 0, yaw: 0 });
+  obstacles.push({ id: 'ggdsd-golden-auditorium', x: 82, z: 55, width: 47, depth: 31, height: 12.4, minHeight: 0, yaw: 0 });
 
   // Landscaped seating court, planters and the college's broad garden setting.
   for (const [x, z] of [[-42, 5], [-25, 5], [-8, 5], [9, 5], [26, 5], [43, 5]]) {
