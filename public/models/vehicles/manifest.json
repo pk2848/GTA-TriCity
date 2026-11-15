@@ -34,15 +34,15 @@
       "scale": 1,
       "rotation": [
         -1.5707963267948966,
-        3.141592653589793,
+        0,
         0
       ],
-      "wheelGroupPattern": "^Wheel1A_(LF|RF|LR|RR)_",
+      "wheelGroupPattern": "^Wheel1A_(LF|RF|LR|RR)$",
       "wheelRadius": 0.39,
       "physics": {
         "width": 1.99,
         "length": 5.27,
-        "height": 1.18,
+        "height": 1.42,
         "wheelbase": 2.95,
         "trackWidth": 1.61,
         "engineMultiplier": 0.92,
