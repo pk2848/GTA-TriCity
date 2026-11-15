@@ -98,3 +98,13 @@ body:has(.mall-floor-label:not([hidden])) #vehicle-status{display:none!important
 #car-retry:hover{background:#d7bd7c2b;border-color:#d7bd7c99}
 #car-retry:disabled{opacity:.5;cursor:wait}
 #car-select-status{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help}
+
+
+/* Graphics performance controls */
+.graphics-control{margin-top:9px;padding-top:8px;border-top:1px solid #d7bd7c33}
+.graphics-control label{display:block;margin-bottom:5px;color:#9daca4;font:8px 'DM Mono';letter-spacing:.9px}
+#graphics-quality{display:block;width:100%;padding:7px 8px;border:1px solid #d7bd7c55;border-radius:3px;background:#182725;color:#f1e7cb;font:9px 'DM Mono';cursor:pointer}
+#graphics-status{margin-top:6px;color:#a7d7ad;font:7px/1.4 'DM Mono';letter-spacing:.25px;white-space:normal}
+#graphics-status[data-state="medium"]{color:#f0d28a}
+#graphics-status[data-state="slow"]{color:#ee9c83}
+@media(max-width:760px){.graphics-control{margin-top:7px;padding-top:6px}#graphics-quality{font-size:8px}}
