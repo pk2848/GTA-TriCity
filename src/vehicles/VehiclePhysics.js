@@ -90,7 +90,9 @@ export class VehiclePhysics {
   }
 
   reset() {
-    this.chassisBody.position.set(0, 1.02, 0);
+    // Spawn at the CP67 Mall public drop-off plaza, facing the main entrance.
+    this.spawnPosition = this.spawnPosition || { x: 0, z: 112 };
+    this.chassisBody.position.set(this.spawnPosition.x, 1.02, this.spawnPosition.z);
     this.chassisBody.quaternion.set(0, 0, 0, 1);
     this.chassisBody.velocity.set(0, 0, 0);
     this.chassisBody.angularVelocity.set(0, 0, 0);
