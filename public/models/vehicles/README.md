@@ -1,13 +1,13 @@
 # GTA-TriCity vehicle assets
 
-The player garage loads these GLB files on demand:
+The player garage loads these GLB files on demand. It also contains a procedural CP67 Light Utility Helicopter entry (Aircraft) that does not require a GLB binary:
 
 - `pagani-zonda-cinque.glb`
 - `1970-dodge-charger-rt.glb`
 - `2015-dodge-challenger-rt.glb`
 - `bike_black.glb`
 
-Place the files in this folder by extracting the matching vehicle asset pack at the repository root. Keep the bike filename exactly `bike_black.glb` (underscore), matching `manifest.json`. A player vehicle is shown only after its GLB loads successfully; missing models are reported in the garage status.
+Place the files in this folder by extracting the matching vehicle asset pack at the repository root. Keep the bike filename exactly `bike_black.glb` (underscore), matching `manifest.json`. A player vehicle is shown only after its GLB loads successfully; missing models are reported in the garage status. The helicopter is built from reusable Three.js meshes and appears when selected in the same garage.
 
 ## Credits and rights
 
