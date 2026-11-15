@@ -190,7 +190,7 @@ function buildNavigationObjects(routeData) {
       const length = Math.hypot(dx, dz) || 1;
       const nx = -dz / length * halfWidth;
       const nz = dx / length * halfWidth;
-      positions.push(point.x + nx, 0.29, point.z + nz, point.x - nx, 0.29, point.z - nz);
+      positions.push(point.x + nx, 0.19, point.z + nz, point.x - nx, 0.19, point.z - nz);
       if (i < routePoints.length - 1) {
         const base = i * 2;
         indices.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
@@ -208,6 +208,56 @@ function buildNavigationObjects(routeData) {
     routeMesh.name = 'navigation-route-ribbon';
     routeMesh.renderOrder = 5;
     navigationGroup.add(routeMesh);
+
+    // Repeating road chevrons make the route legible from the driving camera.
+    const arrowGeometry = new THREE.BufferGeometry();
+    arrowGeometry.setAttribute('position', new THREE.Float32BufferAttribute([
+      0, 0, -3.2,
+      -1.75, 0, -0.05,
+      -0.58, 0, -0.05,
+      -0.58, 0, 1.85,
+      0.58, 0, 1.85,
+      0.58, 0, -0.05,
+      1.75, 0, -0.05
+    ], 3));
+    arrowGeometry.setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6]);
+    arrowGeometry.computeVertexNormals();
+    const totalLength = routePoints.reduce((sum, point, index) => {
+      if (index === 0) return 0;
+      return sum + Math.hypot(point.x - routePoints[index - 1].x, point.z - routePoints[index - 1].z);
+    }, 0);
+    const arrowCount = Math.min(24, Math.max(1, Math.floor(totalLength / 58)));
+    const arrowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffe09a, side: THREE.DoubleSide, transparent: true, opacity: 0.98,
+      depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3
+    });
+    const arrowInstances = new THREE.InstancedMesh(arrowGeometry, arrowMaterial, arrowCount);
+    arrowInstances.name = 'street-navigation-direction-chevrons';
+    const arrowTransform = new THREE.Object3D();
+    let routeDistance = 0, segmentIndex = 0;
+    for (let i = 0; i < arrowCount; i++) {
+      const targetDistance = totalLength * (i + 1) / (arrowCount + 1);
+      while (segmentIndex < routePoints.length - 2) {
+        const a = routePoints[segmentIndex], b = routePoints[segmentIndex + 1];
+        const segmentLength = Math.hypot(b.x - a.x, b.z - a.z);
+        if (routeDistance + segmentLength >= targetDistance) break;
+        routeDistance += segmentLength;
+        segmentIndex++;
+      }
+      const a = routePoints[segmentIndex], b = routePoints[Math.min(segmentIndex + 1, routePoints.length - 1)];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const segmentLength = Math.hypot(dx, dz) || 1;
+      const t = THREE.MathUtils.clamp((targetDistance - routeDistance) / segmentLength, 0, 1);
+      arrowTransform.position.set(a.x + dx * t, 0.27, a.z + dz * t);
+      arrowTransform.rotation.set(0, Math.atan2(-dx, -dz), 0);
+      arrowTransform.scale.setScalar(1);
+      arrowTransform.updateMatrix();
+      arrowInstances.setMatrixAt(i, arrowTransform.matrix);
+    }
+    arrowInstances.instanceMatrix.needsUpdate = true;
+    arrowInstances.computeBoundingSphere();
+    arrowInstances.renderOrder = 7;
+    navigationGroup.add(arrowInstances);
   }
 
   destinationBeacon = new THREE.Group();
