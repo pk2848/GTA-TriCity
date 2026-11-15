@@ -4,6 +4,7 @@ import { WorldMapView } from './world/WorldMapView.js';
 import { TrafficSystem } from './world/TrafficSystem.js';
 import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import { createCP67Mall } from './world/CP67Mall.js';
+import { createCP67Interior } from './world/CP67Interior.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -98,8 +99,62 @@ for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshB
 
 const vehiclePhysics = new VehiclePhysics();
 const cp67Mall = createCP67Mall(scene);
+const cp67Interior = createCP67Interior(scene);
+cp67Interior.group.position.y = 0.9;
 vehiclePhysics.addBuildingObstacles(cp67Mall.obstacles, 'cp67-mall');
 vehiclePhysics.syncVisuals(vehicle, wheels);
+
+function createPlayerPedestrian() {
+  const character = new THREE.Group();
+  character.name = 'player-walking-character';
+  const shirt = new THREE.MeshStandardMaterial({ color: 0x263f4b, roughness: 0.86 });
+  const trousers = new THREE.MeshStandardMaterial({ color: 0x252b31, roughness: 0.94 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xb98c70, roughness: 0.96 });
+  const hair = new THREE.MeshStandardMaterial({ color: 0x211b18, roughness: 1 });
+  const shoe = new THREE.MeshStandardMaterial({ color: 0x171a1c, roughness: 0.96 });
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.65, 4, 9), shirt);
+  torso.position.y = 1.22; torso.castShadow = true; character.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), skin);
+  head.position.y = 1.92; head.castShadow = true; character.add(head);
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.225, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.52), hair);
+  hairCap.position.y = 2.0; character.add(hairCap);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.18, 8), skin);
+  neck.position.y = 1.68; character.add(neck);
+  const arms = [];
+  for (const side of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.34, 1.48, 0);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.46, 3, 7), shirt);
+    arm.position.y = -0.31; arm.castShadow = true; pivot.add(arm);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 7), skin);
+    hand.position.y = -0.62; pivot.add(hand);
+    character.add(pivot); arms.push(pivot);
+  }
+  const legs = [];
+  for (const side of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.14, 0.82, 0);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.48, 3, 7), trousers);
+    leg.position.y = -0.34; leg.castShadow = true; pivot.add(leg);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.13, 0.42), shoe);
+    foot.position.set(0, -0.68, -0.08); foot.castShadow = true; pivot.add(foot);
+    character.add(pivot); legs.push(pivot);
+  }
+  const jacketLine = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.055, 0.32), new THREE.MeshStandardMaterial({ color: 0x8a9b9d, roughness: 0.8 }));
+  jacketLine.position.set(0, 1.38, -0.255); character.add(jacketLine);
+  character.userData.limbs = { arms, legs };
+  return character;
+}
+const playerPedestrian = createPlayerPedestrian();
+playerPedestrian.visible = false;
+scene.add(playerPedestrian);
+let gameMode = 'vehicle'; // vehicle | walking
+let pedestrianHeading = 0;
+let pedestrianFloor = 0;
+let pedestrianInsideMall = false;
+let pedestrianWalkPhase = 0;
+const WALK_SPEED = 4.2;
+const RUN_SPEED = 6.2;
 
 // Twin exhaust flames illuminate only while N-key nitro is engaged.
 const nitroFlames = new THREE.Group();
