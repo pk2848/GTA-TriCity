@@ -130,9 +130,14 @@ export class TrafficSystem{
    if(!response.ok)throw new Error(`Vehicle manifest HTTP ${response.status}`);
    const manifest=await response.json();
    this.vehicleProfiles=Array.isArray(manifest.vehicles)?manifest.vehicles:[];
-   this.trafficVehicleIds=this.vehicleProfiles.map(profile=>profile.id).filter(Boolean);
+   // Ambient road traffic uses uploaded cars only. Two-wheelers are player-selectable
+   // until a separate motorcycle + rider physics/animation system is implemented.
+   const trafficProfiles=this.vehicleProfiles.filter(profile =>
+    profile.physics?.vehicleType !== 'motorcycle' && profile.trafficEnabled !== false
+   );
+   this.trafficVehicleIds=trafficProfiles.map(profile=>profile.id).filter(Boolean);
 
-   for(const profile of this.vehicleProfiles){
+   for(const profile of trafficProfiles){
     const file=String(profile.file||'').split('/').pop();
     if(!file||!file.toLowerCase().endsWith('.glb'))continue;
     try{
