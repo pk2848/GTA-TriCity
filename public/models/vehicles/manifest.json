@@ -23,7 +23,8 @@
         "engineMultiplier": 1.1,
         "maxSpeed": 37,
         "nitroMaxSpeed": 46
-      }
+      },
+      "audioType": "supercar"
     },
     {
       "id": "dodge-charger-1970",
@@ -48,7 +49,8 @@
         "engineMultiplier": 0.92,
         "maxSpeed": 32,
         "nitroMaxSpeed": 41
-      }
+      },
+      "audioType": "muscle"
     },
     {
       "id": "dodge-challenger-2015",
@@ -72,7 +74,8 @@
         "engineMultiplier": 1,
         "maxSpeed": 35,
         "nitroMaxSpeed": 44
-      }
+      },
+      "audioType": "muscle"
     },
     {
       "id": "black-bike",
@@ -129,7 +132,8 @@
         "maxSpeed": 31,
         "nitroMaxSpeed": 39,
         "mass": 1450
-      }
+      },
+      "audioType": "utility"
     },
     {
       "id": "civilian-helicopter",
