@@ -145,8 +145,8 @@ function addStoreRow(parent,floor,z,side,names) {
     addShop(parent,{x,z,width:9.5,floor,name:item[0],subtitle:item[1],side});
   });
 }
-function addFoodStall(parent,x,z,name,accent) {
-  const baseY=2.1;
+function addFoodStall(parent,x,z,name,accent,levelY=0) {
+  const baseY=levelY+2.1;
   box(parent,7,3.7,3.3,MAT.wallWarm,x,baseY,z);
   box(parent,6.55,1.7,0.12,MAT.dark,x,baseY+0.5,z+1.68);
   box(parent,6.7,0.24,0.28,MAT.gold,x,baseY+1.55,z+1.65);
@@ -155,8 +155,8 @@ function addFoodStall(parent,x,z,name,accent) {
     box(parent,0.32,0.52,0.14,MAT.darkMetal,x-2.2+i*2.2,baseY+0.7,z+1.55);
   }
 }
-function addCinema(parent,x,z,index) {
-  const g=new THREE.Group();g.position.set(x,0,z);parent.add(g);
+function addCinema(parent,x,z,index,levelY=0) {
+  const g=new THREE.Group();g.position.set(x,levelY,z);parent.add(g);
   box(g,8.6,3.7,16,MAT.black,0,2.0,0);
   box(g,7.5,2.2,0.16,MAT.screen,0,2.65,-7.85);
   for(let row=0;row<6;row++){
@@ -229,7 +229,7 @@ export function createCP67Interior(scene) {
     }else if(floor===2){
       sign(root,'CP67 FOOD HALL','RESTAURANTS · CAFÉS · FEC',0,y+5.4,-51,27,1.5,0,'#243239');
       const names=['FOOD COURT','PIZZA','BURGER','INDIAN','CAFÉ','DESSERT','ASIAN'];
-      names.forEach((name,i)=>addFoodStall(root,-48+i*16,-47,name,i%2?'#7b2f2a':'#214c40'));
+      names.forEach((name,i)=>addFoodStall(root,-48+i*16,-47,name,i%2?'#7b2f2a':'#214c40',y));
       for(let row=0;row<3;row++){
         for(let col=0;col<5;col++){
           const x=-34+col*17,z=-12+row*10;
@@ -245,7 +245,7 @@ export function createCP67Interior(scene) {
       for(let i=0;i<5;i++)addPlanter(root,-42+i*21,y,-1,2.3,2.0);
     }else{
       sign(root,'PVR CINEMAS','7 SCREEN MULTIPLEX',0,y+5.0,-51,29,1.5,0,'#17181d');
-      for(let i=0;i<7;i++)addCinema(root,-51+i*17,-27,i+1);
+      for(let i=0;i<7;i++)addCinema(root,-51+i*17,-27,i+1,y);
       box(root,43,1.1,2.2,MAT.wood,-7,y+0.85,-4);
       sign(root,'TICKETS & CONCESSIONS','PVR CINEMAS',-7,y+2.3,-2.8,27,1.1,0,'#8b3827');
       for(let i=0;i<3;i++)box(root,0.8,1.1,0.5,MAT.gold,-21+i*14,y+0.62,-1.2);
