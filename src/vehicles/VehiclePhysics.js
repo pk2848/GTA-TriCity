@@ -8,6 +8,9 @@ const MODEL_ORIGIN_OFFSET = new CANNON.Vec3(0, 0.9, 0);
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
+function lerpValue(a, b, t) {
+  return a + (b - a) * t;
+}
 
 export class VehiclePhysics {
   constructor() {
@@ -53,15 +56,15 @@ export class VehiclePhysics {
     const wheelOptions = {
       radius: 0.43,
       directionLocal: new CANNON.Vec3(0, -1, 0),
-      suspensionStiffness: 48,
+      suspensionStiffness: 52,
       suspensionRestLength: 0.42,
       frictionSlip: 4.5,
-      dampingRelaxation: 2.8,
-      dampingCompression: 5.2,
+      dampingRelaxation: 3.2,
+      dampingCompression: 6.0,
       maxSuspensionForce: 145000,
       maxSuspensionTravel: 0.22,
       // Keep lateral tyre impulses close to the centre of mass to resist rollovers.
-      rollInfluence: 0.018,
+      rollInfluence: 0.009,
       // +X is the right axle. With +Y up, Y × X gives the game's -Z forward.
       axleLocal: new CANNON.Vec3(1, 0, 0),
       chassisConnectionPointLocal: new CANNON.Vec3(),
@@ -92,6 +95,7 @@ export class VehiclePhysics {
     this.rolloverTimer = 0;
     this.isUpsideDown = false;
     this.nitroMultiplier = 1;
+    this.nitroBlend = 0;
     this.accumulator = 0;
     this.obstacleIds = new Set();
     this.obstacleBodies = [];
@@ -112,6 +116,7 @@ export class VehiclePhysics {
     this.steering = 0;
     this.speedMps = 0;
     this.heading = 0;
+    this.nitroBlend = 0;
     this.rolloverTimer = 0;
     this.isUpsideDown = false;
     this.chassisBody.wakeUp();
@@ -169,8 +174,12 @@ export class VehiclePhysics {
     this.raycastVehicle.setSteeringValue(this.steering, 0);
     this.raycastVehicle.setSteeringValue(this.steering, 1);
 
-    const baseEngineForce = 5200 * condition * this.engineMultiplier * (controls.boost ? 1.16 : 1);
-    const engineForce = throttle * baseEngineForce * (nitro && throttle > 0 ? 1.85 : 1);
+    // Nitro ramps in smoothly and adds modest acceleration. A large instant force
+    // spike at the rear wheels creates a wheelie and can launch a light supercar.
+    const nitroTarget = nitro && throttle > 0 ? 1 : 0;
+    this.nitroBlend += (nitroTarget - this.nitroBlend) * Math.min(1, dt * 2.4);
+    const baseEngineForce = 3900 * condition * this.engineMultiplier * (controls.boost ? 1.05 : 1);
+    const engineForce = throttle * baseEngineForce * (1 + this.nitroBlend * 0.13);
     // The chassis and imported vehicles face local -Z. With +X wheel axles,
     // positive engine force drives the vehicle forward toward -Z.
     this.raycastVehicle.applyEngineForce(engineForce, 2);
@@ -187,7 +196,7 @@ export class VehiclePhysics {
     this.speedMps = this.chassisBody.velocity.dot(forward);
     this.heading = Math.atan2(-forward.x, -forward.z);
 
-    const speedCap = nitro ? this.nitroMaxSpeed : this.maxSpeed;
+    const speedCap = lerpValue(this.maxSpeed, this.nitroMaxSpeed, this.nitroBlend);
     const speed = this.chassisBody.velocity.length();
     if (speed > speedCap) {
       const scale = speedCap / speed;
@@ -211,13 +220,24 @@ export class VehiclePhysics {
     // two wheels are on the ground. It does not affect steering/yaw.
     if (groundedWheels >= 2 && chassisUp.y > 0.22) {
       const correctionAxis = chassisUp.cross(worldUp);
-      const correctionStrength = 2600;
-      const angularDamping = 780;
+      const correctionStrength = 1500;
+      const angularDamping = 520;
       this.chassisBody.torque.x += correctionAxis.x * correctionStrength
         - this.chassisBody.angularVelocity.x * angularDamping;
       this.chassisBody.torque.z += correctionAxis.z * correctionStrength
         - this.chassisBody.angularVelocity.z * angularDamping;
     }
+
+    // Speed-dependent tyre downforce keeps the chassis planted during nitro.
+    // Apply only while tyres are grounded; never pull an airborne car down abruptly.
+    if (groundedWheels >= 2) {
+      const downforce = Math.min(2600, horizontalSpeed * horizontalSpeed * 2.25);
+      this.chassisBody.force.y -= downforce;
+    }
+
+    // Limit extreme roll/pitch angular rates without restricting yaw/steering.
+    this.chassisBody.angularVelocity.x = clamp(this.chassisBody.angularVelocity.x, -1.05, 1.05);
+    this.chassisBody.angularVelocity.z = clamp(this.chassisBody.angularVelocity.z, -1.05, 1.05);
 
     const rolled = chassisUp.y < 0.18 || this.chassisBody.position.y < -1;
     this.rolloverTimer = rolled ? this.rolloverTimer + dt : Math.max(0, this.rolloverTimer - dt * 2);
