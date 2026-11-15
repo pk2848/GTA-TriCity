@@ -98,6 +98,20 @@ function isInsideGGDSDCampus(point) {
   return Math.abs(point.x - GGDSD_COLLEGE_CENTER.x) <= GGDSD_CAMPUS_HALF_EXTENT &&
     Math.abs(point.z - GGDSD_COLLEGE_CENTER.z) <= GGDSD_CAMPUS_HALF_EXTENT;
 }
+
+// Custom Panjab University landmark models replace only the OSM building meshes
+// at their known footprints. The rest of both campuses continues using OSM geometry.
+const PU_CUSTOM_BUILDINGS = [
+  { center: geoToWorld(30.761556, 76.771125), radius: 52 },    // Gandhi Bhawan
+  { center: geoToWorld(30.7623012, 76.772183), radius: 39 },  // Fine Arts Museum
+  { center: geoToWorld(30.76158, 76.76994), radius: 36 },      // A.C. Joshi Library
+  { center: geoToWorld(30.762274, 76.769227), radius: 42 }     // Student Centre
+];
+function isPUCustomBuilding(point) {
+  return PU_CUSTOM_BUILDINGS.some(item =>
+    Math.hypot(point.x - item.center.x, point.z - item.center.z) <= item.radius
+  );
+}
 function tileBounds(ix, iy) {
   const west = CITY_ORIGIN.lon + (ix - 0.5) * TILE_DEGREES;
   const south = CITY_ORIGIN.lat + (iy - 0.5) * TILE_DEGREES;
@@ -663,7 +677,7 @@ export class OSMStreamer {
           // Bespoke landmark models replace the coarse OSM buildings within their
           // respective mapped footprints. Keep surrounding streets and POI nodes.
           const inCP67 = Math.abs(mallCenter.x) < 72 && mallCenter.z > -64 && mallCenter.z < 17;
-          if (inCP67 || isInsideGGDSDCampus(mallCenter)) {
+          if (inCP67 || isInsideGGDSDCampus(mallCenter) || isPUCustomBuilding(mallCenter)) {
             tileSeen.add(idKey);
             continue;
           }
