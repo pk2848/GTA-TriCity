@@ -2,6 +2,24 @@
 
 GTA-TriCity is an actively developed browser-based open-world driving and exploration game built with Three.js. The world is anchored to Chandigarh–Mohali geography using OpenStreetMap data. The current game start is the CP67 Mall arrival plaza in Sector 67, Mohali.
 
+## GGDSD College — Sector 32-C, Chandigarh
+
+A custom 3D reconstruction of **Goswami Ganesh Dutta Sanatan Dharma College** is placed at its real Chandigarh location rather than near the CP67 starting area.
+
+- Official address: Sector 32-C, Chandigarh 160030 ([college contact page](https://ggdsd.ac.in/contact-us/)).
+- Placement anchor: mapped college feature, OpenStreetMap way 129453731, approximately **30.70402° N, 76.77231° E**.
+- The college's 2023–24 annual report also contains a campus photograph geotagged at **30.704998° N, 76.772445° E**, providing an additional on-campus reference point.
+- The custom model includes pink/red brick academic wings with cream floor bands and repeated windows; the Science / PG Block, IT Centre, Prof. Roshan Lal Verma Block, Administrative Block and Commerce Block; a golden-glass auditorium; central courtyard, lawns, trees, paved paths and a signed main gate.
+- The OSM building and green-area meshes are suppressed only inside the bespoke campus envelope, so the custom 3D campus does not z-fight with simplified OSM extrusions. Nearby roads and POI features remain in the streamed map. The custom buildings also receive vehicle collision boxes.
+- The campus is a recognisable, scale-oriented reconstruction guided by public photographs, not an exact as-built architectural/BIM model. The boundary and internal block positions are approximate; a surveyed site plan or CAD/BIM file would allow a closer match.
+
+**Public visual references**
+- [GGDSD College official website](https://ggdsd.ac.in/)
+- [College campus and IT Centre photos](https://www.shiksha.com/college/goswami-ganesh-dutta-s-d-college-chandigarh-22606/gallery)
+- [Science and PG Blocks photo](https://cache.careers360.mobi/media/colleges/reviews/2023/8/18/210904/2021-03-11.jpg)
+- [Prof. Roshan Lal Verma Block courtyard photo](https://images.shiksha.com/mediadata/images/1741680204phpHX4qX9_g.jpg)
+- [Golden auditorium photo](https://assets.allegiance-educare.com/colleges/1611469270Main%20auditorium_.jpg)
+
 ## CP67 reference material
 
 The exterior reconstruction uses the supplied aerial/front photograph as its principal shape reference, checked against publicly available CP67 photographs. The interior layout is based on the publicly available first-floor general-arrangement drawing and interior photographs.
