@@ -76,6 +76,26 @@ npm run dev
 - The model is a textured photogrammetry scan without separately named wheel meshes; therefore its visible wheels are static in this first integration. The existing four-contact raycast physics is reused with a narrow track width; dedicated two-wheel motorcycle leaning/steering physics remains future work.
 - The same manifest entry makes the bike eligible for the existing AI traffic model pool.
 
+### Install the Black Bike binary asset
+
+The garage manifest and motorcycle physics profile are already in the repository. The optimized binary is supplied as a separate ZIP because this GitHub connection can commit source text but cannot upload binary GLB bytes directly. Download the provided `GTA-TriCity-Bike-Asset.zip` and extract it at the repository root; it contains `public/models/vehicles/bike-black.glb` and its attribution text.
+
+Verify the file after extraction:
+
+```bash
+sha256sum public/models/vehicles/bike-black.glb
+```
+
+Expected SHA-256: `a243216ddcf11d2179a7e90966ec4dca04177b8507c94aab61e7de0537403d12`.
+
+Then commit the model to your GitHub repository:
+
+```bash
+git add public/models/vehicles/bike-black.glb public/models/vehicles/BIKE-ATTRIBUTION.txt
+git commit -m "Add optimized Black Bike motorcycle asset"
+git push origin main
+```
+
 ### Black Bike attribution
 
 Original model: **“BIKE BLACK”** by **Nikitos & 3130 (vrcityphoto)**, CC BY 4.0. Source: https://sketchfab.com/3d-models/bike-black-125180830cbe44818e1be482a509f0e8. Acknowledge the creator and include the licence link when redistributing the asset.
