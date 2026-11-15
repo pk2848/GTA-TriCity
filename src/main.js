@@ -6,6 +6,7 @@ import { VehiclePhysics } from './vehicles/VehiclePhysics.js';
 import { createCP67Mall } from './world/CP67Mall.js';
 import { createCP67Interior } from './world/CP67Interior.js';
 import { VehicleGarage } from './vehicles/VehicleGarage.js';
+import { RoadAssetRenderer } from './world/RoadAssetRenderer.js';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 
@@ -217,6 +218,9 @@ const toast = document.querySelector('#toast');
 const trafficSystem = new TrafficSystem(scene, counts => {
   trafficCount.textContent = `AI traffic · ${counts.cars} cars · ${counts.pedestrians} pedestrians · ${counts.signals || 0} signals · ${counts.crossings || 0} crossings`;
 });
+const roadAssetRenderer = new RoadAssetRenderer(status => {
+  console.info('[GTA-TriCity]', status);
+});
 const streamer = new OSMStreamer(scene,
   status => {
     mapState.textContent = status.length > 22 ? status.slice(0, 20) + '…' : status;
@@ -225,7 +229,10 @@ const streamer = new OSMStreamer(scene,
   counts => {
     mapCounts.textContent = `${counts.chunks} chunks · ${counts.roads} roads · ${counts.buildings} buildings · ${counts.sidewalks || 0} sidewalks · ${counts.parks || 0} green/water areas`;
   },
-  (roads, tileKey, features) => trafficSystem.addRoads(roads, tileKey, features),
+  (roads, tileKey, features) => {
+    trafficSystem.addRoads(roads, tileKey, features);
+    return roadAssetRenderer.addRoads(roads, tileKey);
+  },
   (obstacles, tileKey) => vehiclePhysics.addBuildingObstacles(obstacles, tileKey)
 );
 
