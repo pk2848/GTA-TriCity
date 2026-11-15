@@ -444,6 +444,7 @@ function setWalkingMode(enabled) {
   playerPedestrian.visible = enabled;
   vehicle.visible = true;
   wheels.forEach(wheel => { wheel.visible = !enabled; });
+  document.querySelector('#vehicle-status').style.display = enabled ? 'none' : '';
   nitroActive = false;
   nitroFlames.visible = false;
   nitroGlow.intensity = 0;
@@ -618,12 +619,14 @@ function drawMinimap() {
   ctx.clearRect(0, 0, 180, 180);
   ctx.fillStyle = '#182621'; ctx.fillRect(0, 0, 180, 180);
   const routeState = mapView.getMinimapState();
+  const playerPosition = activeWorldPosition();
+  const playerHeading = gameMode === 'walking' ? pedestrianHeading : heading;
   const scale = 0.23; // roughly 700 metres across the circular radar at this zoom
   ctx.save();
   ctx.beginPath(); ctx.arc(90, 90, 82, 0, Math.PI * 2); ctx.clip();
   ctx.translate(90, 90);
   // Heading-up orientation: the vehicle's nose always points to the top of the radar.
-  ctx.rotate(heading);
+  ctx.rotate(playerHeading);
   ctx.strokeStyle = '#405249'; ctx.lineWidth = 1;
   for (let p = -180; p <= 180; p += 22.5) {
     ctx.beginPath(); ctx.moveTo(p, -90); ctx.lineTo(p, 90); ctx.stroke();
@@ -642,10 +645,10 @@ function drawMinimap() {
 
     const drawRoute = () => {
       ctx.beginPath();
-      ctx.moveTo((routeStart.x - vehicle.position.x) * scale, (routeStart.z - vehicle.position.z) * scale);
+      ctx.moveTo((routeStart.x - playerPosition.x) * scale, (routeStart.z - playerPosition.z) * scale);
       for (let i = segmentIndex + 1; i < points.length; i++) {
-        const x = (points[i].x - vehicle.position.x) * scale;
-        const y = (points[i].z - vehicle.position.z) * scale;
+        const x = (points[i].x - playerPosition.x) * scale;
+        const y = (points[i].z - playerPosition.z) * scale;
         ctx.lineTo(x, y);
       }
     };
@@ -664,8 +667,8 @@ function drawMinimap() {
       if (segmentLength < 1) continue;
       while (travelled + segmentLength >= nextArrowAt) {
         const t = THREE.MathUtils.clamp((nextArrowAt - travelled) / segmentLength, 0, 1);
-        const x = (a.x + dx * t - vehicle.position.x) * scale;
-        const y = (a.z + dz * t - vehicle.position.z) * scale;
+        const x = (a.x + dx * t - playerPosition.x) * scale;
+        const y = (a.z + dz * t - playerPosition.z) * scale;
         ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dz, dx));
         ctx.fillStyle = '#fff4d0'; ctx.strokeStyle = '#18211b'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath();
@@ -676,8 +679,8 @@ function drawMinimap() {
     }
     const next = routeState.nextStep;
     if (next) {
-      const x = (next.x - vehicle.position.x) * scale;
-      const y = (next.z - vehicle.position.z) * scale;
+      const x = (next.x - playerPosition.x) * scale;
+      const y = (next.z - playerPosition.z) * scale;
       if (Math.hypot(x, y) < 76) {
         ctx.fillStyle = '#fff'; ctx.strokeStyle = '#a66b18'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -687,8 +690,8 @@ function drawMinimap() {
     }
     const dest = routeState.destination;
     if (dest) {
-      const x = (dest.x - vehicle.position.x) * scale;
-      const y = (dest.z - vehicle.position.z) * scale;
+      const x = (dest.x - playerPosition.x) * scale;
+      const y = (dest.z - playerPosition.z) * scale;
       if (Math.hypot(x, y) < 80) {
         ctx.fillStyle = '#f2b63f'; ctx.strokeStyle = '#18211b'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
