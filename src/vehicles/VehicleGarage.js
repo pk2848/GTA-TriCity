@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createHelicopterModel } from './HelicopterModel.js';
 
 const ASSET_BASE = import.meta.env.BASE_URL || '/';
 const MANIFEST_URL = `${ASSET_BASE}models/vehicles/manifest.json`;
@@ -35,9 +36,10 @@ function removeEmbeddedCameras(root) {
 }
 
 function normalizeProfile(entry) {
+  const proceduralType = entry.proceduralType ? String(entry.proceduralType) : null;
   const fileName = String(entry.file || entry.filename || '').split('/').pop();
-  if (!fileName || !fileName.toLowerCase().endsWith('.glb')) {
-    throw new Error(`Vehicle entry "${entry.id || entry.model || 'unknown'}" needs a .glb file name.`);
+  if (!proceduralType && (!fileName || !fileName.toLowerCase().endsWith('.glb'))) {
+    throw new Error(`Vehicle entry "${entry.id || entry.model || 'unknown'}" needs a .glb file name or a supported proceduralType.`);
   }
   const wheelGroupPattern = entry.wheelGroupPattern
     ? new RegExp(entry.wheelGroupPattern, 'i')
@@ -48,7 +50,8 @@ function normalizeProfile(entry) {
     brand: String(entry.brand || 'Other'),
     model: String(entry.model || fileName.replace(/\.glb$/i, '')),
     displayName: String(entry.displayName || `${entry.brand || 'Vehicle'} ${entry.model || fileName}`),
-    file: `${ASSET_BASE}models/vehicles/${fileName}`,
+    file: proceduralType ? null : `${ASSET_BASE}models/vehicles/${fileName}`,
+    proceduralType,
     scale: Number(entry.scale) || 1,
     rotation: Array.isArray(entry.rotation) && entry.rotation.length === 3
       ? entry.rotation.map(Number)
@@ -135,6 +138,7 @@ export class VehicleGarage {
     this.activeId = null;
     this.activeSlot = null;
     this.activeWheels = [];
+    this.activeRotorGroups = [];
     this.requestId = 0;
     this.loading = false;
     this.pendingSelection = null;
@@ -249,7 +253,9 @@ export class VehicleGarage {
     this.setStatus(`LOADING · ${profile.brand.toUpperCase()} ${profile.model.toUpperCase()}`, 'loading');
 
     try {
-      const gltf = await this.loader.loadAsync(profile.file);
+      const gltf = profile.proceduralType === 'helicopter'
+        ? { scene: createHelicopterModel() }
+        : await this.loader.loadAsync(profile.file);
       if (request !== this.requestId) {
         disposeModel(gltf.scene);
         return;
@@ -282,12 +288,13 @@ export class VehicleGarage {
       // Preserve the manifest's up-axis correction, then try yaw-only alignment
       // so the longest horizontal dimension points down the game's -Z road axis.
       const isMotorcycle = profile.physics?.vehicleType === 'motorcycle';
+      const isProcedural = Boolean(profile.proceduralType);
       const validAxes = (dimensions) => isMotorcycle
         ? (dimensions.x >= 0.55 && dimensions.x <= 1.3 &&
            dimensions.y >= 0.95 && dimensions.y <= 1.7 &&
            dimensions.z >= 1.55 && dimensions.z <= 2.55)
         : (dimensions.z >= dimensions.y * 1.45 && dimensions.z >= dimensions.x * 1.45);
-      if (!validAxes(size) && !isMotorcycle) {
+      if (!isProcedural && !validAxes(size) && !isMotorcycle) {
         // Try alternate yaw directions, but never leave the model on a failed
         // trial rotation. A valid downloaded GLB should still be displayable
         // even when its authored dimensions are unusual.
@@ -315,7 +322,7 @@ export class VehicleGarage {
         }
       }
 
-      if (!validAxes(size)) {
+      if (!isProcedural && !validAxes(size)) {
         console.warn(
           `[GTA-TriCity] ${profile.displayName} dimension warning: ` +
           `X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ` +
@@ -344,11 +351,14 @@ export class VehicleGarage {
       const oldSlot = this.activeSlot;
       this.activeSlot = slot;
       this.activeWheels = wheelPivots;
+      this.activeRotorGroups = gltf.scene.userData.rotorGroups || [];
       this.activeId = profile.id;
-      this.physics?.setVehicleProfile?.({
-        ...profile.physics,
-        wheelRadius: profile.wheelRadius
-      });
+      if (profile.proceduralType !== 'helicopter') {
+        this.physics?.setVehicleProfile?.({
+          ...profile.physics,
+          wheelRadius: profile.wheelRadius
+        });
+      }
 
       if (oldSlot) {
         this.vehicle.remove(oldSlot);
@@ -446,6 +456,9 @@ export class VehicleGarage {
   }
 
   update(deltaTime) {
+    for (const rotor of this.activeRotorGroups) {
+      if (rotor?.object && rotor.axis) rotor.object.rotation[rotor.axis] += deltaTime * rotor.speed;
+    }
     if (this.activeWheels.length && this.physics) {
       const profile = this.catalog.find((item) => item.id === this.activeId);
       const radius = profile?.wheelRadius || 0.38;
