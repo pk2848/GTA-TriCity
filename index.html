@@ -4,15 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#101a1d" />
-  <meta name="description" content="Tricity Drive — a browser-based open-world driving project for Chandigarh and Mohali." />
-  <title>Tricity Drive — Chandigarh × Mohali</title>
+  <meta name="description" content="GTA-TriCity — explore Chandigarh and Mohali, starting at CP67 Mall in Sector 67." />
+  <title>GTA-TriCity — CP67 Mall, Mohali</title>
 </head>
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH × MOHALI · BUILD 0.7</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.7</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
-    <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">SECTOR 17</b></span></div>
+    <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
     <div class="map-panel">
       <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
       <div id="map-counts">0 chunks · 0 roads · 0 buildings</div>
@@ -50,7 +50,7 @@
 
   <section id="map-overlay" aria-hidden="true">
     <header class="map-toolbar">
-      <div><strong>TRICITY NAVIGATION</strong><small>LIVE OPENSTREETMAP · CHANDIGARH × MOHALI</small></div>
+      <div><strong>TRICITY NAVIGATION</strong><small>LIVE OPENSTREETMAP · CP67 MALL, MOHALI</small></div>
       <div class="map-actions">
         <button id="map-follow" type="button">FOLLOW PLAYER: ON</button>
         <button id="map-center" type="button">CENTER ON ME</button>
@@ -62,15 +62,15 @@
       <button id="clear-route" type="button" disabled>CLEAR PIN</button>
     </div>
     <div id="world-map" role="application" aria-label="Interactive OpenStreetMap showing your current game position"></div>
-    <footer class="map-footer"><span id="map-coordinates">PLAYER POSITION · SECTOR 17 AREA</span><span>Scroll to zoom · Drag to pan · Map © OpenStreetMap contributors · Routing by <a href="https://project-osrm.org/" target="_blank" rel="noreferrer">OSRM</a></span></footer>
+    <footer class="map-footer"><span id="map-coordinates">PLAYER POSITION · CP67 MALL, SECTOR 67</span><span>Scroll to zoom · Drag to pan · Map © OpenStreetMap contributors · Routing by <a href="https://project-osrm.org/" target="_blank" rel="noreferrer">OSRM</a></span></footer>
   </section>
 
   <div id="start-screen">
     <div class="start-card">
       <div class="eyebrow">AN OPEN-WORLD TRICITY PROJECT · BUILD 0.7</div>
       <h1>YOUR CITY.<br><em>YOUR WORLD.</em></h1>
-      <p>Explore Chandigarh and Mohali with mouse-orbit driving controls, an interactive live map, clickable destinations, suspension physics, AI traffic lights, junction routing, zebra crossings, pedestrians and vehicle damage.</p>
-      <div class="start-meta"><span>SECTOR 17 START</span><span>3D + PHYSICS + CITY AI</span></div>
+      <p>Start outside CP67 Mall in Mohali. Explore a detailed custom mall landmark, real mapped streets, mouse-orbit driving, destination routing, vehicle suspension, simulated traffic and pedestrians.</p>
+      <div class="start-meta"><span>CP67 MALL · SECTOR 67, MOHALI</span><span>3D + PHYSICS + CITY AI</span></div>
       <button id="start" type="button">ENTER THE CITY <span>→</span></button>
       <small>Desktop recommended · Internet connection required for live map data. Map detail depends on OpenStreetMap coverage.</small>
     </div>
