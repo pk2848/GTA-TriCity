@@ -84,6 +84,13 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.26 — permanent parked helicopter at CP67
+
+- The uploaded `animated_civilian_helicopter.glb` is now loaded independently by the helipad world module and displayed as a parked aircraft at CP67 whenever another vehicle is selected.
+- The static display instance has its own animation mixer, so the uploaded rotor/idle animation continues without occupying the player's vehicle slot.
+- Selecting the flyable helicopter hides the parked display while the player is on or near the pad, preventing two models from overlapping. The parked helicopter reappears after the pilot flies away or exits after landing.
+- Selecting a car, bike or yacht does not remove the parked helicopter from the scene.
+
 ## Build 0.25 — final helicopter control direction audit
 
 The imported civilian helicopter's visible nose is local +Z after its manifest rotation. Flight thrust and strafe now use that exact local basis rather than the car-oriented -Z basis. This corrects W so it accelerates toward the visible nose. The chase camera and minimap use the corresponding opposite heading to remain behind the aircraft. A/D yaw direction is mapped to intuitive left/right for the +Z-forward model. S is a brake only; it no longer generates reverse thrust.
