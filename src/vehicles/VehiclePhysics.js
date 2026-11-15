@@ -124,6 +124,25 @@ export class VehiclePhysics {
     this.chassisBody.aabbNeedsUpdate = true;
   }
 
+  spawnAt(x, z, heading = 0) {
+    const spawnX = Number(x);
+    const spawnZ = Number(z);
+    const yaw = Number(heading) || 0;
+    if (!Number.isFinite(spawnX) || !Number.isFinite(spawnZ)) {
+      throw new TypeError('Vehicle spawn coordinates must be finite numbers.');
+    }
+    this.spawnPosition = { x: spawnX, z: spawnZ };
+    this.reset();
+    this.chassisBody.quaternion.setFromEuler(0, yaw, 0);
+    this.chassisBody.interpolatedPosition.copy(this.chassisBody.position);
+    this.chassisBody.previousPosition.copy(this.chassisBody.position);
+    this.chassisBody.interpolatedQuaternion.copy(this.chassisBody.quaternion);
+    this.chassisBody.previousQuaternion.copy(this.chassisBody.quaternion);
+    this.chassisBody.updateAABB();
+    this.world.broadphase.dirty = true;
+    this.heading = yaw;
+  }
+
   setVehicleProfile(profile = {}) {
     const isMotorcycle = profile.vehicleType === 'motorcycle';
     const width = clamp(Number(profile.width) || 2.04, isMotorcycle ? 0.55 : 1.7, isMotorcycle ? 1.1 : 2.5);
