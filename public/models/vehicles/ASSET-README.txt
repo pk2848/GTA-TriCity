@@ -20,6 +20,6 @@ ASSET / LICENCE NOTES
 TECHNICAL NOTES
 - The garage reads the four entries in manifest.json and loads the selected GLB into the player vehicle. It disposes the previous GLB after a successful replacement.
 - The Challenger model is authored at 1/100 scale and is scaled to metres by the garage.
-- The Charger model is converted from its Z-up source orientation into the game's Y-up coordinate system.
+- The Charger GLB is loaded with Y-up orientation and a 180-degree yaw; do not add the old -90-degree X rotation, which makes the car stand vertically.
 - The game uses a shared physics chassis profile per vehicle. Visual wheel pivot animation is enabled for the Dodge models where wheel groups are present.
 - Keep the original files and licences with any public distribution. Do not assume a model is commercially redistributable merely because it loads in Three.js.
