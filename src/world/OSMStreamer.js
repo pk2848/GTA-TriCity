@@ -318,11 +318,16 @@ export class OSMStreamer {
     try {
       const data = await this.fetchData(this.buildQuery(bounds));
       const result = this.createTileGeometry(Array.isArray(data.elements) ? data.elements : []);
-      if (result.trafficRoads.length || result.trafficFeatures.length) this.onRoads(result.trafficRoads, tile.key, result.trafficFeatures);
+      const roadAssetGroup = (result.trafficRoads.length || result.trafficFeatures.length)
+        ? this.onRoads(result.trafficRoads, tile.key, result.trafficFeatures)
+        : null;
       if (result.obstacles.length) this.onObstacles(result.obstacles, tile.key);
       const group = new THREE.Group();
       group.name = `osm-tile-${tile.key}`;
       [...result.roadMeshes, ...result.sidewalkMeshes, ...result.landMeshes, ...result.buildingMeshes, ...result.detailMeshes, ...result.labels].forEach(mesh => group.add(mesh));
+      // The road GLB is an instanced visual overlay. OSM ribbons remain underneath
+      // for correct map geometry, intersections and fallback if the GLB fails.
+      if (roadAssetGroup) group.add(roadAssetGroup);
       this.scene.add(group);
       const tileCenter = geoToWorld(
         (bounds.south + bounds.north) / 2,
