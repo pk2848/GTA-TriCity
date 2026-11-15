@@ -181,10 +181,12 @@ const vehicleGarage = new VehicleGarage({
   physics: vehiclePhysics,
   selector: document.querySelector('#car-select'),
   statusElement: document.querySelector('#car-select-status'),
+  retryButton: document.querySelector('#car-retry'),
   fallbackParts: vehicle.children.filter((child) => child !== nitroFlames),
   wheelVisuals: wheels,
   nitroFlames,
-  canSelect: () => gameMode === 'vehicle' && vehiclePhysics.getSpeedKmh() < 1.0,
+  // While on foot the player's car is parked, so allow the garage to replace it.
+  canSelect: () => gameMode === 'walking' || vehiclePhysics.getSpeedKmh() < 1.0,
   onSelected: (profile) => {
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
   }
