@@ -417,6 +417,9 @@ export class VehicleGarage {
     this.rider.position.copy(this.vehicle.position).add(this._riderOffset);
     this.rider.quaternion.copy(this.vehicle.quaternion);
     this.rider.rotateX(profile.riderLean || 0.14);
+    const speedLean = THREE.MathUtils.clamp(Math.abs(this.physics?.speedMps || 0) / 18, 0, 1);
+    const turnLean = -(this.physics?.steering || 0) * speedLean * 0.22;
+    this.rider.rotateZ(turnLean);
     this.rider.visible = true;
   }
 
