@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const CAR_LIMIT=12, PEDESTRIAN_LIMIT=72, JOIN_RADIUS=19;
 const DEFAULT_TRAFFIC_IDS=['pagani-zonda-cinque','dodge-charger-1970','dodge-challenger-2015'];
@@ -107,28 +108,75 @@ export class TrafficSystem{
  async loadUploadedTrafficVehicles(){
   const base=import.meta.env.BASE_URL||'/';
   try{
-   const response=await fetch(`${base}models/vehicles/manifest.json',{cache:'no-store'});
+   const response=await fetch(`${base}models/vehicles/manifest.json`,{cache:'no-store'});
    if(!response.ok)throw new Error(`Vehicle manifest HTTP ${response.status}`);
    const manifest=await response.json();
    this.vehicleProfiles=Array.isArray(manifest.vehicles)?manifest.vehicles:[];
    this.trafficVehicleIds=this.vehicleProfiles.map(profile=>profile.id).filter(Boolean);
+
    for(const profile of this.vehicleProfiles){
     const file=String(profile.file||'').split('/').pop();
     if(!file||!file.toLowerCase().endsWith('.glb'))continue;
     try{
      const gltf=await this.vehicleLoader.loadAsync(`${base}models/vehicles/${file}`);
+     const rotation=Array.isArray(profile.rotation)?profile.rotation:[0,0,0];
+     const sourceRoot=new THREE.Group();
+     sourceRoot.rotation.set(Number(rotation[0])||0,Number(rotation[1])||0,Number(rotation[2])||0);
+     sourceRoot.scale.setScalar(Number(profile.scale)||1);
+     sourceRoot.add(gltf.scene);
+     sourceRoot.updateMatrixWorld(true);
+     const inverseRoot=new THREE.Matrix4().copy(sourceRoot.matrixWorld).invert();
+     const buckets=new Map();
+     const looseMeshes=[];
+     const originalGeometries=new Set();
+
+     // Merge same-material geometry into a few meshes. This is important for the
+     // 2015 Challenger GLB, which contains more than 1,400 separate mesh nodes.
+     gltf.scene.traverse(object=>{
+      if(!object.isMesh||!object.geometry||!object.material)return;
+      originalGeometries.add(object.geometry);
+      const relativeMatrix=new THREE.Matrix4().multiplyMatrices(inverseRoot,object.matrixWorld);
+      const geometry=object.geometry.clone();
+      geometry.applyMatrix4(relativeMatrix);
+
+      if(Array.isArray(object.material)){
+       looseMeshes.push({geometry,material:object.material});
+       return;
+      }
+      const key=object.material.uuid;
+      if(!buckets.has(key))buckets.set(key,{material:object.material,geometries:[]});
+      buckets.get(key).geometries.push(geometry);
+     });
+
+     const mergedRoot=new THREE.Group();
+     for(const {material,geometries} of buckets.values()){
+      let merged=null;
+      try{merged=mergeGeometries(geometries,false);}catch(error){console.warn('[GTA-TriCity] Traffic mesh merge fallback',profile.id,error);}
+      if(merged){
+       const mesh=new THREE.Mesh(merged,material);
+       mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=true;
+       mergedRoot.add(mesh);
+       geometries.forEach(geometry=>geometry.dispose());
+      }else{
+       geometries.forEach(geometry=>{
+        const mesh=new THREE.Mesh(geometry,material);
+        mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=true;
+        mergedRoot.add(mesh);
+       });
+      }
+     }
+     for(const item of looseMeshes){
+      const mesh=new THREE.Mesh(item.geometry,item.material);
+      mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=true;
+      mergedRoot.add(mesh);
+     }
+     originalGeometries.forEach(geometry=>geometry.dispose());
+
      const model=new THREE.Group();
      model.name=`traffic-template-${profile.id}`;
-     const rotation=Array.isArray(profile.rotation)?profile.rotation:[0,0,0];
      model.rotation.set(Number(rotation[0])||0,Number(rotation[1])||0,Number(rotation[2])||0);
      model.scale.setScalar(Number(profile.scale)||1);
-     model.add(gltf.scene);
-     model.traverse(object=>{
-      if(!object.isMesh)return;
-      object.castShadow=false;
-      object.receiveShadow=false;
-      object.frustumCulled=true;
-     });
+     model.add(mergedRoot);
      model.updateMatrixWorld(true);
      let bounds=new THREE.Box3().setFromObject(model);
      if(bounds.isEmpty())throw new Error('GLB has no visible mesh geometry');
@@ -142,7 +190,8 @@ export class TrafficSystem{
      const center=bounds.getCenter(new THREE.Vector3());
      model.position.set(-center.x,-bounds.min.y,-center.z);
      this.vehicleTemplates.set(profile.id,model);
-     // Replace the not-yet-loaded placeholder groups on cars already following roads.
+
+     // Replace waiting agent groups after the shared model template becomes available.
      for(const car of this.cars)if(car.modelId===profile.id)this.attachTrafficModel(car);
     }catch(error){
      this.vehicleTemplateErrors.push({id:profile.id,error});
