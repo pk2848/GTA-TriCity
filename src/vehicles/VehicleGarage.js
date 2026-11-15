@@ -172,6 +172,10 @@ export class VehicleGarage {
     const request = ++this.requestId;
     this.loading = true;
     if (this.selector) this.selector.disabled = true;
+    if (this.retryButton) {
+      this.retryButton.disabled = true;
+      this.retryButton.textContent = 'LOADING MODEL…';
+    }
     this.setStatus(`LOADING · ${profile.brand.toUpperCase()} ${profile.model.toUpperCase()}`, 'loading');
 
     try {
@@ -251,6 +255,7 @@ export class VehicleGarage {
       if (request === this.requestId) {
         this.loading = false;
         if (this.selector) this.selector.disabled = false;
+        if (this.retryButton) this.retryButton.disabled = false;
       }
     }
   }
