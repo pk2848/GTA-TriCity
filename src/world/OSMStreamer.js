@@ -6,9 +6,12 @@ export const CITY_ORIGIN = Object.freeze({ lat: 30.67697, lon: 76.72403 });
 export const TILE_DEGREES = 0.018;
 const METRES_PER_LAT_DEGREE = 110540;
 const METRES_PER_LON_DEGREE = 111320 * Math.cos(CITY_ORIGIN.lat * Math.PI / 180);
+// Use independently operated global instances. Private.coffee and VK Maps
+// are fallbacks when the main public instance is busy or timing out.
 const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter'
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass-api.de/api/interpreter'
 ];
 
 const roadWidths = {
@@ -186,6 +189,8 @@ export class OSMStreamer {
     this.loaded = new Set();
     this.loading = new Set();
     this.failed = new Set();
+    this.failedAt = new Map();
+    this.retryAttempts = new Map();
     this.queue = [];
     this.active = false;
     this.tiles = new Map();
@@ -196,6 +201,7 @@ export class OSMStreamer {
     this.seen = new Set();
     this.currentTile = { ix: 0, iy: 0 };
     this.playerWorld = { x: 0, z: 0 };
+    this.disposed = false;
   }
 
   requestAtWorld(x, z, force = false) {
@@ -205,7 +211,10 @@ export class OSMStreamer {
     this.currentTile = { ix, iy };
     this.playerWorld = { x, z };
     this.updateVisibility(x, z);
-    this.requestTile(ix, iy, force);
+    // Discard stale prefetches when the player travels on. The current tile is
+    // always first in the queue, followed by only the immediate neighbours.
+    this.queue = this.queue.filter(tile => Math.abs(tile.ix - ix) <= 1 && Math.abs(tile.iy - iy) <= 1);
+    this.requestTile(ix, iy, force, true);
     this.prefetchAt(lat, lon, ix, iy);
   }
 
@@ -232,37 +241,60 @@ export class OSMStreamer {
   retryCurrent() {
     const { ix, iy } = this.currentTile;
     const key = tileKey(ix, iy);
-    if (this.failed.has(key)) this.failed.delete(key);
     if (this.loaded.has(key)) {
       this.onStatus('CURRENT CHUNK ALREADY LOADED');
       return;
     }
-    this.requestTile(ix, iy, true);
+    this.failed.delete(key);
+    this.failedAt.delete(key);
+    this.retryAttempts.delete(key);
+    this.requestTile(ix, iy, true, true);
   }
 
-  requestTile(ix, iy, force = false) {
+  requestTile(ix, iy, force = false, priority = false) {
     const key = tileKey(ix, iy);
-    if (this.loaded.has(key) || this.loading.has(key) || (!force && this.failed.has(key))) return;
+    if (this.loaded.has(key) || this.loading.has(key)) return;
+    if (this.failed.has(key) && !force) {
+      const failedAt = this.failedAt.get(key) || 0;
+      if (Date.now() - failedAt < 30000) return;
+      this.failed.delete(key);
+      this.failedAt.delete(key);
+      this.retryAttempts.delete(key);
+    }
+    if (force) {
+      this.failed.delete(key);
+      this.failedAt.delete(key);
+      this.retryAttempts.delete(key);
+    }
     if (this.queue.some(tile => tile.key === key)) return;
-    this.queue.push({ ix, iy, key });
+    const entry = { ix, iy, key };
+    if (priority) this.queue.unshift(entry);
+    else this.queue.push(entry);
     this.processQueue();
   }
 
   async processQueue() {
-    if (this.active) return;
+    if (this.active || this.disposed) return;
     this.active = true;
-    while (this.queue.length) {
-      const tile = this.queue.shift();
-      await this.fetchTile(tile);
-      if (this.queue.length) await new Promise(resolve => setTimeout(resolve, 1200));
+    try {
+      while (this.queue.length && !this.disposed) {
+        const tile = this.queue.shift();
+        if (tile.retryDelayMs) await new Promise(resolve => setTimeout(resolve, tile.retryDelayMs));
+        if (this.disposed) break;
+        await this.fetchTile(tile);
+        // Be polite to public OSM infrastructure and avoid bursts while moving.
+        if (this.queue.length) await new Promise(resolve => setTimeout(resolve, 1400));
+      }
+    } finally {
+      this.active = false;
+      if (this.queue.length && !this.disposed) this.processQueue();
     }
-    this.active = false;
   }
 
   buildQuery(bounds) {
     const { south, west, north, east } = bounds;
     const bbox = `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`;
-    return `[out:json][timeout:45];(
+    return `[out:json][timeout:35];(
       way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian|cycleway|footway|path)$"](${bbox});
       way["building"](${bbox});
       relation["type"="multipolygon"]["building"](${bbox});
@@ -284,7 +316,7 @@ export class OSMStreamer {
 
   async postQuery(url, query) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 55000);
+    const timeout = setTimeout(() => controller.abort(), 42000);
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -303,17 +335,26 @@ export class OSMStreamer {
     const attempts = [];
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') attempts.push('/osm-query');
     attempts.push(...OVERPASS_ENDPOINTS);
-    let lastError;
+    const errors = [];
     for (const endpoint of attempts) {
-      try { return await this.postQuery(endpoint, query); }
-      catch (error) { lastError = error; }
+      try {
+        const data = await this.postQuery(endpoint, query);
+        if (!data || !Array.isArray(data.elements)) throw new Error('Overpass returned an invalid response');
+        return data;
+      } catch (error) {
+        errors.push(`${new URL(endpoint, location.href).hostname}: ${error?.name === 'AbortError' ? 'timeout' : (error?.message || 'network error')}`);
+      }
     }
-    throw lastError || new Error('No Overpass endpoint could be reached');
+    throw new Error(errors.length ? errors.join(' · ') : 'No Overpass endpoint could be reached');
   }
 
   async fetchTile(tile) {
     this.loading.add(tile.key);
     const bounds = tileBounds(tile.ix, tile.iy);
+    const previousSeen = this.seen;
+    // Tile geometry is committed only after a complete response, so a failed
+    // geometry build cannot poison the shared de-duplication set on retry.
+    this.seen = new Set(previousSeen);
     this.onStatus(`FETCHING ${tile.key.replace(':', ' / ')}…`);
     try {
       const data = await this.fetchData(this.buildQuery(bounds));
@@ -345,6 +386,9 @@ export class OSMStreamer {
         buildings: result.buildingCount
       });
       this.loaded.add(tile.key);
+      this.failed.delete(tile.key);
+      this.failedAt.delete(tile.key);
+      this.retryAttempts.delete(tile.key);
       this.totalRoads += result.roadCount;
       this.totalBuildings += result.buildingCount;
       this.totalSidewalks += result.sidewalkCount;
@@ -352,9 +396,19 @@ export class OSMStreamer {
       this.onStatus(`LOADED ${tile.key.replace(':', ' / ')} · ${result.roadCount} roads · ${result.buildingCount} buildings`);
       this.emitCounts();
     } catch (error) {
-      this.failed.add(tile.key);
+      this.seen = previousSeen;
       const reason = error?.name === 'AbortError' ? 'request timed out' : (error?.message || 'network error');
-      this.onStatus(`MAP LOAD FAILED · ${reason}`);
+      const attempt = (this.retryAttempts.get(tile.key) || 0) + 1;
+      this.retryAttempts.set(tile.key, attempt);
+      if (attempt <= 2 && !this.disposed) {
+        this.failed.delete(tile.key);
+        this.queue.unshift({ ...tile, retryDelayMs: 2200 * attempt });
+        this.onStatus(`MAP SERVER BUSY · RETRY ${attempt}/2 · ${reason}`);
+      } else {
+        this.failed.add(tile.key);
+        this.failedAt.set(tile.key, Date.now());
+        this.onStatus(`MAP LOAD FAILED · ${reason} · RETRY CURRENT AREA`);
+      }
       console.warn('OSM chunk could not be loaded:', tile.key, error);
     } finally {
       this.loading.delete(tile.key);
@@ -704,6 +758,8 @@ export class OSMStreamer {
   }
 
   dispose() {
+    this.disposed = true;
+    this.queue.length = 0;
     for (const { group } of this.tiles.values()) {
       group.traverse(object => {
         if (object.geometry) object.geometry.dispose();
