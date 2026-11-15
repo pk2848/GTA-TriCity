@@ -539,12 +539,13 @@ function animate() {
     if (nitroActive) nitroFuel = Math.max(0, nitroFuel - 30 * dt);
     else nitroFuel = Math.min(100, nitroFuel + 8 * dt);
 
+    const overturned = vehiclePhysics.isUpsideDown;
     vehiclePhysics.update(dt, {
-      throttle: forward ? 1 : reverse ? -1 : 0,
-      steer,
-      brake: Boolean(keys.Space),
-      nitro: nitroActive,
-      boost: Boolean(keys.ShiftLeft || keys.ShiftRight),
+      throttle: overturned ? 0 : (forward ? 1 : reverse ? -1 : 0),
+      steer: overturned ? 0 : steer,
+      brake: overturned || Boolean(keys.Space),
+      nitro: nitroActive && !overturned,
+      boost: Boolean(keys.ShiftLeft || keys.ShiftRight) && !overturned,
       condition: vehicleCondition
     });
     vehiclePhysics.syncVisuals(vehicle, wheels);
