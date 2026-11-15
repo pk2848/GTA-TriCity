@@ -10,7 +10,7 @@
 <body>
   <div id="game"></div>
   <div id="hud">
-    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.10</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>MOHALI · CP67 MALL · BUILD 0.11</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span></div>
     <div id="garage-panel" class="garage-panel">
@@ -26,7 +26,8 @@
         </optgroup>
       </select>
       <div id="car-select-status" data-state="loading" aria-live="polite">LOADING · PAGANI ZONDA CINQUE</div>
-      <small class="garage-tip">STOP VEHICLE TO SWITCH CARS</small>
+      <button id="car-retry" type="button">RETRY MODEL LOAD</button>
+      <small class="garage-tip">SELECT WHILE PARKED OR ON FOOT · V TO FOCUS</small>
     </div>
     <div class="map-panel">
       <div class="map-head"><b>LIVE CITY DATA</b><span id="map-state">WAITING</span></div>
