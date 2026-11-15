@@ -1021,7 +1021,7 @@ function animate() {
   const playerHeading = gameMode === 'walking' ? pedestrianHeading : heading;
   const target = new THREE.Vector3(
     playerPosition.x,
-    gameMode === 'walking' ? playerPosition.y + 1.45 : 2.1,
+    gameMode === 'walking' ? playerPosition.y + 1.45 : vehicle.position.y + 1.2,
     playerPosition.z
   );
   const preset = CAMERA_PRESETS[cameraModeIndex];
@@ -1068,8 +1068,8 @@ function animate() {
   // Use delta-time smoothing with a faster response as vehicle speed rises.
   // The selected preset / mouse-wheel distance stays fixed; only follow lag changes.
   const followSpeed = gameMode === 'vehicle'
-    ? 16 + Math.min(8, Math.abs(speed) * 0.18)
-    : 12;
+    ? 28 + Math.min(18, Math.abs(speed) * 1.1)
+    : 16;
   const followAlpha = 1 - Math.exp(-followSpeed * dt);
   camera.position.lerp(desired, followAlpha);
   camera.lookAt(lookTarget);
