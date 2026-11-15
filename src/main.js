@@ -473,8 +473,8 @@ function setWalkingMode(enabled) {
   nitroGlow.intensity = 0;
   Object.keys(keys).forEach(key => { keys[key] = false; });
   controlsHelp.innerHTML = enabled
-    ? 'W / S <i>WALK</i> &nbsp; A / D <i>TURN</i> &nbsp; SHIFT <i>RUN</i> &nbsp; E <i>USE LIFT</i> &nbsp; F <i>ENTER / EXIT</i> &nbsp; M <i>MAP</i>'
-    : 'W / ↑ <i>DRIVE</i> &nbsp; A/D <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i>';
+    ? 'W / ↑ · S / ↓ <i>WALK</i> &nbsp; A/D / ←→ <i>TURN</i> &nbsp; SHIFT <i>RUN</i> &nbsp; E <i>USE LIFT</i> &nbsp; F <i>ENTER / EXIT</i> &nbsp; M <i>MAP</i>'
+    : 'W / ↑ <i>FORWARD</i> &nbsp; S / ↓ <i>REVERSE</i> &nbsp; A/D / ←→ <i>STEER</i> &nbsp; SPACE <i>BRAKE</i> &nbsp; F <i>EXIT / RECOVER</i> &nbsp; N <i>NITRO</i> &nbsp; M <i>MAP</i>';
 }
 
 function exitVehicle() {
