@@ -10,6 +10,7 @@ FILES
 - public/models/vehicles/pagani-zonda-cinque.glb
 - public/models/vehicles/1970-dodge-charger-rt.glb
 - public/models/vehicles/2015-dodge-challenger-rt.glb
+- public/models/vehicles/bike_black.glb (original 26 MB uploaded scan; optimized derivative not currently installed)
 
 ASSET / LICENCE NOTES
 - Pagani Zonda Cinque: supplied by the project owner in this conversation. The GLB does not contain embedded author/licence metadata; distribution rights have not been independently verified.
@@ -17,7 +18,7 @@ ASSET / LICENCE NOTES
 - 2015 Dodge Challenger R/T Tuned with Armor: embedded GLB metadata identifies author DisneyCars (https://sketchfab.com/supercarmodels), source https://sketchfab.com/3d-models/2015-dodge-challenger-rt-tuned-with-armor-34af945791e74afb80bdd860a645ef91 and licence CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Attribution: “2015 Dodge Challenger R/T Tuned with armor” by DisneyCars, CC BY 4.0, via Sketchfab.
 
 TECHNICAL NOTES
-- The garage loads one selected car at a time and disposes the previous GLB to reduce memory use.
+- The garage reads the four entries in manifest.json and loads the selected GLB into the player vehicle. It disposes the previous GLB after a successful replacement.
 - The Challenger model is authored at 1/100 scale and is scaled to metres by the garage.
 - The Charger model is converted from its Z-up source orientation into the game's Y-up coordinate system.
 - The game uses a shared physics chassis profile per vehicle. Visual wheel pivot animation is enabled for the Dodge models where wheel groups are present.
