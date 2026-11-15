@@ -108,7 +108,7 @@ export class TrafficSystem{
   this.vehicleLoader=new GLTFLoader();
   this.trafficVehicleIds=[...DEFAULT_TRAFFIC_IDS];
   this.pedestrianLoader=new GLTFLoader();
-  this.girlPedestrianTemplate=null;this.girlPedestrianAnimations=[];
+  this.girlPedestrianTemplate=null;this.girlPedestrianAnimations=[];this.girlPedestrianAssigned=false;
   this.girlPedestrianLoading=false;this.girlPedestrianError=null;
   this.loadUploadedTrafficVehicles();
   this.onCounts({cars:0,pedestrians:0,signals:0,crossings:0});
@@ -168,10 +168,11 @@ export class TrafficSystem{
    this.girlPedestrianTemplate=normalized;
    this.girlPedestrianAnimations=gltf.animations||[];
    let replaced=0;
-   for(let index=0;index<this.pedestrians.length;index++){
-    if(index%3===0&&this.replacePedestrianWithGirl(this.pedestrians[index]))replaced++;
-   }
-   console.info(`[GTA-TriCity] Uploaded girl pedestrian ready · ${replaced} existing NPCs upgraded · ${this.girlPedestrianAnimations.length} animation clips`);
+   // One detailed uploaded NPC is enough to make the character recognizable.
+   // Other pedestrians stay lightweight to avoid hundreds of extra draw calls.
+   const firstAvailable=this.pedestrians.find(person=>!person.isUploadedGirl);
+   if(firstAvailable&&this.replacePedestrianWithGirl(firstAvailable))replaced=1;
+   console.info(`[GTA-TriCity] Uploaded girl pedestrian ready · ${replaced} detailed roaming NPC · ${this.girlPedestrianAnimations.length} animation clips`);
   }catch(error){
    this.girlPedestrianError=error;
    console.warn('[GTA-TriCity] Girl pedestrian GLB could not be loaded; keeping existing pedestrians.',error);
@@ -217,6 +218,7 @@ export class TrafficSystem{
   person.hasWalkAnimation=Boolean(walkClip);
   person.walkRig=this.createGirlWalkRig(clone);
   person.isUploadedGirl=true;
+  this.girlPedestrianAssigned=true;
   person.object.userData.isUploadedGirl=true;
   return true;
  }
@@ -391,7 +393,7 @@ export class TrafficSystem{
     const p=samplePath(path,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.pedestrians.push(person);
     // Defer the 64 MB character download until the first OSM pedestrian actually spawns.
     if(personIndex===0&&!this.girlPedestrianTemplate&&!this.girlPedestrianLoading)this.loadGirlPedestrianModel();
-    if(personIndex%3===0&&this.girlPedestrianTemplate)this.replacePedestrianWithGirl(person);
+    if(!this.girlPedestrianAssigned&&this.girlPedestrianTemplate)this.replacePedestrianWithGirl(person);
    }
   }
  }
@@ -481,6 +483,7 @@ export class TrafficSystem{
    }
    const q=samplePath(car.points,Math.min(car.progress,car.length));car.object.position.set(q.x,0,q.z);car.object.rotation.y=q.heading;
    const d=dist(player,q);
+   car.object.visible=d<320;
    if(d<3.1&&Math.abs(player.speed)>2&&car.collisionCooldown<=0){
     car.collisionCooldown=2.6;car.speed=0;car.targetSpeed=0;car.pauseTimer=2.2;
     events.push({type:'vehicle',impact:THREE.MathUtils.clamp(Math.abs(player.speed)/28,.25,1),agent:car});
@@ -510,6 +513,9 @@ export class TrafficSystem{
     if(person.progress<=0){person.direction=1;person.progress=0;}
    }
    const q=samplePath(person.points,person.progress);person.object.position.set(q.x,0,q.z);person.object.rotation.y=q.heading+(person.direction<0?Math.PI:0);
+   const d=dist(player,q);
+   person.object.visible=d<150;
+   if(d>=150)continue;
    const limbs=person.object.userData.limbs,stride=(!person.crossing||person.wait===0)?Math.sin(this.elapsed*7*person.speed+person.phase)*.42:0;
    if(person.isUploadedGirl){
     this.updateGirlWalkAnimation(person,dt,stride);
@@ -517,7 +523,6 @@ export class TrafficSystem{
    }else if(limbs){
     limbs.legs[0].rotation.x=stride;limbs.legs[1].rotation.x=-stride;limbs.arms[0].rotation.x=-stride*.65;limbs.arms[1].rotation.x=stride*.65;
    }
-   const d=dist(player,q);
    if(d<2.35&&Math.abs(player.speed)>2.5&&person.collisionCooldown<=0){
     person.fallen=true;person.fallTimer=3.2;person.collisionCooldown=8;person.object.rotation.z=(Math.random()>.5?1:-1)*.24;
     events.push({type:'pedestrian',impact:THREE.MathUtils.clamp(Math.abs(player.speed)/24,.18,.78),agent:person});
