@@ -279,8 +279,9 @@ export class WorldMapView {
       this.routeLayer.bringToFront();
       // Leaflet markers are not Paths: use marker-pane z-index instead of bringToFront().
       this.routeArrows.forEach(marker => marker.setZIndexOffset(900));
-      this.destinationMarker.setZIndexOffset(1000);
-      this.playerMarker.setZIndexOffset(1100);
+      // Player/destination dots are CircleMarkers (Paths), so use bringToFront().
+      this.destinationMarker.bringToFront();
+      this.playerMarker.bringToFront();
       this.destinationMarker.setLatLng([navigationDestination.lat, navigationDestination.lon]);
       this.destinationMarker.setPopupContent(snapped
         ? '<strong>Destination pinned</strong><br>Route endpoint snapped to the nearest drivable road.'
