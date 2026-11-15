@@ -82,6 +82,7 @@ export class WorldMapView {
     this.onGuidance = onGuidance;
     this.onStatus = onStatus;
     this.route = null;
+    this.latestGuidance = null;
     this.routeRequestId = 0;
     this.routeAbortController = null;
     this.lastRouteRequestAt = 0;
@@ -248,8 +249,10 @@ export class WorldMapView {
       }
       this.routeOutline.bringToFront();
       this.routeLayer.bringToFront();
-      this.routeArrows.forEach(marker => marker.bringToFront());
-      this.playerMarker.bringToFront();
+      // Leaflet markers are not Paths: use marker-pane z-index instead of bringToFront().
+      this.routeArrows.forEach(marker => marker.setZIndexOffset(900));
+      this.destinationMarker.setZIndexOffset(1000);
+      this.playerMarker.setZIndexOffset(1100);
       this.destinationMarker.setLatLng([navigationDestination.lat, navigationDestination.lon]);
       this.destinationMarker.setPopupContent(snapped
         ? '<strong>Destination pinned</strong><br>Route endpoint snapped to the nearest drivable road.'
@@ -340,15 +343,17 @@ export class WorldMapView {
 
   emitGuidance(force = false) {
     if (!this.route) {
+      this.latestGuidance = null;
       this.onGuidance(null);
       return;
     }
     const route = this.route;
     if (route.isArrived) {
-      this.onGuidance({
+      this.latestGuidance = {
         arrived: true, arrow: '⚑', instruction: 'You have arrived',
         details: 'Destination reached.', distanceToTurn: 0, remainingDistance: 0, remainingDuration: 0
-      });
+      };
+      this.onGuidance(this.latestGuidance);
       return;
     }
     const player = { x: this.lastPosition.x, z: this.lastPosition.z };
@@ -383,14 +388,34 @@ export class WorldMapView {
     const details = offRoute
       ? `You are ${formatDistance(nearestDistance)} from the route. Open the map and pin again to recalculate.`
       : `In ${formatDistance(distanceToTurn)}${roadPart} · ${formatDistance(remainingDistance)} left · ${formatDuration(remainingDuration)}`;
-    this.onGuidance({
+    this.latestGuidance = {
       arrived: false, offRoute, arrow: offRoute ? '!' : instruction.arrow,
       instruction: offRoute ? 'You are off route' : instruction.text,
       details, distanceToTurn, remainingDistance, remainingDuration
-    });
+    };
+    this.onGuidance(this.latestGuidance);
     if (this.isOpen && this.routeSummary) {
       this.routeSummary.textContent = `${formatDistance(remainingDistance)} remaining · ${formatDuration(remainingDuration)} · ${offRoute ? 'Off route' : 'Follow highlighted line'}`;
     }
+  }
+
+  getMinimapState() {
+    if (!this.route) return null;
+    const guidance = this.latestGuidance;
+    const nextStep = this.route.stepWorld[this.route.stepIndex] || geoToWorld(this.route.destination.lat, this.route.destination.lon);
+    const step = describeStep(this.route.steps[this.route.stepIndex]);
+    return {
+      worldPoints: this.route.worldPoints,
+      nextStep,
+      destination: geoToWorld(this.route.destination.lat, this.route.destination.lon),
+      arrow: guidance?.arrow || step.arrow,
+      instruction: guidance?.instruction || step.text,
+      offRoute: Boolean(guidance?.offRoute),
+      arrived: Boolean(guidance?.arrived),
+      distanceToTurn: guidance?.distanceToTurn ?? null,
+      remainingDistance: guidance?.remainingDistance ?? this.route.distance,
+      remainingDuration: guidance?.remainingDuration ?? this.route.duration
+    };
   }
 
   update(x, z, heading = 0, forceCenter = false) {
