@@ -14,12 +14,19 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91a6a6);
 scene.fog = new THREE.FogExp2(0x91a6a6, 0.00042);
 const camera = new THREE.PerspectiveCamera(66, innerWidth / innerHeight, 0.1, 12000);
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// Integrated-GPU friendly defaults: lower internal resolution, no MSAA and no
+// real-time shadow-map pass. Quality can be raised from the in-game graphics menu.
+const renderer = new THREE.WebGLRenderer({
+  antialias: false,
+  powerPreference: 'high-performance',
+  stencil: false,
+  depth: true
+});
 renderer.domElement.id = 'world';
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 0.85));
+renderer.shadowMap.enabled = false;
+renderer.shadowMap.autoUpdate = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -28,8 +35,8 @@ root.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xdce9ed, 0x566052, 1.9));
 const sun = new THREE.DirectionalLight(0xffe6c3, 2.35);
 sun.position.set(-500, 900, 340);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.castShadow = false;
+sun.shadow.mapSize.set(512, 512);
 sun.shadow.camera.left = -900; sun.shadow.camera.right = 900;
 sun.shadow.camera.top = 900; sun.shadow.camera.bottom = -900;
 sun.shadow.camera.far = 2200;
@@ -221,6 +228,95 @@ const streamer = new OSMStreamer(scene,
   (roads, tileKey, features) => trafficSystem.addRoads(roads, tileKey, features),
   (obstacles, tileKey) => vehiclePhysics.addBuildingObstacles(obstacles, tileKey)
 );
+
+// Graphics controls target integrated-GPU systems by default. Resolution adapts
+// downward if the measured frame rate stays low; camera and physics remain full-rate.
+const graphicsSelect = document.querySelector('#graphics-quality');
+const graphicsStatus = document.querySelector('#graphics-status');
+const GRAPHICS_PROFILES = {
+  performance: { label: 'PERFORMANCE', pixelRatio: 0.85, minCars: 4, maxPedestrians: 14 },
+  balanced: { label: 'BALANCED', pixelRatio: 1.0, minCars: 6, maxPedestrians: 22 }
+};
+let graphicsMode = 'performance';
+let resolutionScale = 1;
+let fpsAccumulator = 0;
+let fpsFrames = 0;
+let lowFpsSeconds = 0;
+let highFpsSeconds = 0;
+let lastFps = 60;
+
+function applyRenderResolution() {
+  const profile = GRAPHICS_PROFILES[graphicsMode];
+  const pixelRatio = Math.min(devicePixelRatio || 1, profile.pixelRatio) * resolutionScale;
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(innerWidth, innerHeight, false);
+}
+
+function applyGraphicsQuality(mode) {
+  graphicsMode = GRAPHICS_PROFILES[mode] ? mode : 'performance';
+  resolutionScale = 1;
+  lowFpsSeconds = 0;
+  highFpsSeconds = 0;
+  const profile = GRAPHICS_PROFILES[graphicsMode];
+
+  // Keep costly real-time shadow rendering off on both presets.
+  renderer.shadowMap.enabled = false;
+  sun.castShadow = false;
+  applyRenderResolution();
+  trafficSystem.setQuality({
+    cars: profile.minCars,
+    pedestrians: profile.maxPedestrians
+  });
+  if (graphicsSelect) graphicsSelect.value = graphicsMode;
+  if (graphicsStatus) graphicsStatus.textContent = `${profile.label} · ADAPTIVE RESOLUTION ON`;
+}
+
+if (graphicsSelect) {
+  graphicsSelect.addEventListener('change', () => applyGraphicsQuality(graphicsSelect.value));
+}
+applyGraphicsQuality('performance');
+
+function updatePerformanceReadout(dt) {
+  fpsAccumulator += dt;
+  fpsFrames++;
+  if (fpsAccumulator < 1) return;
+
+  lastFps = fpsFrames / fpsAccumulator;
+  const sampleDuration = fpsAccumulator;
+  fpsAccumulator = 0;
+  fpsFrames = 0;
+
+  if (lastFps < 34) {
+    lowFpsSeconds += sampleDuration;
+    highFpsSeconds = 0;
+  } else if (lastFps > 54) {
+    highFpsSeconds += sampleDuration;
+    lowFpsSeconds = 0;
+  } else {
+    lowFpsSeconds = Math.max(0, lowFpsSeconds - sampleDuration);
+    highFpsSeconds = 0;
+  }
+
+  // Reduce pixel count in small steps after sustained slow frames.
+  if (lowFpsSeconds >= 2.5 && resolutionScale > 0.68) {
+    resolutionScale = Math.max(0.68, resolutionScale - 0.08);
+    applyRenderResolution();
+    lowFpsSeconds = 0;
+  } else if (highFpsSeconds >= 9 && resolutionScale < 1) {
+    resolutionScale = Math.min(1, resolutionScale + 0.04);
+    applyRenderResolution();
+    highFpsSeconds = 0;
+  }
+
+  if (graphicsStatus) {
+    const calls = renderer.info.render.calls || 0;
+    const triangles = renderer.info.render.triangles || 0;
+    graphicsStatus.textContent =
+      `${Math.round(lastFps)} FPS · ${calls} CALLS · ${(triangles / 1000).toFixed(0)}K TRI`;
+    graphicsStatus.dataset.state = lastFps < 30 ? 'slow' : lastFps < 45 ? 'medium' : 'good';
+  }
+}
+
 let navigationGroup = null;
 let destinationBeacon = null;
 let destinationRing = null;
@@ -915,9 +1011,10 @@ function animate() {
   if (cameraShake > 0) cameraShake = Math.max(0, cameraShake - dt * 2.8);
 
   mapUiElapsed += dt;
-  if (mapUiElapsed > 0.12) {
+  if (mapUiElapsed > 0.16) {
     const playerPosition = activeWorldPosition();
     mapView.update(playerPosition.x, playerPosition.z, heading);
+    drawMinimap();
     mapUiElapsed = 0;
   }
   const playerPosition = activeWorldPosition();
@@ -968,7 +1065,13 @@ function animate() {
     desired.x += Math.sin(shakeTime * 1.7) * cameraShake * 0.7;
     desired.y += Math.cos(shakeTime * 2.1) * cameraShake * 0.45;
   }
-  camera.position.lerp(desired, preset.type === 'hood' && gameMode === 'vehicle' ? 0.22 : 0.085);
+  // Use delta-time smoothing with a faster response as vehicle speed rises.
+  // The selected preset / mouse-wheel distance stays fixed; only follow lag changes.
+  const followSpeed = gameMode === 'vehicle'
+    ? 16 + Math.min(8, Math.abs(speed) * 0.18)
+    : 12;
+  const followAlpha = 1 - Math.exp(-followSpeed * dt);
+  camera.position.lerp(desired, followAlpha);
   camera.lookAt(lookTarget);
   ring.rotation.z += dt * 0.7;
   if (destinationRing) destinationRing.rotation.z += dt * 0.85;
@@ -977,14 +1080,13 @@ function animate() {
   }
   checkpoint.position.y = Math.sin(performance.now() * 0.0018) * 0.22;
   renderer.render(scene, camera);
-  drawMinimap();
+  updatePerformanceReadout(dt);
 }
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+  applyRenderResolution();
 });
 
 animate();
