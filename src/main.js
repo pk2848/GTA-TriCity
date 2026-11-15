@@ -724,7 +724,7 @@ let mapUiElapsed = 0;
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
-  if (started && !mapView.isOpen) {
+  if (started && !mapView.isOpen && gameMode === 'vehicle') {
     const forward = keys.KeyW || keys.ArrowUp;
     const reverse = keys.KeyS || keys.ArrowDown;
     const left = keys.KeyA || keys.ArrowLeft;
@@ -795,11 +795,66 @@ function animate() {
     nitroValue.textContent = `${Math.round(nitroFuel)}%`;
     conditionValue.textContent = `${Math.round(vehicleCondition)}%`;
     conditionValue.style.color = vehicleCondition < 35 ? '#e98269' : '#dce5d8';
+  } else if (started && !mapView.isOpen && gameMode === 'walking') {
+    const forward = keys.KeyW || keys.ArrowUp;
+    const reverse = keys.KeyS || keys.ArrowDown;
+    const left = keys.KeyA || keys.ArrowLeft;
+    const right = keys.KeyD || keys.ArrowRight;
+    const turn = (left ? 1 : 0) - (right ? 1 : 0);
+    pedestrianHeading += turn * dt * 2.25;
+    const moving = forward || reverse;
+    const walkSpeed = (keys.ShiftLeft || keys.ShiftRight) ? RUN_SPEED : WALK_SPEED;
+    const direction = (forward ? 1 : 0) - (reverse ? 1 : 0);
+    const moveX = -Math.sin(pedestrianHeading) * direction * walkSpeed * dt;
+    const moveZ = -Math.cos(pedestrianHeading) * direction * walkSpeed * dt;
+    const nextX = playerPedestrian.position.x + moveX;
+    const nextZ = playerPedestrian.position.z + moveZ;
+
+    // Walk through the real entrance threshold; the interior is a separate walkable scene.
+    if (!pedestrianInsideMall && Math.abs(nextX) < 12 && nextZ < 13.4 && nextZ > 7.5) {
+      enterMallInterior();
+    } else if (pedestrianInsideMall && pedestrianFloor === 0 && Math.abs(nextX) < 12 && nextZ > 8.8) {
+      exitMallInterior();
+    } else if (!pedestrianInsideMall) {
+      playerPedestrian.position.x = nextX;
+      playerPedestrian.position.z = nextZ;
+    } else if (cp67Interior.isWalkable(nextX, nextZ, pedestrianFloor)) {
+      playerPedestrian.position.x = nextX;
+      playerPedestrian.position.z = nextZ;
+    }
+
+    playerPedestrian.position.y = 0.9 + pedestrianFloor * cp67Interior.floorHeight;
+    playerPedestrian.rotation.y = pedestrianHeading;
+    pedestrianWalkPhase += dt * (moving ? (walkSpeed > WALK_SPEED ? 11 : 7.5) : 0);
+    const limbs = playerPedestrian.userData.limbs;
+    const stride = moving ? Math.sin(pedestrianWalkPhase) * 0.48 : 0;
+    limbs.legs[0].rotation.x = stride;
+    limbs.legs[1].rotation.x = -stride;
+    limbs.arms[0].rotation.x = -stride * 0.72;
+    limbs.arms[1].rotation.x = stride * 0.72;
+
+    speed = 0;
+    heading = pedestrianHeading;
+    nitroActive = false;
+    nitroFlames.visible = false;
+    nitroGlow.intensity = 0;
+    document.querySelector('#vehicle-status').style.display = 'none';
+    document.querySelector('#speed').textContent = '000';
+    document.querySelector('#area').textContent = pedestrianInsideMall ? 'CP67 MALL INTERIOR' : 'SECTOR 67 · ON FOOT';
+
+    if (!pedestrianInsideMall) {
+      mapCheckElapsed += dt;
+      if (mapCheckElapsed > 1.5) {
+        streamer.requestAtWorld(playerPedestrian.position.x, playerPedestrian.position.z);
+        mapCheckElapsed = 0;
+      }
+    }
   } else {
     nitroActive = false;
     nitroFlames.visible = false;
     nitroGlow.intensity = 0;
   }
+  updateInteractionHint();
   collisionCooldown = Math.max(0, collisionCooldown - dt);
   if (!impactFeedback.hidden) {
     impactTimer -= dt;
@@ -809,12 +864,23 @@ function animate() {
 
   mapUiElapsed += dt;
   if (mapUiElapsed > 0.12) {
-    mapView.update(vehicle.position.x, vehicle.position.z, heading);
+    const playerPosition = activeWorldPosition();
+    mapView.update(playerPosition.x, playerPosition.z, heading);
     mapUiElapsed = 0;
   }
-  const target = new THREE.Vector3(vehicle.position.x, 2.1, vehicle.position.z);
-  const distance = cameraDistance;
-  const behind = new THREE.Vector3(Math.sin(heading + cameraYaw) * distance, 4.7 + cameraPitch * 12, Math.cos(heading + cameraYaw) * distance);
+  const playerPosition = activeWorldPosition();
+  const playerHeading = gameMode === 'walking' ? pedestrianHeading : heading;
+  const target = new THREE.Vector3(
+    playerPosition.x,
+    gameMode === 'walking' ? playerPosition.y + 1.45 : 2.1,
+    playerPosition.z
+  );
+  const distance = gameMode === 'walking' ? 7.2 : cameraDistance;
+  const behind = new THREE.Vector3(
+    Math.sin(playerHeading + cameraYaw) * distance,
+    gameMode === 'walking' ? 2.6 + cameraPitch * 6.5 : 4.7 + cameraPitch * 12,
+    Math.cos(playerHeading + cameraYaw) * distance
+  );
   const desired = target.clone().add(behind);
   if (cameraShake > 0) {
     const shakeTime = performance.now() * 0.035;
