@@ -1,9 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const DEFAULT_CAR_LIMIT=5, DEFAULT_PEDESTRIAN_LIMIT=20, JOIN_RADIUS=19;
 const DEFAULT_TRAFFIC_IDS=['pagani-zonda-cinque','dodge-charger-1970','dodge-challenger-2015'];
+// Use one shared uploaded girl-character model for a subset of ambient pedestrians.
+// It is loaded once and cloned with shared geometry/materials to keep GPU memory bounded.
+const GIRL_PEDESTRIAN_URL = new URL('../charachter/mita_ashley_-_anime_girl_-_3d_stylized_tpose.glb', import.meta.url).href;
+const GIRL_PEDESTRIAN_TARGET_HEIGHT = 1.66;
 const CAR_COLORS=[0xb83f35,0xd5d8d5,0x243f68,0x87877f,0x252b2e,0xc5a45d,0x557353,0x814c73,0x4d7788];
 const PEOPLE_COLORS=[0x315f91,0x8d493e,0x536846,0xb18a45,0x55515f,0x8b6b58,0x3e7774,0x9b6d8c];
 const shared={
@@ -102,7 +107,11 @@ export class TrafficSystem{
   this.vehicleProfiles=[];this.vehicleTemplates=new Map();this.vehicleTemplateErrors=[];
   this.vehicleLoader=new GLTFLoader();
   this.trafficVehicleIds=[...DEFAULT_TRAFFIC_IDS];
+  this.pedestrianLoader=new GLTFLoader();
+  this.girlPedestrianTemplate=null;this.girlPedestrianAnimations=[];
+  this.girlPedestrianLoading=false;this.girlPedestrianError=null;
   this.loadUploadedTrafficVehicles();
+  this.loadGirlPedestrianModel();
   this.onCounts({cars:0,pedestrians:0,signals:0,crossings:0});
  }
 
@@ -121,6 +130,108 @@ export class TrafficSystem{
    person.object.clear();
   }
   this.emitCounts();
+ }
+
+ async loadGirlPedestrianModel(){
+  if(this.girlPedestrianLoading||this.girlPedestrianTemplate)return;
+  this.girlPedestrianLoading=true;
+  try{
+   console.info('[GTA-TriCity] Loading uploaded ambient girl character…');
+   const gltf=await this.pedestrianLoader.loadAsync(GIRL_PEDESTRIAN_URL);
+   const source=gltf.scene;
+   source.updateMatrixWorld(true);
+   const bounds=new THREE.Box3().setFromObject(source);
+   if(bounds.isEmpty())throw new Error('Girl character GLB has no visible geometry');
+   const size=bounds.getSize(new THREE.Vector3());
+   if(size.y<0.2)throw new Error(`Expected a Y-up character model; height was ${size.y.toFixed(2)}`);
+   const scale=GIRL_PEDESTRIAN_TARGET_HEIGHT/size.y;
+   const center=bounds.getCenter(new THREE.Vector3());
+   const normalized=new THREE.Group();
+   normalized.name='uploaded-girl-pedestrian-template';
+   normalized.scale.setScalar(scale);
+   normalized.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
+   // Most glTF character exports face +Z; this makes the model face the game's -Z forward axis.
+   normalized.rotation.y=Math.PI;
+   normalized.add(source);
+   normalized.traverse(object=>{
+    if(!object.isMesh)return;
+    object.castShadow=false;
+    object.receiveShadow=false;
+    object.frustumCulled=true;
+   });
+   normalized.updateMatrixWorld(true);
+   this.girlPedestrianTemplate=normalized;
+   this.girlPedestrianAnimations=gltf.animations||[];
+   let replaced=0;
+   for(let index=0;index<this.pedestrians.length;index++){
+    if(index%3===0&&this.replacePedestrianWithGirl(this.pedestrians[index]))replaced++;
+   }
+   console.info(`[GTA-TriCity] Uploaded girl pedestrian ready · ${replaced} existing NPCs upgraded · ${this.girlPedestrianAnimations.length} animation clips`);
+  }catch(error){
+   this.girlPedestrianError=error;
+   console.warn('[GTA-TriCity] Girl pedestrian GLB could not be loaded; keeping existing pedestrians.',error);
+  }finally{
+   this.girlPedestrianLoading=false;
+  }
+ }
+
+ createGirlWalkRig(root){
+  const rig={leftLeg:[],rightLeg:[],leftArm:[],rightArm:[]};
+  root.traverse(object=>{
+   if(!object.isBone)return;
+   const n=object.name.toLowerCase().replace(/[^a-z0-9]/g,'');
+   const entry={bone:object,base:object.quaternion.clone()};
+   if(/left.*(upleg|thigh|upperleg)|(^|mixamorig)leftupleg/.test(n))rig.leftLeg.push(entry);
+   else if(/right.*(upleg|thigh|upperleg)|(^|mixamorig)rightupleg/.test(n))rig.rightLeg.push(entry);
+   else if(/left.*(arm|shoulder)|leftarm/.test(n))rig.leftArm.push(entry);
+   else if(/right.*(arm|shoulder)|rightarm/.test(n))rig.rightArm.push(entry);
+  });
+  return rig;
+ }
+
+ replacePedestrianWithGirl(person){
+  if(!this.girlPedestrianTemplate||!person||person.isUploadedGirl)return false;
+  const previous=person.object;
+  const position=previous.position.clone();
+  const rotation=previous.rotation.clone();
+  const clone=SkeletonUtils.clone(this.girlPedestrianTemplate);
+  clone.position.copy(position);
+  clone.rotation.copy(rotation);
+  clone.traverse(object=>{
+   if(!object.isMesh)return;
+   object.castShadow=false;object.receiveShadow=false;object.frustumCulled=true;
+  });
+  const mixer=new THREE.AnimationMixer(clone);
+  const clips=this.girlPedestrianAnimations;
+  const walkClip=clips.find(clip=>/walk|walking|run/i.test(clip.name))||null;
+  if(walkClip)mixer.clipAction(walkClip).play();
+  this.scene.add(clone);
+  this.scene.remove(previous);
+  person.object=clone;
+  person.mixer=mixer;
+  person.walkRig=this.createGirlWalkRig(clone);
+  person.isUploadedGirl=true;
+  person.object.userData.isUploadedGirl=true;
+  return true;
+ }
+
+ updateGirlWalkAnimation(person,dt,stride){
+  if(person.mixer&&this.girlPedestrianAnimations.length){
+   person.mixer.update(dt);
+   return;
+  }
+  const rig=person.walkRig;
+  if(!rig)return;
+  const apply=(entries,angle)=>{
+   for(const item of entries){
+    item.bone.quaternion.copy(item.base);
+    item.bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),angle));
+   }
+  };
+  apply(rig.leftLeg,stride);
+  apply(rig.rightLeg,-stride);
+  apply(rig.leftArm,-stride*.55);
+  apply(rig.rightArm,stride*.55);
  }
 
  async loadUploadedTrafficVehicles(){
@@ -268,9 +379,11 @@ export class TrafficSystem{
    for(const side of [-1,1]){
     if(this.pedestrians.length>=this.maxPedestrians)break;
     const path=offsetPath(road.points,side*(road.width/2+1.8)),length=lengthOf(path);if(length<80)continue;
-    const object=makePedestrian(PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)],this.pedestrians.length),progress=Math.random()*length;
-    const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0};
+    const personIndex=this.pedestrians.length;
+    const object=makePedestrian(PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)],personIndex),progress=Math.random()*length;
+    const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0,mixer:null,walkRig:null,isUploadedGirl:false};
     const p=samplePath(path,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.pedestrians.push(person);
+    if(personIndex%3===0&&this.girlPedestrianTemplate)this.replacePedestrianWithGirl(person);
    }
   }
  }
@@ -390,7 +503,12 @@ export class TrafficSystem{
    }
    const q=samplePath(person.points,person.progress);person.object.position.set(q.x,0,q.z);person.object.rotation.y=q.heading+(person.direction<0?Math.PI:0);
    const limbs=person.object.userData.limbs,stride=(!person.crossing||person.wait===0)?Math.sin(this.elapsed*7*person.speed+person.phase)*.42:0;
-   limbs.legs[0].rotation.x=stride;limbs.legs[1].rotation.x=-stride;limbs.arms[0].rotation.x=-stride*.65;limbs.arms[1].rotation.x=stride*.65;
+   if(person.isUploadedGirl){
+    this.updateGirlWalkAnimation(person,dt,stride);
+    person.object.position.y=.015+Math.abs(stride)*.018;
+   }else if(limbs){
+    limbs.legs[0].rotation.x=stride;limbs.legs[1].rotation.x=-stride;limbs.arms[0].rotation.x=-stride*.65;limbs.arms[1].rotation.x=stride*.65;
+   }
    const d=dist(player,q);
    if(d<2.35&&Math.abs(player.speed)>2.5&&person.collisionCooldown<=0){
     person.fallen=true;person.fallTimer=3.2;person.collisionCooldown=8;person.object.rotation.z=(Math.random()>.5?1:-1)*.24;
@@ -403,6 +521,7 @@ export class TrafficSystem{
  emitCounts(){this.onCounts(this.getCounts());}
  dispose(){
   [...this.cars.map(a=>a.object),...this.pedestrians.map(a=>a.object),...this.crossingObjects,...this.signals.map(s=>s.group)].forEach(o=>this.scene.remove(o));
+  this.pedestrians.forEach(person=>person.mixer?.stopAllAction());
   this.cars.length=0;this.pedestrians.length=0;this.crossings.length=0;this.signals.length=0;this.crossingObjects.length=0;this.roads.clear();this.registeredTiles.clear();this.emitCounts();
  }
 }
