@@ -304,7 +304,7 @@ export function createCP67Interior(scene) {
   }
 
   // PVR level gets seven auditorium entries and a warm illuminated lobby.
-  sign(root,'PVR CINEMAS','AUDITORIUMS 01–07',-3,3.9,-35,23,1.0,0,'#17181d');
+  sign(root,'PVR CINEMAS','AUDITORIUMS 01–07',23,1.0,-3,3.9+3*FLOOR_HEIGHT,-35,0,'#17181d');
 
   // Interactive area is deliberately bounded to the documented retail podium.
   const collision = {
