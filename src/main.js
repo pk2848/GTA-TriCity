@@ -182,6 +182,7 @@ const vehicleGarage = new VehicleGarage({
   selector: document.querySelector('#car-select'),
   statusElement: document.querySelector('#car-select-status'),
   fallbackParts: vehicle.children.filter((child) => child !== nitroFlames),
+  wheelVisuals: wheels,
   nitroFlames,
   canSelect: () => gameMode === 'vehicle' && vehiclePhysics.getSpeedKmh() < 1.0,
   onSelected: (profile) => {
@@ -418,6 +419,10 @@ addEventListener('keydown', event => {
   if (event.code === 'KeyR' && gameMode === 'vehicle') resetVehicle();
   if (event.code === 'KeyF' && !event.repeat) interactF();
   if (event.code === 'KeyE' && !event.repeat && gameMode === 'walking') useMallElevator();
+  if (event.code === 'KeyV' && !event.repeat && gameMode === 'vehicle') {
+    event.preventDefault();
+    document.querySelector('#car-select')?.focus();
+  }
 });
 addEventListener('keyup', event => { keys[event.code] = false; });
 function recoverVehicle() {
