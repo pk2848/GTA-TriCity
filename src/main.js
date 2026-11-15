@@ -946,7 +946,7 @@ function animate() {
       playerPosition.z + forwardZ * 18
     );
   } else {
-    const distance = gameMode === 'walking' ? 7.2 : (preset.distance || cameraDistance);
+    const distance = gameMode === 'walking' ? 7.2 : cameraDistance;
     const height = gameMode === 'walking' ? 2.6 + cameraPitch * 6.5 : preset.height + cameraPitch * 12;
     const yaw = playerHeading + cameraYaw;
     const side = gameMode === 'walking' ? 0 : (preset.side || 0);
