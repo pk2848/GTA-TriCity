@@ -288,7 +288,11 @@ export class VehicleGarage {
            dimensions.z >= 1.55 && dimensions.z <= 2.55)
         : (dimensions.z >= dimensions.y * 1.45 && dimensions.z >= dimensions.x * 1.45);
       if (!validAxes(size) && !isMotorcycle) {
-        const baseYaw = profile.rotation[1];
+        // Try alternate yaw directions, but never leave the model on a failed
+        // trial rotation. A valid downloaded GLB should still be displayable
+        // even when its authored dimensions are unusual.
+        const baseYaw = assetRoot.rotation.y;
+        let aligned = false;
         for (const yawOffset of [Math.PI / 2, -Math.PI / 2, Math.PI]) {
           assetRoot.rotation.y = baseYaw + yawOffset;
           assetRoot.updateMatrixWorld(true);
@@ -297,27 +301,37 @@ export class VehicleGarage {
           if (validAxes(candidateSize)) {
             bounds = candidateBounds;
             size = candidateSize;
+            aligned = true;
             console.warn(`[GTA-TriCity] Auto-corrected ${profile.displayName} yaw by ${Math.round(yawOffset * 180 / Math.PI)} degrees.`);
             break;
           }
         }
+        if (!aligned) {
+          assetRoot.rotation.y = baseYaw;
+          assetRoot.updateMatrixWorld(true);
+          bounds = new THREE.Box3().setFromObject(assetRoot);
+          size = bounds.getSize(new THREE.Vector3());
+          console.warn(`[GTA-TriCity] ${profile.displayName} has non-standard dimensions; keeping its manifest orientation and loading it anyway.`);
+        }
       }
+
       if (!validAxes(size)) {
-        const bikeHint = isMotorcycle
-          ? 'Check the optimized bike GLB orientation and scale in public/models/vehicles/manifest.json.'
-          : 'The GLB dimensions do not match a road car after automatic yaw correction.';
-        throw new Error(
-          `Vehicle dimensions are not game-ready. Expected Y-up and nose along local -Z; ` +
-          `got X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ${bikeHint}`
+        console.warn(
+          `[GTA-TriCity] ${profile.displayName} dimension warning: ` +
+          `X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m. ` +
+          'The model will still be displayed; tune its scale/rotation in manifest.json if needed.'
         );
       }
 
       console.info(
         `[GTA-TriCity] ${profile.displayName} aligned bounds: ` +
-        `X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m` +
-        (isMotorcycle ? ' (motorcycle scan bounds; not a clean tyre-to-tyre measurement)' : '')
+        `X=${size.x.toFixed(2)}m, Y=${size.y.toFixed(2)}m, Z=${size.z.toFixed(2)}m`
       );
 
+      // Recalculate the centre from the FINAL orientation. This variable was
+      // missing after the yaw-alignment refactor and caused every GLB to throw
+      // ReferenceError before it could be attached to the player vehicle.
+      const center = bounds.getCenter(new THREE.Vector3());
       const minY = bounds.min.y;
       assetRoot.position.set(-center.x, 0.055 - minY, -center.z);
       const wheelPivots = createWheelPivots(assetRoot, profile);
