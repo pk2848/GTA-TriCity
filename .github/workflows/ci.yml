@@ -18,5 +18,7 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Check offline map builder syntax
+        run: node --check scripts/build-offline-map.mjs
       - name: Build production assets
         run: npm run build
