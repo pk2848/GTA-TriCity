@@ -531,7 +531,7 @@ export class OSMStreamer {
           }
           const winding = signedArea >= 0 ? 1 : -1;
           const floorCount = Math.min(16, Math.max(1, Math.floor(height / 3.15)));
-          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 12000; edge++) {
+          for (let edge = 0; edge < facadePoints.length - 1 && windowMatrices.length < 5000; edge++) {
             const a = facadePoints[edge], b = facadePoints[edge + 1];
             const dx = b.x - a.x, dz = b.z - a.z;
             const edgeLength = Math.hypot(dx, dz);
@@ -541,10 +541,10 @@ export class OSMStreamer {
             const nz = (-dx / edgeLength) * winding;
             const yaw = Math.atan2(nx, nz);
             const paneWidth = Math.min(1.28, edgeLength / (count + 1) * 0.68);
-            for (let floor = 0; floor < floorCount && windowMatrices.length < 12000; floor++) {
+            for (let floor = 0; floor < floorCount && windowMatrices.length < 5000; floor++) {
               const y = minHeight + 1.55 + floor * 3.05;
               if (y + 0.55 > minHeight + height) continue;
-              for (let pane = 0; pane < count && windowMatrices.length < 12000; pane++) {
+              for (let pane = 0; pane < count && windowMatrices.length < 5000; pane++) {
                 const t = (pane + 1) / (count + 1);
                 windowMatrices.push({
                   x: a.x + dx * t + nx * 0.075,
