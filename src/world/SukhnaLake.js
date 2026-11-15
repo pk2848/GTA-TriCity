@@ -99,7 +99,7 @@ function ribbon(parent, coordinates, width, y, material, name) {
     positions.push(p.x + nx, y, p.z + nz, p.x - nx, y, p.z - nz);
     if (i < points.length - 1) {
       const k = i * 2;
-      indices.push(k, k + 1, k + 2, k + 2, k + 1, k + 3);
+      indices.push(k, k + 2, k + 1, k + 2, k + 3, k + 1);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -294,7 +294,7 @@ function createLakeClub(parent) {
   }
   box(root, 48, 0.38, 19, M.whiteShade, 0, 4.72, 13.5);
   for (let i=0;i<8;i++) {
-    box(root, 5.2, 2.1, 0.18, M.glass || M.glassLight, -21+i*6, 2.4, 14.25);
+    box(root, 5.2, 2.1, 0.18, M.glassLight, -21+i*6, 2.4, 14.25);
   }
   sign(root, 'LAKE CLUB', 'SUKHNA LAKE · CHANDIGARH', 22, 4.0, 0, 6.4, 14.6);
   for (const x of [-30,30]) tree(root,x,22,0.85);
