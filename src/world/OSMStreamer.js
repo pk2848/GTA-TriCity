@@ -16,7 +16,6 @@ const OVERPASS_ENDPOINTS = [
 
 const TILE_CACHE_DB = 'tricity-osm-tiles-v1';
 const TILE_CACHE_STORE = 'tiles';
-const TILE_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 let tileCacheDbPromise = null;
 
 function openTileCacheDb() {
