@@ -67,6 +67,29 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.18 — frame-time repair and rideable motorcycle
+
+- Removes the American Road GLB overlay from the live OSM tile path. The old implementation instanced an entire 103 MB scene (including all selected meshes) across every road segment; the screenshot's roughly 465 million triangles and 1,975 draw calls are consistent with that repeated-instancing failure. The uploaded road asset remains in `src/other/` but is not loaded into the live game until it is reduced to a clean, low-poly road-only segment.
+- Keeps OSM roads, sidewalks, junction patches, map routing and traffic road centerlines active. No navigation or OSM intersection geometry is removed.
+- Integrated-GPU Performance preset is now 0.55 render pixel ratio, 2 AI cars and 5 pedestrians. Balanced is capped at 0.72, 3 cars and 8 pedestrians. Adaptive resolution can step down to 0.36 after sustained low FPS.
+- Camera far plane reduced to 3.5 km; cached OSM chunks outside a 950 m radius are hidden; per-tile generic window instances capped at 1,800 and labels at 12.
+- Ambient NPCs and traffic agents are visually culled when far from the player. The uploaded Mita Ashley model is used for one roaming NPC rather than every third NPC; other walkers stay lightweight procedural characters.
+- Adds a player rider mount for the motorcycle. When the player drives the Black Bike, the existing player avatar appears at the bike seat with arms reaching toward the handlebar, knees/legs bent toward the pegs, and subtle turn lean. On foot or in cars, the rider mount is hidden and the normal walking avatar pose is restored.
+- Motorcycle chassis mass is set from the bike profile (260 kg), with motorcycle-sized collision bounds and contact positions.
+- The bike manifest expects a game-ready model around 0.8 m wide × 1.33 m high × 2.0 m long at scale 0.05. The original uploaded photogrammetry scan is 26 MB and includes surrounding ground; the garage now reports an actionable error if that raw scan is used instead of the optimized 575 KB bike replacement.
+
+### Required Black Bike binary replacement
+
+The GitHub branch still contains the original 26 MB `public/models/vehicles/bike_black.glb`. Replace it with the optimized GLB in `GTA-TriCity-Bike-Optimized-Install.zip` (same destination path and filename). The optimized model is about 19.4k triangles and has the dimensions expected by the rider/physics profile. Then commit the replaced binary:
+
+```bash
+git add public/models/vehicles/bike_black.glb
+git commit -m "Replace raw Black Bike scan with optimized rideable model"
+git push origin main
+```
+
+The optimized model preserves the uploaded bike scan's attribution: “BIKE BLACK” by Nikitos & 3130 (vrcityphoto), CC BY 4.0. Attribution/source is documented under `public/models/vehicles/BIKE-ATTRIBUTION.txt`.
+
 ## Build 0.17 — uploaded girl pedestrians and American road asset
 
 - Adds the uploaded Mita Ashley stylized T-pose GLB from `src/charachter/mita_ashley_-_anime_girl_-_3d_stylized_tpose.glb` as a roaming female pedestrian model.
