@@ -67,6 +67,20 @@ npm run dev
 - Walk back to the ground-floor entrance and press F (or cross the exit threshold) to return outside.
 - **M:** map.
 
+## Build 0.13 — nitro stability, uploaded-model traffic and camera presets
+
+- Reduces the rear-wheel engine force from the previous 1.85x nitro spike to a gradual 1.13x acceleration increase. Nitro now ramps in/out over time and increases the speed cap progressively rather than applying an instant force impulse.
+- Adds grounded speed-dependent downforce and firmer suspension damping so high-speed/nitro acceleration is less likely to lift the front axle or bounce the vehicle. Stability correction is softened and high roll/pitch angular rates are limited. Severe crashes and off-road jumps can still lift or overturn the car.
+- Keeps the three uploaded GLB models as the only player-car options.
+- Replaces box-built AI traffic cars with random clones of the uploaded Pagani Zonda Cinque, 1970 Dodge Charger R/T and 2015 Dodge Challenger R/T models. Traffic follows the existing OSM road paths in both directions where the mapped road is not one-way.
+- Traffic models are loaded from `public/models/vehicles/manifest.json`, shared as cached templates and merged by material to reduce the 2015 Challenger's large mesh count. The traffic cap is 12 vehicles to protect performance on integrated-GPU desktops.
+- Keeps the garage selector interactive while a large GLB is loading. If another model is chosen during a load, the latest selection is queued and loaded next.
+- Adds **C** camera cycling: Rear Chase, Close Chase, Far Chase, Cinematic Side and Bonnet/First-Person. Mouse drag still orbits and the mouse wheel still zooms chase views.
+- Adds C CAMERA to the HUD control legend.
+
+### Traffic model behaviour
+AI traffic uses only uploaded models present in the manifest. Adding a new GLB and manifest entry makes it eligible for both the top-right player garage and the random ambient traffic pool. The traffic system shares model geometry/material resources between repeated cars; wheels are not independently animated on traffic clones yet.
+
 ## Build 0.12 — driving direction, steering stability and uploaded-only garage
 
 - Fixes the Cannon wheel axis/engine-force sign so **W / Arrow Up drives toward the car's nose** (local -Z); S / Arrow Down reverses.
