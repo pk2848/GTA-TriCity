@@ -213,7 +213,7 @@ const vehicleGarage = new VehicleGarage({
   onSelected: (profile) => {
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
     const kind = profile.physics?.vehicleType || profile.proceduralType || 'car';
-    vehicleAudio.setVehicleType(kind === 'motorcycle' ? 'motorcycle' : kind === 'helicopter' ? 'helicopter' : kind === 'boat' ? 'boat' : 'car');
+    vehicleAudio.setVehicleType(profile.audioType || (kind === 'motorcycle' ? 'motorcycle' : kind === 'helicopter' ? 'helicopter' : kind === 'boat' ? 'boat' : 'car'));
 
     if (kind === 'helicopter') {
       vehiclePhysics.reset();
