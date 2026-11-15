@@ -84,6 +84,40 @@ npm run dev
 - Adds arcade flight controls, rotor animation, yaw/bank/pitch response, climb/descent, hover damping, airspeed readout and a landing check before the player can exit.
 - Switching back to a car resets the road-vehicle physics chassis at the CP67 spawn. Existing car and motorcycle GLB entries remain in the same garage.
 
+## Build 0.22 — complete Tricity offline map pack
+
+The 3D city streamer now supports a prebuilt local OSM data pack and persistent browser caching:
+
+- **Offline pack first:** if `public/maps/tricity-offline/manifest.json` exists, the streamer loads the matching local JSON tile and does not call Overpass for that area.
+- **Automatic browser cache:** live OSM tiles are saved in IndexedDB after the first successful fetch. Previously visited areas can then load immediately after a restart and remain available offline on that browser/device.
+- **Fallback:** tiles not in the local pack/cache still use the live Overpass endpoints when Internet is available. No network request is made when the browser is offline and no local tile exists; the HUD reports that the offline data is missing.
+- **GeoJSON pack builder:** `npm run build:offline-map -- data/tricity.geojson` converts a BBBike custom-area GeoJSON extract into the tile files understood by the game's existing 3D geometry builder.
+- The offline pack is shared by every garage vehicle and flight/boat mode because all modes use the same world-coordinate map.
+
+### Create the full Tricity offline pack (one-time setup)
+
+1. Open [BBBike's custom OpenStreetMap extract service](https://extract.bbbike.org/extract.html).
+2. Choose a rectangle covering Chandigarh, Mohali and Panchkula. A useful starting bounding box is **west 76.60, east 76.98, south 30.55, north 30.83** (longitude/latitude). Expand it if your driving area extends farther.
+3. Choose **GeoJSON** as the extract format and create the extract. BBBike sends a download link when processing is complete.
+4. Save the downloaded GeoJSON in the game repository as `data/tricity.geojson`.
+5. Run:
+
+```bash
+npm install
+npm run build:offline-map -- data/tricity.geojson
+npm run dev
+```
+
+6. The builder writes `public/maps/tricity-offline/manifest.json` and one local JSON file per game tile. The game picks these up automatically; no code edits are needed.
+7. To make the offline pack available in a deployed build, include the generated `public/maps/tricity-offline/` folder in that deployment. For a Git-based deployment, commit the generated pack only after checking its total size.
+
+### What is cached and what still needs Internet
+
+- **3D world:** roads, building footprints, parks, water and mapped POIs can load from the offline pack or previously saved IndexedDB tiles.
+- **2D Leaflet map and turn-by-turn routing:** the current Leaflet basemap and OSRM route calculation still use their online services. A separate licensed offline basemap/routing provider is needed to make those UI features fully offline.
+- The browser cache is device/browser-specific. To share a complete offline map across computers, include the generated static pack in each installation/deployment.
+- OSM data is licensed under ODbL. Keep the visible “© OpenStreetMap contributors” attribution and include the licence information when redistributing an adapted database.
+
 ## Build 0.21 — uploaded vehicles, helicopter, yacht, sound and map streaming repair
 
 - Adds **Model No-08** as a selectable road vehicle from `public/models/vehicles/Model No-08.glb`.
