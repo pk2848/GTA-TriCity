@@ -7,7 +7,7 @@ export const VEHICLE_CATALOG = [
     brand: 'Pagani',
     model: 'Zonda Cinque',
     displayName: 'Pagani Zonda Cinque',
-    file: '/models/vehicles/pagani-zonda-cinque.glb',
+    file: `${import.meta.env.BASE_URL}models/vehicles/pagani-zonda-cinque.glb`,
     scale: 1,
     rotation: [0, Math.PI, 0],
     wheelPattern: null,
@@ -19,7 +19,7 @@ export const VEHICLE_CATALOG = [
     brand: 'Dodge',
     model: 'Charger R/T (1970) · Fast & Furious',
     displayName: '1970 Dodge Charger R/T',
-    file: '/models/vehicles/1970-dodge-charger-rt.glb',
+    file: `${import.meta.env.BASE_URL}models/vehicles/1970-dodge-charger-rt.glb`,
     scale: 1,
     // Source scene is Z-up with its nose along +Y; convert to Y-up, then face -Z.
     rotation: [-Math.PI / 2, Math.PI, 0],
@@ -32,7 +32,7 @@ export const VEHICLE_CATALOG = [
     brand: 'Dodge',
     model: 'Challenger R/T (2015) · Tuned + Armor',
     displayName: '2015 Dodge Challenger R/T',
-    file: '/models/vehicles/2015-dodge-challenger-rt.glb',
+    file: `${import.meta.env.BASE_URL}models/vehicles/2015-dodge-challenger-rt.glb`,
     // This Sketchfab GLB is authored at centimetre scale: multiply by 100 to get metres.
     scale: 100,
     rotation: [0, Math.PI, 0],
@@ -114,6 +114,7 @@ export class VehicleGarage {
     fallbackParts = [],
     wheelVisuals = [],
     nitroFlames = null,
+    retryButton = null,
     canSelect = () => true,
     onSelected = () => {}
   }) {
@@ -124,6 +125,7 @@ export class VehicleGarage {
     this.fallbackParts = fallbackParts;
     this.wheelVisuals = wheelVisuals;
     this.nitroFlames = nitroFlames;
+    this.retryButton = retryButton;
     this.canSelect = canSelect;
     this.onSelected = onSelected;
     this.loader = new GLTFLoader();
@@ -139,25 +141,33 @@ export class VehicleGarage {
       });
       this.selector.value = VEHICLE_CATALOG[0].id;
     }
+    if (this.retryButton) {
+      this.retryButton.addEventListener('click', () => {
+        const selected = this.selector?.value || this.activeId || VEHICLE_CATALOG[0].id;
+        this.selectVehicle(selected, { force: true });
+      });
+    }
 
     this.selectVehicle(VEHICLE_CATALOG[0].id, { initial: true });
   }
 
-  setStatus(message, state = 'idle') {
+  setStatus(message, state = 'idle', detail = '') {
     if (!this.statusElement) return;
     this.statusElement.textContent = message;
     this.statusElement.dataset.state = state;
+    this.statusElement.title = detail || message;
+    this.statusElement.setAttribute('aria-label', detail ? `${message}. ${detail}` : message);
   }
 
-  async selectVehicle(id, { initial = false } = {}) {
+  async selectVehicle(id, { initial = false, force = false } = {}) {
     const profile = VEHICLE_CATALOG.find((item) => item.id === id);
     if (!profile || this.loading) return;
     if (!initial && !this.canSelect()) {
-      if (this.selector) this.selector.value = this.activeId || VEHICLE_CATALOG[0].id;
-      this.setStatus('STOP THE CAR TO CHANGE VEHICLE', 'warning');
+      if (this.selector) this.selector.value = this.activeId || id;
+      this.setStatus('STOP THE VEHICLE BEFORE SWITCHING', 'warning');
       return;
     }
-    if (id === this.activeId) return;
+    if (id === this.activeId && !force) return;
 
     const request = ++this.requestId;
     this.loading = true;
@@ -222,6 +232,7 @@ export class VehicleGarage {
       this.vehicle.userData.assetLoaded = true;
       this.vehicle.userData.assetName = profile.displayName;
       this.setStatus(`READY · ${profile.brand.toUpperCase()} ${profile.model.toUpperCase()}`, 'ready');
+      if (this.retryButton) this.retryButton.textContent = 'RELOAD SELECTED MODEL';
       this.onSelected(profile);
     } catch (error) {
       console.error(`[GTA-TriCity] Failed to load ${profile.displayName}`, error);
@@ -229,7 +240,9 @@ export class VehicleGarage {
       const fallbackName = this.activeId
         ? VEHICLE_CATALOG.find((item) => item.id === this.activeId)?.displayName
         : 'procedural starter vehicle';
-      this.setStatus(`LOAD FAILED · KEEPING ${fallbackName?.toUpperCase() || 'STARTER CAR'}`, 'error');
+      const message = error?.message || String(error);
+      this.setStatus(`LOAD FAILED · ${fallbackName?.toUpperCase() || 'STARTER CAR'}`, 'error', message);
+      if (this.retryButton) this.retryButton.textContent = 'RETRY MODEL LOAD';
       if (!this.activeSlot) {
         this.fallbackParts.forEach((part) => { part.visible = true; });
         this.wheelVisuals.forEach((wheel) => { wheel.visible = true; });
