@@ -226,9 +226,15 @@ const vehicleGarage = new VehicleGarage({
     console.info(`[GTA-TriCity] Selected ${profile.displayName}`);
     const kind = profile.physics?.vehicleType || profile.proceduralType || 'car';
     vehicleAudio.setVehicleType(profile.audioType || (kind === 'motorcycle' ? 'motorcycle' : kind === 'helicopter' ? 'helicopter' : kind === 'boat' ? 'boat' : 'car'));
-    // Hide the parked display only while the player is using the helipad aircraft.
-    // All other garage selections leave the helicopter parked in the world.
-    helipad.setParkedHelicopterVisible(kind !== 'helicopter');
+    if (kind === 'helicopter') {
+      // Control the large helicopter already on the pad; keep the garage copy hidden.
+      helipad.mountHelicopter(vehicle);
+      if (vehicleGarage.activeSlot) vehicleGarage.activeSlot.visible = false;
+    } else {
+      helipad.parkHelicopter();
+      if (vehicleGarage.activeSlot) vehicleGarage.activeSlot.visible = true;
+      helipad.setParkedHelicopterVisible(true);
+    }
 
     if (kind === 'helicopter') {
       vehiclePhysics.reset();
@@ -342,7 +348,7 @@ const GRAPHICS_PROFILES = {
   balanced: { label: 'BALANCED', pixelRatio: 0.85, minCars: 3, maxPedestrians: 8, shadows: false },
   quality: { label: 'HIGH QUALITY', pixelRatio: 1.0, minCars: 4, maxPedestrians: 10, shadows: true }
 };
-let graphicsMode = 'performance';
+let graphicsMode = 'quality';
 let resolutionScale = 1;
 let fpsWindowStart = performance.now();
 let fpsFrames = 0;
@@ -381,7 +387,7 @@ function applyGraphicsQuality(mode) {
 if (graphicsSelect) {
   graphicsSelect.addEventListener('change', () => applyGraphicsQuality(graphicsSelect.value));
 }
-applyGraphicsQuality('balanced');
+applyGraphicsQuality('quality');
 
 function updatePerformanceReadout() {
   fpsFrames++;
@@ -711,13 +717,15 @@ function activeWorldPosition() {
 }
 
 function setWalkingMode(enabled) {
+  const exitedMode = gameMode;
   gameMode = enabled ? 'walking' : 'vehicle';
   playerPedestrian.visible = enabled;
   if (enabled) {
     if (vehicleGarage) vehicleGarage.resetRiderPose();
     playerPedestrian.rotation.set(0, pedestrianHeading, 0);
   }
-  vehicle.visible = !enabled && Boolean(vehicle.userData.assetLoaded);
+  // Leave a road vehicle parked and visible when the player gets out.
+  vehicle.visible = Boolean(vehicle.userData.assetLoaded) && !(enabled && exitedMode !== 'vehicle');
   wheels.forEach(wheel => { wheel.visible = false; });
   document.querySelector('#vehicle-status').style.display = enabled || gameMode === 'helicopter' || gameMode === 'boat' ? 'none' : '';
   document.querySelector('#flight-status').hidden = enabled || gameMode !== 'helicopter';
@@ -750,9 +758,30 @@ function exitVehicle() {
 }
 
 function enterVehicle() {
-  if (Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) > 4.5) {
+  const activeProfile = vehicleGarage.getActiveProfile();
+  const selectedType = activeProfile?.physics?.vehicleType;
+  const vehicleDistance = Math.hypot(
+    playerPedestrian.position.x - vehicle.position.x,
+    playerPedestrian.position.z - vehicle.position.z
+  );
+  const padDistance = Math.hypot(
+    playerPedestrian.position.x - helipad.position.x,
+    playerPedestrian.position.z - helipad.position.z
+  );
+  const nearVehicle = vehicleDistance <= 4.5;
+  const nearHelicopter = selectedType === 'helicopter' && padDistance <= helipad.landingRadius;
+  if (!nearVehicle && !nearHelicopter) {
     toast.textContent = 'Move closer to your vehicle to get back in.';
     return;
+  }
+  if (!nearVehicle && nearHelicopter) {
+    helicopterFlight.velocity.set(0, 0, 0);
+    helicopterFlight.verticalSpeed = 0;
+    helicopterFlight.yaw = 0;
+    helicopterFlight.landed = true;
+    helicopterFlight.autoLanding = false;
+    vehicle.position.copy(helipad.position);
+    vehicle.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), helicopterFlight.yaw);
   }
   if (pedestrianInsideMall) {
     cp67Interior.group.visible = false;
@@ -762,8 +791,9 @@ function enterVehicle() {
   pedestrianFloor = 0;
   mallFloorLabel.hidden = true;
   setWalkingMode(false);
-  const selectedType = vehicleGarage.getActiveProfile()?.physics?.vehicleType;
   if (selectedType === 'helicopter') {
+    helipad.mountHelicopter(vehicle);
+    if (vehicleGarage.activeSlot) vehicleGarage.activeSlot.visible = false;
     gameMode = 'helicopter';
     const activeHelicopterProfile = vehicleGarage.getActiveProfile();
     helicopterFlight.modelYawOffset = Number(activeHelicopterProfile?.rotation?.[1]) || 0;
@@ -832,8 +862,8 @@ function exitHelicopter() {
   }
   playerPedestrian.position.set(vehicle.position.x + 4.2, 0.05, vehicle.position.z + 1.5);
   pedestrianHeading = helicopterFlight.yaw;
+  helipad.parkHelicopter();
   setWalkingMode(true);
-  helipad.setParkedHelicopterVisible(true);
   document.querySelector('#flight-status').hidden = true;
   toast.textContent = 'Helicopter parked · Walk around the landing area or select another vehicle in the garage.';
 }
@@ -872,7 +902,26 @@ function interactF() {
     else toast.textContent = 'Walk to the entrance to leave the mall, or return to your car outside.';
     return;
   }
-  if (Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) < 4.5) {
+  const selectedType = vehicleGarage.getActiveProfile()?.physics?.vehicleType;
+  const nearVehicle = Math.hypot(
+    playerPedestrian.position.x - vehicle.position.x,
+    playerPedestrian.position.z - vehicle.position.z
+  ) < 4.5;
+  const nearHelicopterPad = selectedType === 'helicopter' &&
+    Math.hypot(
+      playerPedestrian.position.x - helipad.position.x,
+      playerPedestrian.position.z - helipad.position.z
+    ) <= helipad.landingRadius;
+  const atHelicopterPad = Math.hypot(
+    playerPedestrian.position.x - helipad.position.x,
+    playerPedestrian.position.z - helipad.position.z
+  ) <= helipad.landingRadius;
+  if (atHelicopterPad && selectedType !== 'helicopter') {
+    toast.textContent = 'LOADING HELICOPTER... Boarding at the CP67 helipad.';
+    vehicleGarage.selectVehicle('civilian-helicopter');
+    return;
+  }
+  if (nearVehicle || nearHelicopterPad) {
     enterVehicle();
   } else if (Math.abs(playerPedestrian.position.x) < 12 && playerPedestrian.position.z < 19 && playerPedestrian.position.z > 8) {
     enterMallInterior();
@@ -909,8 +958,14 @@ function updateInteractionHint() {
       : atLift ? 'E  ·  USE LIFT  /  CHANGE FLOOR' : floorNames[pedestrianFloor] + '  ·  EXPLORE';
   } else {
     const nearCar = Math.hypot(playerPedestrian.position.x - vehicle.position.x, playerPedestrian.position.z - vehicle.position.z) < 4.5;
+    const nearHelicopterPad = Math.hypot(
+      playerPedestrian.position.x - helipad.position.x,
+      playerPedestrian.position.z - helipad.position.z
+    ) <= helipad.landingRadius;
     const nearDoor = Math.abs(playerPedestrian.position.x) < 12 && playerPedestrian.position.z < 19 && playerPedestrian.position.z > 8;
-    interactionHint.textContent = nearCar ? 'F  ·  ENTER VEHICLE' : nearDoor ? 'F  ·  ENTER CP67 MALL' : 'WASD  ·  WALK  /  F  ·  INTERACT';
+    interactionHint.textContent = nearHelicopterPad
+      ? 'F  ·  ENTER HELICOPTER'
+      : nearCar ? 'F  ·  ENTER VEHICLE' : nearDoor ? 'F  ·  ENTER CP67 MALL' : 'WASD  ·  WALK  /  F  ·  INTERACT';
   }
 }
 
@@ -1165,7 +1220,7 @@ let mapUiElapsed = 0;
 function updateHelicopterFlight(dt) {
   const forwardInput = Number(Boolean(keys.KeyW || keys.ArrowUp));
   const brakeInput = Number(Boolean(keys.KeyS || keys.ArrowDown));
-  // Positive Three.js yaw turns this +Z-forward model left; map A to left and D to right.
+  // The visible nose is +Z after the model's manifest rotation; positive yaw turns right.
   const yawInput = Number(Boolean(keys.KeyA || keys.ArrowLeft)) - Number(Boolean(keys.KeyD || keys.ArrowRight));
   const strafeInput = Number(Boolean(keys.KeyE)) - Number(Boolean(keys.KeyQ));
   const climbInput = Number(Boolean(keys.ShiftLeft || keys.ShiftRight || keys.Shift));
@@ -1176,15 +1231,15 @@ function updateHelicopterFlight(dt) {
   const groundY = helicopterFlight.groundY;
   const maxAltitude = 520;
   const maxHorizontalSpeed = 45;
-  // Use the GLB's explicitly declared nose axis, transformed by the
-  // same yaw as the visible model. The supplied helicopter's nose is local -Z.
+  // Use the GLB's declared local nose axis and manifest rotation so thrust
+  // follows the visible nose. This asset's local -X axis becomes world +Z.
   let visualYaw = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
   const worldUp = new THREE.Vector3(0, 1, 0);
   const forwardVector = helicopterFlight.localForwardAxis.clone()
     .applyAxisAngle(worldUp, visualYaw)
     .normalize();
   const rightVector = new THREE.Vector3()
-    .crossVectors(forwardVector, worldUp)
+    .crossVectors(worldUp, forwardVector)
     .normalize();
 
   if (helicopterFlight.autoLanding) {
@@ -1199,7 +1254,7 @@ function updateHelicopterFlight(dt) {
     forwardVector.copy(helicopterFlight.localForwardAxis)
       .applyAxisAngle(worldUp, visualYaw)
       .normalize();
-    rightVector.crossVectors(forwardVector, worldUp).normalize();
+    rightVector.crossVectors(worldUp, forwardVector).normalize();
 
     // Collective: SHIFT climbs, CTRL descends. Releasing both holds altitude.
     if (climbInput) {
@@ -1247,14 +1302,6 @@ function updateHelicopterFlight(dt) {
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, targetRoll, 4.2, dt);
   }
 
-  // Keep the static display helicopter on the helipad whenever the flyable
-  // player aircraft is away from the pad. Hide it near touchdown to avoid overlap.
-  const padDistanceBeforeMove = Math.hypot(
-    vehicle.position.x - helipad.position.x,
-    vehicle.position.z - helipad.position.z
-  );
-  helipad.setParkedHelicopterVisible(padDistanceBeforeMove > helipad.landingRadius + 8);
-
   // Integrate in world space, with a hard ground clamp and an altitude ceiling.
   vehicle.position.addScaledVector(helicopterFlight.velocity, dt);
   vehicle.position.y += helicopterFlight.verticalSpeed * dt;
@@ -1277,7 +1324,7 @@ function updateHelicopterFlight(dt) {
     'YXZ'
   ));
 
-  heading = helicopterFlight.yaw + helicopterFlight.modelYawOffset;
+  heading = Math.atan2(-forwardVector.x, -forwardVector.z);
   const horizontalSpeed = Math.hypot(helicopterFlight.velocity.x, helicopterFlight.velocity.z);
   const forwardSpeed = Math.max(0, helicopterFlight.velocity.dot(forwardVector));
   speed = Math.hypot(horizontalSpeed, helicopterFlight.verticalSpeed);

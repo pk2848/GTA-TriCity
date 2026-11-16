@@ -66,14 +66,6 @@ export function createHelipad(scene) {
   crossbar.position.set(0, 0.33, 0);
   group.add(crossbar);
 
-  const label = new THREE.Mesh(
-    new THREE.PlaneGeometry(17, 4.25),
-    new THREE.MeshBasicMaterial({ map: makePadLabel(), transparent: false })
-  );
-  label.rotation.x = -Math.PI / 2;
-  label.position.set(0, 0.34, 10.4);
-  group.add(label);
-
   for (const x of [-16.5, 16.5]) {
     for (const z of [-16.5, 16.5]) {
       const light = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.32, 10), yellow);
@@ -96,24 +88,25 @@ export function createHelipad(scene) {
   sign.rotation.y = -0.4;
   group.add(sign);
 
-  // A separate parked display instance keeps the uploaded helicopter visible
-  // at CP67 even while the player drives another vehicle. It is independent of
-  // the flyable helicopter loaded by the garage.
+  // This single large helicopter is parked here while inactive and reparented
+  // to the player vehicle while in use, so boarding never creates a duplicate.
   const loader = new GLTFLoader();
   const parkedHelicopter = new THREE.Group();
   parkedHelicopter.name = 'CP67-parked-helicopter';
   parkedHelicopter.position.set(0, 0.32, 0);
   group.add(parkedHelicopter);
-  let parkedHelicopterMixer = null;
+  let helicopterAsset = null;
+  let activeHelicopterVehicle = null;
+  let rotorMixer = null;
 
   loader.load(
     `${import.meta.env.BASE_URL || '/'}models/vehicles/animated_civilian_helicopter.glb`,
     (gltf) => {
       const helicopterRoot = new THREE.Group();
-      helicopterRoot.name = 'CP67-static-helicopter-asset';
-      // Match the flyable aircraft's manifest rotation and scale.
+      helicopterRoot.name = 'CP67-large-helicopter-asset';
+      // Keep the full-size aircraft on the pad and reuse it while flying.
       helicopterRoot.rotation.set(0, Math.PI / 2, 0);
-      helicopterRoot.scale.setScalar(2);
+      helicopterRoot.scale.setScalar(8);
       gltf.scene.traverse((object) => {
         if (object.isCamera) object.parent?.remove(object);
         if (!object.isMesh) return;
@@ -127,51 +120,27 @@ export function createHelipad(scene) {
         const center = bounds.getCenter(new THREE.Vector3());
         helicopterRoot.position.set(-center.x, 0.055 - bounds.min.y, -center.z);
       }
-      parkedHelicopter.add(helicopterRoot);
-
-      if (gltf.animations?.length) {
-        parkedHelicopterMixer = new THREE.AnimationMixer(gltf.scene);
-        gltf.animations.forEach((clip) => parkedHelicopterMixer.clipAction(clip).play());
+      helicopterAsset = helicopterRoot;
+      const rotorTracks = (gltf.animations || []).flatMap((clip) =>
+        clip.tracks.filter((track) => /(?:Blades_01|Screw_02).*quaternion/i.test(track.name))
+      );
+      if (rotorTracks.length) {
+        const rotorClip = new THREE.AnimationClip('CP67 rotor spin', -1, rotorTracks);
+        rotorMixer = new THREE.AnimationMixer(gltf.scene);
+        rotorMixer.clipAction(rotorClip).play();
       }
-      console.info('[GTA-TriCity] Parked CP67 helicopter loaded independently of the player garage.');
+      if (activeHelicopterVehicle) {
+        activeHelicopterVehicle.add(helicopterRoot);
+        parkedHelicopter.visible = false;
+      } else {
+        parkedHelicopter.add(helicopterRoot);
+      }
+
+      console.info('[GTA-TriCity] Large CP67 helicopter loaded for both parked and player use.');
     },
     undefined,
     (error) => console.warn('[GTA-TriCity] Parked CP67 helicopter failed to load.', error)
   );
-
-  // Overlay the owner's uploaded helipad GLB as a flattened, textured ground
-  // asset. The procedural markings remain underneath as a safe fallback.
-  const assetUrl = `${import.meta.env.BASE_URL || '/'}models/vehicles/helipad.glb`;
-  loader.load(assetUrl, (gltf) => {
-    const asset = gltf.scene;
-    asset.traverse((object) => {
-      if (object.isCamera) object.parent?.remove(object);
-      if (object.isMesh) {
-        object.castShadow = false;
-        object.receiveShadow = true;
-      }
-    });
-    asset.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(asset);
-    if (!bounds.isEmpty()) {
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const horizontalSize = Math.max(size.x, size.z, 0.001);
-      const horizontalScale = 28 / horizontalSize;
-      const verticalScale = Math.min(horizontalScale, 0.08);
-      asset.scale.set(horizontalScale, verticalScale, horizontalScale);
-      asset.position.set(
-        -center.x * horizontalScale,
-        0.355 - bounds.min.y * verticalScale,
-        -center.z * horizontalScale
-      );
-      asset.name = 'uploaded-helipad-glb';
-      group.add(asset);
-      console.info('[GTA-TriCity] Uploaded helipad.glb loaded on the CP67 pad.');
-    }
-  }, undefined, (error) => {
-    console.warn('[GTA-TriCity] Uploaded helipad.glb unavailable; procedural pad remains active.', error);
-  });
 
   scene.add(group);
   return {
@@ -182,8 +151,26 @@ export function createHelipad(scene) {
     setParkedHelicopterVisible(visible) {
       parkedHelicopter.visible = Boolean(visible);
     },
+    mountHelicopter(vehicle) {
+      activeHelicopterVehicle = vehicle;
+      if (!helicopterAsset) return false;
+      helicopterAsset.parent?.remove(helicopterAsset);
+      vehicle.add(helicopterAsset);
+      helicopterAsset.visible = true;
+      parkedHelicopter.visible = false;
+      return true;
+    },
+    parkHelicopter() {
+      activeHelicopterVehicle = null;
+      if (!helicopterAsset) return false;
+      helicopterAsset.parent?.remove(helicopterAsset);
+      parkedHelicopter.add(helicopterAsset);
+      helicopterAsset.visible = true;
+      parkedHelicopter.visible = true;
+      return true;
+    },
     update(deltaTime) {
-      parkedHelicopterMixer?.update(deltaTime);
+      rotorMixer?.update(deltaTime);
     }
   };
 }

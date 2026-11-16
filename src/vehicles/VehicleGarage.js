@@ -269,7 +269,10 @@ export class VehicleGarage {
       const assetRoot = new THREE.Group();
       assetRoot.name = `vehicle-asset-${profile.id}`;
       assetRoot.rotation.set(...profile.rotation);
-      assetRoot.scale.setScalar(profile.scale);
+      const isGroundCar = profile.physics?.vehicleType !== 'helicopter' &&
+        profile.physics?.vehicleType !== 'boat' &&
+        profile.physics?.vehicleType !== 'motorcycle';
+      assetRoot.scale.setScalar(profile.scale * (isGroundCar ? 1.2 : 1));
       removeEmbeddedCameras(gltf.scene);
       assetRoot.add(gltf.scene);
 
