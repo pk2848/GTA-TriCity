@@ -175,7 +175,7 @@ export class RoadAssetRenderer {
       mesh.name='american-road-instanced-surface';
       mesh.frustumCulled=true;
       mesh.castShadow=false;
-      mesh.receiveShadow=false;
+      mesh.receiveShadow=true;
       mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
       for(let i=0;i<instances.length;i++){
         const item=instances[i];

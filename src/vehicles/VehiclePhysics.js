@@ -100,6 +100,7 @@ export class VehiclePhysics {
     this.accumulator = 0;
     this.obstacleIds = new Set();
     this.obstacleBodies = [];
+    this.maxObstacleBodies = 10000;
     this.rolloverTimer = 0;
     this.isUpsideDown = false;
     this.reset();
@@ -212,8 +213,25 @@ export class VehiclePhysics {
     const serviceBrake = braking ? 9200 : (throttle === 0 ? 90 : 0);
     for (let i = 0; i < 4; i++) this.raycastVehicle.setBrake(serviceBrake, i);
 
+    const previousPosition = this.chassisBody.position.clone();
     // Fixed-step integration keeps suspension behaviour stable across frame rates.
     this.world.step(FIXED_STEP, dt, 8);
+
+    // Cannon contacts can be missed when a streamed building is added between
+    // physics ticks. Reject the resulting penetration explicitly as a fallback.
+    if (this.isBuildingBlocked(this.chassisBody.position.x, this.chassisBody.position.z, 1.15, 1.8, 0.05)) {
+      this.chassisBody.position.x = previousPosition.x;
+      this.chassisBody.position.z = previousPosition.z;
+      this.chassisBody.velocity.x = 0;
+      this.chassisBody.velocity.z = 0;
+      if (this.chassisBody.interpolatedPosition) {
+        this.chassisBody.interpolatedPosition.copy(this.chassisBody.position);
+      }
+      if (this.chassisBody.previousPosition) {
+        this.chassisBody.previousPosition.copy(this.chassisBody.position);
+      }
+      this.chassisBody.aabbNeedsUpdate = true;
+    }
 
     const forward = new CANNON.Vec3(0, 0, -1);
     this.chassisBody.quaternion.vmult(forward, forward);
@@ -305,12 +323,12 @@ export class VehiclePhysics {
   addBuildingObstacles(obstacles = [], tileKey = '') {
     let added = 0;
     for (const obstacle of obstacles) {
-      if (this.obstacleBodies.length >= 3500) break;
+      if (this.obstacleBodies.length >= this.maxObstacleBodies) break;
       const id = String(obstacle.id || `${tileKey}:${obstacle.x}:${obstacle.z}`);
       if (this.obstacleIds.has(id)) continue;
       const width = Number(obstacle.width), depth = Number(obstacle.depth), height = Number(obstacle.height);
       if (![obstacle.x, obstacle.z, width, depth, height].every(Number.isFinite)) continue;
-      if (width < 2.2 || depth < 2.2 || width > 120 || depth > 120 || height < 2.5) continue;
+      if (width < 2.2 || depth < 2.2 || width > 500 || depth > 500 || height < 2.5) continue;
       const body = new CANNON.Body({ mass: 0, material: this.groundMaterial });
       body.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)));
       body.position.set(obstacle.x, (Number(obstacle.minHeight) || 0) + height / 2, obstacle.z);
@@ -322,6 +340,32 @@ export class VehiclePhysics {
       added++;
     }
     return added;
+  }
+
+  isBuildingBlocked(x, z, radius = 0.35, height = 2.2, baseY = 0) {
+    if (![x, z, radius, height, baseY].every(Number.isFinite)) return false;
+    const topY = baseY + height;
+    for (const body of this.obstacleBodies) {
+      const obstacleHeight = body.shapes[0]?.halfExtents?.y || 0;
+      const obstacleBottom = body.position.y - obstacleHeight;
+      const obstacleTop = body.position.y + obstacleHeight;
+      if (topY <= obstacleBottom || baseY >= obstacleTop) continue;
+
+      const localX = x - body.position.x;
+      const localZ = z - body.position.z;
+      const yaw = 2 * Math.atan2(body.quaternion.y, body.quaternion.w);
+      const cos = Math.cos(yaw);
+      const sin = Math.sin(yaw);
+      const rotatedX = localX * cos + localZ * sin;
+      const rotatedZ = -localX * sin + localZ * cos;
+      const shape = body.shapes[0];
+      if (!shape?.halfExtents) continue;
+      if (Math.abs(rotatedX) <= shape.halfExtents.x + radius &&
+          Math.abs(rotatedZ) <= shape.halfExtents.z + radius) {
+        return true;
+      }
+    }
+    return false;
   }
 
   recoverUpright() {

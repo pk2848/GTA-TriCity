@@ -32,8 +32,8 @@ const renderer = new THREE.WebGLRenderer({
 renderer.domElement.id = 'world';
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 0.85));
-renderer.shadowMap.enabled = false;
-renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.autoUpdate = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -43,12 +43,16 @@ root.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xdce9ed, 0x566052, 1.9));
 const sun = new THREE.DirectionalLight(0xffe6c3, 2.35);
 sun.position.set(-500, 900, 340);
-sun.castShadow = false;
-sun.shadow.mapSize.set(512, 512);
-sun.shadow.camera.left = -240; sun.shadow.camera.right = 240;
-sun.shadow.camera.top = 240; sun.shadow.camera.bottom = -240;
-sun.shadow.camera.far = 600;
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -320; sun.shadow.camera.right = 320;
+sun.shadow.camera.top = 320; sun.shadow.camera.bottom = -320;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 1250;
+sun.shadow.bias = -0.00008;
+sun.shadow.normalBias = 0.035;
 scene.add(sun);
+scene.add(sun.target);
 
 const world = new THREE.Group();
 world.name = 'city-world';
@@ -344,9 +348,9 @@ const streamer = new OSMStreamer(scene,
 const graphicsSelect = document.querySelector('#graphics-quality');
 const graphicsStatus = document.querySelector('#graphics-status');
 const GRAPHICS_PROFILES = {
-  performance: { label: 'PERFORMANCE', pixelRatio: 0.65, minCars: 2, maxPedestrians: 5, shadows: false },
-  balanced: { label: 'BALANCED', pixelRatio: 0.85, minCars: 3, maxPedestrians: 8, shadows: false },
-  quality: { label: 'HIGH QUALITY', pixelRatio: 1.0, minCars: 4, maxPedestrians: 10, shadows: true }
+  performance: { label: 'PERFORMANCE', pixelRatio: 0.65, minCars: 8, maxPedestrians: 20, shadows: true, shadowMapSize: 1024 },
+  balanced: { label: 'BALANCED', pixelRatio: 0.85, minCars: 14, maxPedestrians: 36, shadows: true, shadowMapSize: 1536 },
+  quality: { label: 'HIGH QUALITY', pixelRatio: 1.0, minCars: 24, maxPedestrians: 64, shadows: true, shadowMapSize: 2048 }
 };
 let graphicsMode = 'quality';
 let resolutionScale = 1;
@@ -374,6 +378,7 @@ function applyGraphicsQuality(mode) {
   renderer.shadowMap.enabled = Boolean(profile.shadows);
   renderer.shadowMap.autoUpdate = Boolean(profile.shadows);
   sun.castShadow = Boolean(profile.shadows);
+  sun.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize);
   if (profile.shadows) renderer.shadowMap.needsUpdate = true;
   applyRenderResolution();
   trafficSystem.setQuality({
@@ -1302,9 +1307,21 @@ function updateHelicopterFlight(dt) {
     helicopterFlight.roll = THREE.MathUtils.damp(helicopterFlight.roll, targetRoll, 4.2, dt);
   }
 
+  const previousPosition = vehicle.position.clone();
   // Integrate in world space, with a hard ground clamp and an altitude ceiling.
   vehicle.position.addScaledVector(helicopterFlight.velocity, dt);
   vehicle.position.y += helicopterFlight.verticalSpeed * dt;
+  if (vehiclePhysics.isBuildingBlocked(
+    vehicle.position.x,
+    vehicle.position.z,
+    1.8,
+    3.2,
+    vehicle.position.y - 1.0
+  )) {
+    vehicle.position.copy(previousPosition);
+    helicopterFlight.velocity.set(0, 0, 0);
+    helicopterFlight.verticalSpeed = 0;
+  }
   if (vehicle.position.y <= groundY) {
     vehicle.position.y = groundY;
     helicopterFlight.verticalSpeed = 0;
@@ -1501,8 +1518,13 @@ function animate() {
     } else if (pedestrianInsideMall && pedestrianFloor === 0 && Math.abs(nextX) < 12 && nextZ > 8.8) {
       exitMallInterior();
     } else if (!pedestrianInsideMall) {
-      playerPedestrian.position.x = nextX;
-      playerPedestrian.position.z = nextZ;
+      // Test each axis separately so the player slides along building walls.
+      if (!vehiclePhysics.isBuildingBlocked(nextX, playerPedestrian.position.z)) {
+        playerPedestrian.position.x = nextX;
+      }
+      if (!vehiclePhysics.isBuildingBlocked(playerPedestrian.position.x, nextZ)) {
+        playerPedestrian.position.z = nextZ;
+      }
     } else if (cp67Interior.isWalkable(nextX, nextZ, pedestrianFloor)) {
       playerPedestrian.position.x = nextX;
       playerPedestrian.position.z = nextZ;
@@ -1642,6 +1664,9 @@ function animate() {
     destinationBeacon.children[0].position.y = 11 + Math.sin(performance.now() * 0.0015) * 1.2;
   }
   checkpoint.position.y = Math.sin(performance.now() * 0.0018) * 0.22;
+  const shadowFocus = activeWorldPosition();
+  sun.target.position.set(shadowFocus.x, shadowFocus.y, shadowFocus.z);
+  sun.position.set(shadowFocus.x - 320, shadowFocus.y + 620, shadowFocus.z + 250);
   renderer.render(scene, camera);
   updatePerformanceReadout();
 }

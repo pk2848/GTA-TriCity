@@ -91,7 +91,7 @@ function addShop(parent,config) {
     for(let item=0;item<Math.max(2,Math.floor(width/1.5));item++){
       const ix=x-width/2+0.85+item*1.35;
       const product=box(parent,0.42,0.48,0.3,shelf%2?MAT.gold:MAT.darkMetal,ix,y+1.5+shelf*0.76,backZ+side*0.72);
-      product.castShadow=false;
+      product.castShadow=true;
     }
   }
   box(parent,width-0.5,0.12,0.25,MAT.wood,x,y+0.22,backZ);
@@ -120,7 +120,7 @@ function addEscalator(parent,x,y,z,angle=0.42,direction=1) {
   box(g,0.12,0.14,10.6,MAT.black,1.16,0.72,0);
   for(let i=0;i<22;i++){
     const step=box(g,1.78,0.08,0.32,MAT.steel,0,0.22,-5.0+i*0.46);
-    step.castShadow=false;
+    step.castShadow=true;
   }
   return g;
 }

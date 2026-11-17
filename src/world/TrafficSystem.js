@@ -63,13 +63,19 @@ function nearestRoad(point,roads,max=32){
 }
 function makePedestrian(color,variant=0){
  const g=new THREE.Group();g.name='pedestrian-character';
+ const isWoman=variant%2===1;
  const shirt=new THREE.MeshStandardMaterial({color,roughness:.95});
- const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.22,.58,4,8),shirt);torso.position.y=1.1;torso.castShadow=true;g.add(torso);
+ const torso=new THREE.Mesh(new THREE.CapsuleGeometry(isWoman ? 0.19 : 0.22,.58,4,8),shirt);torso.position.y=1.1;g.add(torso);
  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.075,.09,.15,7),shared.skin);neck.position.y=1.55;g.add(neck);
  const head=new THREE.Mesh(new THREE.SphereGeometry(.19,12,10),shared.skin);head.position.y=1.72;g.add(head);
- const hair=new THREE.Mesh(new THREE.SphereGeometry(.194,10,7,0,Math.PI*2,0,Math.PI*.52),new THREE.MeshStandardMaterial({color:variant%3===0?0x211b18:0x392a22}));hair.position.y=1.79;g.add(hair);
+ const hairMaterial=new THREE.MeshStandardMaterial({color:variant%3===0?0x211b18:0x392a22,roughness:1});
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.194,10,7,0,Math.PI*2,0,Math.PI*.52),hairMaterial);hair.position.y=1.79;g.add(hair);
+ if(isWoman){
+  const backHair=new THREE.Mesh(new THREE.CapsuleGeometry(.12,.28,3,7),hairMaterial);backHair.position.set(0,1.58,.1);g.add(backHair);
+  const skirt=new THREE.Mesh(new THREE.CylinderGeometry(.13,.24,.42,9),shirt);skirt.position.y=.82;g.add(skirt);
+ }
  const arms=[];
- for(const x of [-.27,.27]){
+ for(const x of [isWoman ? -.245 : -.27,isWoman ? 0.245 : 0.27]){
   const pivot=new THREE.Group();pivot.position.set(x,1.34,0);
   const arm=new THREE.Mesh(new THREE.CylinderGeometry(.065,.075,.56,7),shared.skin);arm.position.y=-.27;pivot.add(arm);g.add(pivot);arms.push(pivot);
  }
@@ -80,15 +86,17 @@ function makePedestrian(color,variant=0){
   const shoe=new THREE.Mesh(new THREE.BoxGeometry(.17,.1,.3),shared.shoe);shoe.position.set(0,-.7,-.05);pivot.add(shoe);g.add(pivot);legs.push(pivot);
  }
  if(variant%4===0)box(g,.34,.42,.18,shared.trim,.3,1.12,.12);
- g.userData.limbs={arms,legs};return g;
+ g.userData.limbs={arms,legs};g.userData.gender=isWoman?'woman':'man';
+ g.traverse(object=>{if(object.isMesh){object.castShadow=true;object.receiveShadow=true;}});
+ return g;
 }
 function createSignal(scene,feature,index){
  const g=new THREE.Group();g.name='traffic-signal';g.position.set(feature.x,0,feature.z);
  const poleMat=new THREE.MeshStandardMaterial({color:0x4a5552,metalness:.62,roughness:.38});
- const pole=new THREE.Mesh(new THREE.CylinderGeometry(.075,.095,5.2,8),poleMat);pole.position.y=2.6;g.add(pole);
+ const pole=new THREE.Mesh(new THREE.CylinderGeometry(.075,.095,5.2,8),poleMat);pole.position.y=2.6;pole.castShadow=true;pole.receiveShadow=true;g.add(pole);
  box(g,.52,1.45,.36,new THREE.MeshStandardMaterial({color:0x17201e}),.23,4.3,0);
  const ys=[4.78,4.31,3.84],off=[shared.redOff,shared.amberOff,shared.greenOff],bulbs=[];
- for(let i=0;i<3;i++){const bulb=new THREE.Mesh(new THREE.SphereGeometry(.155,10,8),off[i]);bulb.position.set(.23,ys[i],-.192);g.add(bulb);bulbs.push(bulb);}
+ for(let i=0;i<3;i++){const bulb=new THREE.Mesh(new THREE.SphereGeometry(.155,10,8),off[i]);bulb.position.set(.23,ys[i],-.192);bulb.castShadow=true;bulb.receiveShadow=true;g.add(bulb);bulbs.push(bulb);}
  box(g,1.3,.09,.09,poleMat,-.47,4.95,0);
  scene.add(g);return{group:g,bulbs,axis:feature.axis||{x:1,z:0},phaseOffset:(index%2)*12,feature,phase:''};
 }
@@ -102,7 +110,7 @@ function updateSignal(signal,time){
 export class TrafficSystem{
  constructor(scene,onCounts=()=>{},onEvent=()=>{}){
   this.scene=scene;this.onCounts=onCounts;this.onEvent=onEvent;
-  this.registeredTiles=new Set();this.roads=new Map();this.cars=[];this.pedestrians=[];this.crossings=[];this.signals=[];this.elapsed=0;this.crossingObjects=[];
+  this.registeredTiles=new Set();this.roads=new Map();this.cars=[];this.pedestrians=[];this.crossings=[];this.signals=[];this.elapsed=0;this.populationRefreshElapsed=0;this.crossingObjects=[];
   this.maxCars=DEFAULT_CAR_LIMIT;this.maxPedestrians=DEFAULT_PEDESTRIAN_LIMIT;
   this.vehicleProfiles=[];this.vehicleTemplates=new Map();this.vehicleTemplateErrors=[];
   this.vehicleLoader=new GLTFLoader();
@@ -130,6 +138,12 @@ export class TrafficSystem{
    // Never dispose those shared resources while removing an individual NPC.
    if(!person.isUploadedGirl)person.object.traverse(object=>{if(object.geometry)object.geometry.dispose();});
    person.object.clear();
+  }
+  // If the user raises the density preset, fill the new allowance from roads
+  // already streamed into the current neighborhood.
+  for(const road of this.roads.values()){
+   if(this.cars.length>=this.maxCars&&this.pedestrians.length>=this.maxPedestrians)break;
+   this.spawnRoadTraffic(road);
   }
   this.emitCounts();
  }
@@ -160,8 +174,8 @@ export class TrafficSystem{
    normalized.add(facing);
    normalized.traverse(object=>{
     if(!object.isMesh)return;
-    object.castShadow=false;
-    object.receiveShadow=false;
+    object.castShadow=true;
+    object.receiveShadow=true;
     object.frustumCulled=true;
    });
    normalized.updateMatrixWorld(true);
@@ -170,7 +184,7 @@ export class TrafficSystem{
    let replaced=0;
    // One detailed uploaded NPC is enough to make the character recognizable.
    // Other pedestrians stay lightweight to avoid hundreds of extra draw calls.
-   const firstAvailable=this.pedestrians.find(person=>!person.isUploadedGirl);
+   const firstAvailable=this.pedestrians.find(person=>person.gender==='woman'&&!person.isUploadedGirl);
    if(firstAvailable&&this.replacePedestrianWithGirl(firstAvailable))replaced=1;
    console.info(`[GTA-TriCity] Uploaded girl pedestrian ready · ${replaced} detailed roaming NPC · ${this.girlPedestrianAnimations.length} animation clips`);
   }catch(error){
@@ -205,7 +219,7 @@ export class TrafficSystem{
   clone.rotation.copy(rotation);
   clone.traverse(object=>{
    if(!object.isMesh)return;
-   object.castShadow=false;object.receiveShadow=false;object.frustumCulled=true;
+   object.castShadow=true;object.receiveShadow=true;object.frustumCulled=true;
   });
   const mixer=new THREE.AnimationMixer(clone);
   const clips=this.girlPedestrianAnimations;
@@ -252,7 +266,10 @@ export class TrafficSystem{
    // Ambient road traffic uses uploaded cars only. Two-wheelers are player-selectable
    // until a separate motorcycle + rider physics/animation system is implemented.
    const trafficProfiles=this.vehicleProfiles.filter(profile =>
-    profile.physics?.vehicleType !== 'motorcycle' && profile.trafficEnabled !== false
+    profile.physics?.vehicleType !== 'motorcycle' &&
+    profile.physics?.vehicleType !== 'helicopter' &&
+    profile.physics?.vehicleType !== 'boat' &&
+    profile.trafficEnabled !== false
    );
    this.trafficVehicleIds=trafficProfiles.map(profile=>profile.id).filter(Boolean);
 
@@ -296,20 +313,20 @@ export class TrafficSystem{
       try{merged=mergeGeometries(geometries,false);}catch(error){console.warn('[GTA-TriCity] Traffic mesh merge fallback',profile.id,error);}
       if(merged){
        const mesh=new THREE.Mesh(merged,material);
-       mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=true;
+       mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=true;
        mergedRoot.add(mesh);
        geometries.forEach(geometry=>geometry.dispose());
       }else{
        geometries.forEach(geometry=>{
         const mesh=new THREE.Mesh(geometry,material);
-        mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=true;
+        mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=true;
         mergedRoot.add(mesh);
        });
       }
      }
      for(const item of looseMeshes){
       const mesh=new THREE.Mesh(item.geometry,item.material);
-      mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=true;
+      mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=true;
       mergedRoot.add(mesh);
      }
      originalGeometries.forEach(geometry=>geometry.dispose());
@@ -361,35 +378,39 @@ export class TrafficSystem{
   for(const road of roads||[]){
    const id=String(road.id),points=road.points||[],length=lengthOf(points);
    if(this.roads.has(id)||points.length<2||length<70)continue;
-   const record={...road,id,points,length,width:Number(road.width)||5.2,oneway:Boolean(road.oneway),type:road.type||'residential'};
+   const record={...road,id,tileKey,points,length,width:Number(road.width)||5.2,oneway:Boolean(road.oneway),type:road.type||'residential'};
    this.roads.set(id,record);this.spawnRoadTraffic(record);
   }
   this.addFeatures(features);this.emitCounts();
  }
- spawnRoadTraffic(road){
+ spawnRoadTraffic(road,{pedestriansOnly=false}={}){
   const drivable=!['footway','path','pedestrian','cycleway','steps','track'].includes(road.type);
   const urban=['primary','secondary','tertiary','unclassified','residential','living_street','service'].includes(road.type);
-  if(drivable&&this.cars.length<this.maxCars){
+  const tileCars=this.cars.filter(car=>car.tileKey===road.tileKey).length;
+  const tilePeople=this.pedestrians.filter(person=>person.tileKey===road.tileKey).length;
+  const maxTileCars=Math.max(1,Math.ceil(this.maxCars/9));
+  const maxTilePeople=Math.max(2,Math.ceil(this.maxPedestrians/9));
+  if(!pedestriansOnly&&drivable&&this.cars.length<this.maxCars&&tileCars<maxTileCars){
    const dirs=road.oneway?[1]:[1,-1];
    for(const direction of dirs){
-    if(this.cars.length>=this.maxCars)break;
+    if(this.cars.length>=this.maxCars||this.cars.filter(car=>car.tileKey===road.tileKey).length>=maxTileCars)break;
     const base=direction===1?road.points:[...road.points].reverse(),points=offsetPath(base,-road.width*.16),length=lengthOf(points);
     if(length<45)continue;
     const ids=this.trafficVehicleIds.length?this.trafficVehicleIds:DEFAULT_TRAFFIC_IDS;
     const modelId=ids[Math.floor(Math.random()*ids.length)];
     const object=new THREE.Group();object.name=`traffic-${modelId}`;object.visible=false;
     const progress=Math.random()*Math.max(2,length-16);
-    const agent={object,modelId,roadId:road.id,points,length,progress,direction,speed:4.2+Math.random()*3.6,targetSpeed:5.8+Math.random()*4.5,collisionCooldown:0,oneway:road.oneway,respawnTimer:0,pauseTimer:0};
+    const agent={object,modelId,roadId:road.id,tileKey:road.tileKey,points,length,progress,direction,speed:4.2+Math.random()*3.6,targetSpeed:5.8+Math.random()*4.5,collisionCooldown:0,oneway:road.oneway,respawnTimer:0,pauseTimer:0};
     const p=samplePath(points,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.attachTrafficModel(agent);this.cars.push(agent);
    }
   }
-  if(urban&&this.pedestrians.length<this.maxPedestrians){
+  if(urban&&this.pedestrians.length<this.maxPedestrians&&tilePeople<maxTilePeople){
    for(const side of [-1,1]){
-    if(this.pedestrians.length>=this.maxPedestrians)break;
+    if(this.pedestrians.length>=this.maxPedestrians||this.pedestrians.filter(person=>person.tileKey===road.tileKey).length>=maxTilePeople)break;
     const path=offsetPath(road.points,side*(road.width/2+1.8)),length=lengthOf(path);if(length<80)continue;
     const personIndex=this.pedestrians.length;
     const object=makePedestrian(PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)],personIndex),progress=Math.random()*length;
-    const person={object,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0,mixer:null,hasWalkAnimation:false,walkRig:null,isUploadedGirl:false};
+    const person={object,gender:object.userData.gender,tileKey:road.tileKey,points:path,length,progress,speed:.72+Math.random()*.58,phase:Math.random()*Math.PI*2,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:false,wait:0,mixer:null,hasWalkAnimation:false,walkRig:null,isUploadedGirl:false};
     const p=samplePath(path,progress);object.position.set(p.x,0,p.z);object.rotation.y=p.heading;this.scene.add(object);this.pedestrians.push(person);
     // Defer the 64 MB character download until the first OSM pedestrian actually spawns.
     if(personIndex===0&&!this.girlPedestrianTemplate&&!this.girlPedestrianLoading)this.loadGirlPedestrianModel();
@@ -432,13 +453,13 @@ export class TrafficSystem{
   const mat=new THREE.MeshStandardMaterial({color:0xe4e6df,roughness:.95});
   for(let i=-3;i<=3;i++){
    const stripe=new THREE.Mesh(new THREE.BoxGeometry(.62,.055,near.road.width+3.2),mat);
-   stripe.position.set(p.x+t.x*i*.95,.12,p.z+t.z*i*.95);stripe.rotation.y=Math.atan2(-n.z,n.x);group.add(stripe);
+   stripe.position.set(p.x+t.x*i*.95,.12,p.z+t.z*i*.95);stripe.rotation.y=Math.atan2(-n.z,n.x);stripe.castShadow=true;stripe.receiveShadow=true;group.add(stripe);
   }
   this.scene.add(group);this.crossingObjects.push(group);
   for(let i=0;i<2&&this.pedestrians.length<this.maxPedestrians;i++){
    const a=i===0?start:end,b=i===0?end:start,object=makePedestrian(PEOPLE_COLORS[(i+3)%PEOPLE_COLORS.length],i+3);
    const points=[a,b],length=dist(a,b),progress=Math.random()*length;
-   const person={object,points,length,progress,speed:.85+Math.random()*.35,phase:Math.random()*6,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:true,wait:Math.random()*8,crossingPoint:p,crossingAxis:t};
+   const person={object,gender:object.userData.gender,points,length,progress,speed:.85+Math.random()*.35,phase:Math.random()*6,fallen:false,fallTimer:0,collisionCooldown:0,direction:1,crossing:true,wait:Math.random()*8,crossingPoint:p,crossingAxis:t};
    const q=samplePath(points,progress);object.position.set(q.x,0,q.z);object.rotation.y=q.heading;this.scene.add(object);this.pedestrians.push(person);
   }
   this.crossings.push({id:feature.id,point:p,start,end,road:near.road});
@@ -454,7 +475,29 @@ export class TrafficSystem{
   return best;
  }
  update(dt,player){
-  this.elapsed+=dt;const events=[];this.signals.forEach(s=>updateSignal(s,this.elapsed));
+  this.elapsed+=dt;this.populationRefreshElapsed+=dt;const events=[];this.signals.forEach(s=>updateSignal(s,this.elapsed));
+  if(this.populationRefreshElapsed>=2.5){
+   this.populationRefreshElapsed=0;
+   for(let i=this.pedestrians.length-1;i>=0;i--){
+    const person=this.pedestrians[i];
+    if(dist(player,person.object.position)<=950)continue;
+    this.scene.remove(person.object);person.mixer?.stopAllAction();
+    if(!person.isUploadedGirl)person.object.traverse(object=>{if(object.geometry)object.geometry.dispose();});
+    person.object.clear();this.pedestrians.splice(i,1);
+   }
+   if(this.pedestrians.length<this.maxPedestrians){
+    const nearbyRoads=[...this.roads.values()].filter(road=>
+     ['primary','secondary','tertiary','unclassified','residential','living_street','service'].includes(road.type)
+    ).map(road=>{
+     const middle=road.points[Math.floor(road.points.length/2)]||road.points[0];
+     return{road,distance:Math.min(dist(player,road.points[0]),dist(player,middle),dist(player,road.points[road.points.length-1]))};
+    }).filter(entry=>entry.distance<700).sort((a,b)=>a.distance-b.distance);
+    for(const entry of nearbyRoads){
+     if(this.pedestrians.length>=this.maxPedestrians)break;
+     this.spawnRoadTraffic(entry.road,{pedestriansOnly:true});
+    }
+   }
+  }
   for(const car of this.cars){
    car.collisionCooldown=Math.max(0,car.collisionCooldown-dt);
    if(car.respawnTimer>0){car.respawnTimer-=dt;if(car.respawnTimer<=0){car.object.visible=true;car.speed=3.5;car.targetSpeed=6;car.progress=0;}else continue;}

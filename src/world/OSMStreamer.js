@@ -16,6 +16,7 @@ const OVERPASS_ENDPOINTS = [
 
 const TILE_CACHE_DB = 'tricity-osm-tiles-v1';
 const TILE_CACHE_STORE = 'tiles';
+const TILE_VISIBILITY_RADIUS = 4300;
 let tileCacheDbPromise = null;
 
 function openTileCacheDb() {
@@ -161,6 +162,8 @@ function makeMesh(data, material, name) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = name;
   mesh.frustumCulled = true;
+  mesh.castShadow = name === 'osm-buildings';
+  mesh.receiveShadow = true;
   return mesh;
 }
 function makeShape(ring) {
@@ -321,16 +324,25 @@ export class OSMStreamer {
     this.currentTile = { ix, iy };
     this.playerWorld = { x, z };
     this.updateVisibility(x, z);
-    // Discard stale prefetches when the player travels on. The current tile is
-    // always first in the queue, followed by only the immediate neighbours.
+    // Keep the current tile first, then load its surrounding 3x3 neighborhood.
+    // This gives the streamed city visible depth around the player.
     this.queue = this.queue.filter(tile => Math.abs(tile.ix - ix) <= 1 && Math.abs(tile.iy - iy) <= 1);
     this.requestTile(ix, iy, force, true);
+    const neighbours = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        neighbours.push({ dx, dy, distance: dx * dx + dy * dy });
+      }
+    }
+    neighbours.sort((a, b) => a.distance - b.distance);
+    neighbours.forEach(({ dx, dy }) => this.requestTile(ix + dx, iy + dy));
     this.prefetchAt(lat, lon, ix, iy);
   }
 
   // Hide distant, already-loaded city chunks instead of rendering every chunk
   // the player has ever visited. Their geometry remains cached for quick return.
-  updateVisibility(x, z, radius = 1650) {
+  updateVisibility(x, z, radius = TILE_VISIBILITY_RADIUS) {
     const radiusSq = radius * radius;
     for (const tile of this.tiles.values()) {
       const dx = x - tile.centerX;
@@ -517,7 +529,7 @@ export class OSMStreamer {
       );
       const playerDx = tileCenter.x - this.playerWorld.x;
       const playerDz = tileCenter.z - this.playerWorld.z;
-      group.visible = (playerDx * playerDx + playerDz * playerDz) <= 1650 * 1650;
+      group.visible = (playerDx * playerDx + playerDz * playerDz) <= TILE_VISIBILITY_RADIUS * TILE_VISIBILITY_RADIUS;
       this.tiles.set(tile.key, {
         group,
         bounds,
@@ -717,7 +729,7 @@ export class OSMStreamer {
             minV = Math.min(minV, v); maxV = Math.max(maxV, v);
           }
           const midU = (minU + maxU) / 2, midV = (minV + maxV) / 2;
-          if (obstacles.length < 1200 && maxU - minU > 2.2 && maxV - minV > 2.2) {
+          if (maxU - minU > 2.2 && maxV - minV > 2.2) {
             obstacles.push({
               id: `${idKey}:${Math.round(midU)}:${Math.round(midV)}`,
               x: ux * midU + vx * midV,
@@ -856,7 +868,7 @@ export class OSMStreamer {
     for (const [color, data] of buildings) {
       const mesh = makeMesh(data, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0.02, side: THREE.DoubleSide }), 'osm-buildings');
       if (mesh) {
-        mesh.castShadow = false;
+        mesh.castShadow = true;
         mesh.receiveShadow = true;
         buildingMeshes.push(mesh);
       }
@@ -876,6 +888,9 @@ export class OSMStreamer {
     const panes = new THREE.InstancedMesh(glassGeometry, glassMaterial, records.length);
     frames.name = 'procedural-building-window-frames';
     panes.name = 'procedural-building-glazing';
+    frames.castShadow = true;
+    frames.receiveShadow = true;
+    panes.receiveShadow = true;
     const dummy = new THREE.Object3D();
     records.forEach((record, index) => {
       dummy.position.set(record.x, record.y, record.z);
