@@ -61,14 +61,6 @@ export class VehiclePhysics {
         .setRestitution(0),
       this.chassisBody
     );
-    // Small compatibility facade for the one gameplay call-site that zeros velocity.
-    const self = this;
-    this.chassisBody.velocity = {
-      set(x, y, z) { self.chassisBody.setLinvel(vec(x, y, z), true); }
-    };
-    this.chassisBody.angularVelocity = {
-      set(x, y, z) { self.chassisBody.setAngvel(vec(x, y, z), true); }
-    };
     this.wheelStates = this.makeWheelStates();
   }
 
@@ -173,7 +165,7 @@ export class VehiclePhysics {
         const suspensionLength = clamp(hit.timeOfImpact - this.wheelRadius, 0.12, 0.68);
         wheel.suspension = suspensionLength;
         const compression = Math.max(0, 0.42 - suspensionLength);
-        const pointVelocity = body.velocityAtPoint(vec(worldOffset.x, worldOffset.y, worldOffset.z));
+        const pointVelocity = body.velocityAtPoint(rayOrigin);
         const spring = clamp(compression * 52000 - pointVelocity.y * 4600, 0, 72000);
         const contactPoint = new THREE.Vector3(rayOrigin.x, rayOrigin.y - hit.timeOfImpact, rayOrigin.z);
         body.addForceAtPoint(vec(0, spring, 0), vec(contactPoint.x, contactPoint.y, contactPoint.z), true);
@@ -275,6 +267,13 @@ export class VehiclePhysics {
       if (Math.abs(lx) <= obstacle.width / 2 + radius && Math.abs(lz) <= obstacle.depth / 2 + radius) return true;
     }
     return false;
+  }
+
+  stop() {
+    this.chassisBody.setLinvel(vec(0, 0, 0), true);
+    this.chassisBody.setAngvel(vec(0, 0, 0), true);
+    this.chassisBody.resetForces(true);
+    this.chassisBody.resetTorques(true);
   }
 
   recoverUpright() {
