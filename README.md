@@ -1,5 +1,9 @@
 # GTA-TriCity — Chandigarh × Mohali
 
+## Experimental branch — Rapier world physics
+
+The `feature/rapier-world-physics` branch replaces Cannon-es with the official Rapier 3D WebAssembly engine (`@dimforge/rapier3d-compat`). The player vehicle is a Rapier dynamic rigid body with a four-point raycast suspension/traction solver; streamed and bespoke building footprints are registered as fixed Rapier colliders, and the city ground is a static collider. Player vehicle rendering is synchronized from the Rapier rigid-body pose. This is an experimental migration branch and is intentionally not merged into `main`; validate handling, wheel contact, collision response, pedestrian movement and performance in-browser before considering integration.
+
 GTA-TriCity is an actively developed browser-based open-world driving and exploration game built with Three.js. The world is anchored to Chandigarh–Mohali geography using OpenStreetMap data. The current game start is the CP67 Mall arrival plaza in Sector 67, Mohali.
 
 ## GGDSD College — Sector 32-C, Chandigarh
