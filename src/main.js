@@ -118,6 +118,8 @@ for (const x of [-1.08, 1.08]) for (const z of [-1.36, 1.36]) {
 for (const x of [-0.68, 0.68]) addBox(vehicle, 0.38, 0.18, 0.06, new THREE.MeshBasicMaterial({ color: 0xffe9ba }), x, 1.04, -2.16);
 
 const vehiclePhysics = new VehiclePhysics();
+// Rapier initializes its WebAssembly runtime asynchronously; wait before creating the world.
+await vehiclePhysics.ready;
 const cp67Mall = createCP67Mall(scene);
 const ggdsdCollege = createGGDSDCollege(scene);
 const panjabUniversity = createPanjabUniversity(scene);
