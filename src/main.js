@@ -243,8 +243,7 @@ function updateCrimeScene(dt) {
     clearPoliceUnits();
     Object.keys(keys).forEach(key => { keys[key] = false; });
     if (gameMode === 'vehicle') {
-      vehiclePhysics.chassisBody.velocity.set(0, 0, 0);
-      vehiclePhysics.chassisBody.angularVelocity.set(0, 0, 0);
+      vehiclePhysics.stop();
     } else if (gameMode === 'helicopter') {
       helicopterFlight.velocity.set(0, 0, 0);
       helicopterFlight.verticalSpeed = 0;
