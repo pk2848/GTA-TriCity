@@ -138,6 +138,119 @@ vehiclePhysics.addBuildingObstacles(ggdsdCollege.obstacles, 'ggdsd-college');
 vehiclePhysics.addBuildingObstacles(panjabUniversity.obstacles, 'panjab-university');
 vehiclePhysics.syncVisuals(vehicle, wheels);
 
+const crimeScene = new THREE.Group();
+crimeScene.name = 'crime-scene-objects';
+scene.add(crimeScene);
+const cashPickups = [];
+const policeUnits = [];
+
+function createCashPickup(position, amount) {
+  const pickup = new THREE.Group();
+  pickup.position.set(position.x, 0.15, position.z);
+  const cash = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.18, 0.42),
+    new THREE.MeshStandardMaterial({ color: 0x4fc46b, emissive: 0x123d1d, emissiveIntensity: 0.45, roughness: 0.55 })
+  );
+  cash.position.y = 0.55;
+  cash.castShadow = true;
+  pickup.add(cash);
+  const glow = new THREE.Mesh(
+    new THREE.TorusGeometry(0.72, 0.06, 8, 24),
+    new THREE.MeshBasicMaterial({ color: 0x8cff9a, transparent: true, opacity: 0.8 })
+  );
+  glow.rotation.x = Math.PI / 2;
+  glow.position.y = 0.08;
+  pickup.add(glow);
+  pickup.userData.amount = amount;
+  crimeScene.add(pickup);
+  cashPickups.push(pickup);
+}
+
+function createPoliceUnit(position) {
+  const unit = new THREE.Group();
+  unit.name = 'police-pursuit-unit';
+  addBox(unit, 1.8, 0.55, 3.8, new THREE.MeshStandardMaterial({ color: 0x152637, metalness: 0.35, roughness: 0.4 }), 0, 0.7, 0);
+  addBox(unit, 1.45, 0.35, 1.6, new THREE.MeshStandardMaterial({ color: 0x243b4d, roughness: 0.35 }), 0, 1.05, -0.15);
+  const redLight = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.18), new THREE.MeshBasicMaterial({ color: 0xff3344 }));
+  const blueLight = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.18), new THREE.MeshBasicMaterial({ color: 0x4ea4ff }));
+  redLight.position.set(-0.2, 1.3, -0.2);
+  blueLight.position.set(0.2, 1.3, -0.2);
+  unit.add(redLight, blueLight);
+  unit.position.set(position.x, 0, position.z);
+  crimeScene.add(unit);
+  policeUnits.push({ object: unit, speed: 8 + wantedLevel * 0.8, phase: Math.random() * Math.PI * 2 });
+}
+
+function clearPoliceUnits() {
+  policeUnits.splice(0).forEach(unit => crimeScene.remove(unit.object));
+}
+
+function reportPedestrianDeath(person) {
+  if (!person || person.dead) return;
+  person.dead = true;
+  person.fallen = false;
+  person.object.visible = false;
+  const amount = 40 + Math.floor(Math.random() * 111);
+  createCashPickup(person.object.position, amount);
+  wantedLevel = Math.min(5, wantedLevel + 1);
+  wantedDecayTimer = 45;
+  const player = activeWorldPosition();
+  const policeCount = Math.min(3, Math.max(1, wantedLevel));
+  for (let i = policeUnits.length; i < policeCount; i++) {
+    const angle = (Math.PI * 2 * i) / policeCount;
+    createPoliceUnit({
+      x: player.x + Math.cos(angle) * (18 + i * 5),
+      z: player.z + Math.sin(angle) * (18 + i * 5)
+    });
+  }
+  showImpact('WANTED · PEDESTRIAN DOWN', `Cash left behind · $${amount} · Police are responding`, true);
+  toast.textContent = 'Crime reported · Collect the cash and evade the police.';
+}
+
+function updateCrimeScene(dt) {
+  const player = activeWorldPosition();
+  for (let i = cashPickups.length - 1; i >= 0; i--) {
+    const pickup = cashPickups[i];
+    pickup.rotation.y += dt * 1.8;
+    pickup.position.y = 0.15 + Math.sin(performance.now() * 0.004 + i) * 0.08;
+    if (Math.hypot(player.x - pickup.position.x, player.z - pickup.position.z) < 3.2) {
+      const amount = pickup.userData.amount || 0;
+      playerMoney += amount;
+      crimeScene.remove(pickup);
+      cashPickups.splice(i, 1);
+      toast.textContent = `Cash collected · +$${amount} · Balance updated`;
+    }
+  }
+  for (const unit of policeUnits) {
+    const dx = player.x - unit.object.position.x;
+    const dz = player.z - unit.object.position.z;
+    const distance = Math.hypot(dx, dz) || 1;
+    unit.object.visible = distance < 700;
+    if (distance > 3.5) {
+      unit.object.position.x += (dx / distance) * unit.speed * dt;
+      unit.object.position.z += (dz / distance) * unit.speed * dt;
+      unit.object.rotation.y = Math.atan2(-dx, -dz);
+    }
+  }
+  if (policeUnits.length && policeUnits.some(unit =>
+    Math.hypot(player.x - unit.object.position.x, player.z - unit.object.position.z) < 3.5
+  )) {
+    wantedLevel = 0;
+    wantedDecayTimer = 0;
+    playerMoney = Math.max(0, playerMoney - 100);
+    clearPoliceUnits();
+    Object.keys(keys).forEach(key => { keys[key] = false; });
+    if (gameMode === 'vehicle') {
+      vehiclePhysics.chassisBody.velocity.set(0, 0, 0);
+      vehiclePhysics.chassisBody.angularVelocity.set(0, 0, 0);
+    } else if (gameMode === 'helicopter') {
+      helicopterFlight.velocity.set(0, 0, 0);
+      helicopterFlight.verticalSpeed = 0;
+    }
+    toast.textContent = 'Police caught you · $100 fine paid · Wanted level cleared';
+  }
+}
+
 function createPlayerPedestrian() {
   const character = new THREE.Group();
   character.name = 'player-walking-character';
@@ -612,6 +725,9 @@ let cameraModeIndex = 0;
 let nitroFuel = 100;
 let nitroActive = false;
 let vehicleCondition = 100;
+let playerMoney = 158;
+let wantedLevel = 0;
+let wantedDecayTimer = 0;
 let collisionCooldown = 0;
 let impactTimer = 0;
 let cameraShake = 0;
@@ -621,7 +737,19 @@ const impactCopy = document.querySelector('#impact-copy');
 const nitroFill = document.querySelector('#nitro-fill');
 const nitroValue = document.querySelector('#nitro-value');
 const conditionValue = document.querySelector('#condition-value');
+const wantedStars = document.querySelector('#wanted-stars');
+const moneyValue = document.querySelector('#money-value');
+const healthFill = document.querySelector('#health-fill');
 const rolloverHint = document.querySelector('#rollover-hint');
+
+function updateGtaStatus() {
+  const health = gameMode === 'vehicle' ? vehicleCondition : 100;
+  wantedStars.innerHTML = '<span class="wanted-on">★</span>'.repeat(wantedLevel)
+    + '☆'.repeat(5 - wantedLevel);
+  moneyValue.textContent = `$${Math.max(0, Math.round(playerMoney)).toLocaleString('en-US')}`;
+  healthFill.style.width = `${Math.max(0, Math.min(100, health))}%`;
+  healthFill.style.background = health < 30 ? '#e85d68' : '#ee6f9c';
+}
 
 function showImpact(title, copy, warning = false) {
   impactTitle.textContent = title;
@@ -707,6 +835,7 @@ function resetVehicle() {
   vehiclePhysics.syncVisuals(vehicle, wheels);
   speed = 0; heading = 0;
   vehicleCondition = 100; nitroFuel = 100; collisionCooldown = 0;
+  wantedLevel = 0; wantedDecayTimer = 0;
   rolloverHint.hidden = true;
   streamer.requestAtWorld(vehicle.position.x, vehicle.position.z);
   toast.textContent = 'Returned to CP67 Mall · Vehicle repaired · Nitro refilled';
@@ -1113,7 +1242,10 @@ const minimapCanvas = document.querySelector('#minimap');
 const minimapContext = minimapCanvas.getContext('2d');
 function drawMinimap() {
   const ctx = minimapContext;
-  ctx.clearRect(0, 0, 180, 180);
+  const radarScale = minimapCanvas.width / 180;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+  ctx.scale(radarScale, radarScale);
   ctx.fillStyle = '#182621'; ctx.fillRect(0, 0, 180, 180);
   const routeState = mapView.getMinimapState();
   const playerPosition = activeWorldPosition();
@@ -1124,10 +1256,32 @@ function drawMinimap() {
   ctx.translate(90, 90);
   // Heading-up orientation: the vehicle's nose always points to the top of the radar.
   ctx.rotate(playerHeading);
-  ctx.strokeStyle = '#405249'; ctx.lineWidth = 1;
-  for (let p = -180; p <= 180; p += 22.5) {
-    ctx.beginPath(); ctx.moveTo(p, -90); ctx.lineTo(p, 90); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-90, p); ctx.lineTo(90, p); ctx.stroke();
+  // Draw the live OSM road network instead of a static radar grid. New streamed
+  // roads appear automatically because TrafficSystem owns the loaded road records.
+  const roadColors = {
+    motorway: '#a8adb1', trunk: '#a8adb1', primary: '#9da4aa',
+    secondary: '#8b969d', tertiary: '#748187', residential: '#64737a',
+    unclassified: '#64737a', living_street: '#59686e', service: '#59686e'
+  };
+  for (const road of trafficSystem.roads.values()) {
+    if (!road.points?.length || road.points.length < 2) continue;
+    const first = road.points[0];
+    if (Math.hypot(first.x - playerPosition.x, first.z - playerPosition.z) > 430) continue;
+    ctx.beginPath();
+    road.points.forEach((point, index) => {
+      const x = (point.x - playerPosition.x) * scale;
+      const y = (point.z - playerPosition.z) * scale;
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0a1214';
+    ctx.lineWidth = Math.max(2.6, Math.min(7, (road.width || 5) * scale + 2.2));
+    ctx.stroke();
+    ctx.strokeStyle = roadColors[road.type] || '#64737a';
+    ctx.lineWidth = Math.max(1, Math.min(4.5, (road.width || 5) * scale));
+    ctx.stroke();
   }
 
   if (routeState?.worldPoints?.length > 1) {
@@ -1196,6 +1350,15 @@ function drawMinimap() {
     }
     ctx.restore();
   }
+  // Keep a live north marker so the heading-up radar still communicates map
+  // orientation while the player turns.
+  const northX = Math.sin(playerHeading) * 64;
+  const northY = -Math.cos(playerHeading) * 64;
+  ctx.fillStyle = '#f2e7c7';
+  ctx.font = '700 9px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('N', northX, northY);
   ctx.restore();
 
   // Player heading marker.
@@ -1466,7 +1629,7 @@ function animate() {
       } else {
         vehiclePhysics.applyImpact(impact.impact * 0.55, Math.random() > 0.5 ? 1 : -1);
         vehicleCondition = Math.max(0, vehicleCondition - (3 + impact.impact * 5));
-        showImpact('PEDESTRIAN IMPACT', 'Pedestrian stumbled and is recovering · drive carefully', true);
+        reportPedestrianDeath(impact.agent);
       }
       vehiclePhysics.syncVisuals(vehicle, wheels);
       speed = vehiclePhysics.speedMps;
@@ -1480,6 +1643,7 @@ function animate() {
     }
     if (!missionDone && Math.hypot(vehicle.position.x - checkpoint.position.x, vehicle.position.z - checkpoint.position.z) < 12) {
       missionDone = true;
+      playerMoney += 250;
       document.querySelector('#mission-title').textContent = 'AREA DISCOVERED';
       document.querySelector('#mission-copy').textContent = 'Checkpoint reached · Keep exploring';
       toast.textContent = 'CHECKPOINT REACHED · Explore the mapped streets';
@@ -1571,6 +1735,10 @@ function animate() {
     nitroFlames.visible = false;
     nitroGlow.intensity = 0;
   }
+  updateCrimeScene(dt);
+  wantedDecayTimer = Math.max(0, wantedDecayTimer - dt);
+  if (wantedDecayTimer === 0 && wantedLevel > 0 && policeUnits.length === 0) wantedLevel--;
+  updateGtaStatus();
   vehicleAudio.update({
     speed: gameMode === 'helicopter' ? helicopterFlight.velocity.length()
       : gameMode === 'boat' ? boatFlight.velocity.length()

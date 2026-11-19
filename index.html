@@ -13,6 +13,12 @@
     <div class="brand"><span class="dot"></span><div><b>TRICITY DRIVE</b><small>CHANDIGARH · MOHALI · BUILD 0.30</small></div></div>
     <div class="mission"><small>ACTIVE JOB</small><b id="mission-title">CITY EXPLORER</b><span id="mission-copy">Reach the gold checkpoint</span></div>
     <div class="stats"><span>VELOCITY <b id="speed">000</b><small>KM/H</small></span><span>AREA <b id="area">CP67 MALL</b></span><button id="quick-location-open" type="button">LOCATIONS <kbd>P</kbd></button></div>
+    <div id="gta-status" aria-label="Player status">
+      <div class="wanted-row" aria-label="Wanted level"><span id="wanted-stars">☆☆☆☆☆</span></div>
+      <strong id="money-value">$158</strong>
+      <div class="health-track" aria-label="Health"><span id="health-fill"></span></div>
+      <b id="weapon-value">FISTS</b>
+    </div>
     <div id="garage-panel" class="garage-panel">
       <div class="garage-heading"><span>PLAYER GARAGE</span><b id="garage-count">LOADING</b></div>
       <label for="car-select">BRAND / MODEL</label>
@@ -72,7 +78,7 @@
   </section>
   <div id="toast">Drag with the mouse to look around · Press M to open the city map.</div>
   <div id="minimap-wrap">
-    <canvas id="minimap" width="180" height="180"></canvas><span>N</span>
+    <canvas id="minimap" width="280" height="280"></canvas><span>N</span>
     <div id="minimap-nav" aria-live="polite">NO ACTIVE ROUTE</div>
     <button id="open-map" type="button" aria-label="Open detailed city map">OPEN MAP <kbd>M</kbd></button>
   </div>

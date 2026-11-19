@@ -533,6 +533,7 @@ export class TrafficSystem{
    }
   }
   for(const person of this.pedestrians){
+   if(person.dead){person.object.visible=false;continue;}
    person.collisionCooldown=Math.max(0,person.collisionCooldown-dt);
    if(person.fallen){
     person.fallTimer-=dt;person.object.rotation.z=THREE.MathUtils.lerp(person.object.rotation.z,Math.PI/2,Math.min(1,dt*5));person.object.position.y=Math.max(0,.06+Math.sin(this.elapsed*8)*.02);
