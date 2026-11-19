@@ -36,13 +36,9 @@ export class VehiclePhysics {
     this.RAPIER = RAPIER;
     this.world = new RAPIER.World(vec(0, -9.82, 0));
     this.world.timestep = FIXED_STEP;
-    this.world.numSolverIterations = 8;
-    this.world.numInternalPgsIterations = 2;
-    this.world.integrationParameters.numSolverIterations = 8;
-    this.world.integrationParameters.numInternalPgsIterations = 2;
     this.groundCollider = this.world.createCollider(
       RAPIER.ColliderDesc.cuboid(25000, 0.12, 25000)
-        .setTranslation(0, -0.16, 0)
+        .setTranslation(0, -0.12, 0)
         .setFriction(0.9)
         .setRestitution(0)
     );
@@ -122,8 +118,13 @@ export class VehiclePhysics {
     this.wheelbase = clamp(Number(profile.wheelbase) || 2.74, motorcycle ? 0.9 : 2.45, motorcycle ? 1.8 : 3.25);
     this.wheelRadius = clamp(Number(profile.wheelRadius) || 0.38, motorcycle ? 0.25 : 0.32, motorcycle ? 0.42 : 0.46);
     this.mass = motorcycle ? clamp(Number(profile.mass) || 260, 180, 360) : clamp(Number(profile.mass) || 1320, 900, 2200);
-    this.chassisCollider.setShape(RAPIER.ColliderDesc.cuboid(width / 2, height / 2, length / 2).shape);
-    this.chassisCollider.setMass(this.mass);
+    this.world.removeCollider(this.chassisCollider, true);
+    this.chassisCollider = this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(width / 2, height / 2, length / 2)
+        .setDensity(this.mass / (width * height * length))
+        .setFriction(0.65),
+      this.chassisBody
+    );
     this.wheelStates = this.makeWheelStates();
     this.engineMultiplier = clamp(Number(profile.engineMultiplier) || 1, 0.65, 1.4);
     this.maxSpeed = clamp(Number(profile.maxSpeed) || 36, 25, 55);
